@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Active Workout Session</title>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#2bee79",
+                        "background-light": "#f6f8f7",
+                        "background-dark": "#102217",
+                        "surface-dark": "#1a2e22",
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display min-h-screen flex flex-col antialiased selection:bg-primary selection:text-background-dark">
+<!-- Sticky Header -->
+<header class="sticky top-0 z-50 bg-background-light dark:bg-background-dark/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
+<div class="flex items-center justify-between px-4 py-3">
+<button class="flex items-center justify-center w-10 h-10 rounded-full text-slate-900 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-surface-dark transition-colors">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<div class="text-center">
+<h2 class="text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight">Leg Day</h2>
+<div class="flex items-center justify-center gap-1 text-xs text-slate-500 dark:text-slate-400 font-medium">
+<span class="material-symbols-outlined text-[14px]">timer</span>
+<span>24:12</span>
+</div>
+</div>
+<button class="flex items-center justify-center w-10 h-10 rounded-full text-slate-900 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-surface-dark transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+<!-- Progress Bar -->
+<div class="w-full h-1 bg-slate-200 dark:bg-surface-dark">
+<div class="h-full bg-primary transition-all duration-500 ease-out" style="width: 30%;"></div>
+</div>
+<div class="px-4 py-1 flex justify-between text-[10px] uppercase font-bold tracking-wider text-slate-400 dark:text-slate-500">
+<span>Progress</span>
+<span>3/10 Exercises</span>
+</div>
+</header>
+<!-- Main Content: Scrollable Area -->
+<main class="flex-1 flex flex-col p-4 gap-6 pb-32">
+<!-- Exercise Card -->
+<section class="flex flex-col gap-4">
+<div class="relative w-full aspect-video rounded-xl overflow-hidden shadow-lg bg-slate-900 group">
+<!-- Video Placeholder -->
+<div class="absolute inset-0 bg-cover bg-center opacity-80 group-hover:opacity-60 transition-opacity" data-alt="Person performing a goblet squat exercise in a modern gym setting" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDUJkbVbnI1v_d3WP3wxXJ4BW6-jzyVSEdp1CF1Cw0X5u3aS03xRlx_FNyb7MEbmeirH5pYsa60xiUM4i2zBxQnIwFO8IKNeoZ10nMQdWx1TSrrP54R49MGyMAbYN3Bx3aXxHfNf-PAP3njdaBZz5OaYM0p3md6AN6-nKrFAF3s-jl2sAURfFuTubglN0ccc_VTt8XaRF6yb6A0yoa8r-oo6Nb788BD8JY-UBG9kqYTqOwRRAgFKJii3v0O_KTgyCwjWiWgFQ38rA');">
+</div>
+<!-- Play Overlay -->
+<div class="absolute inset-0 flex items-center justify-center">
+<button class="flex items-center justify-center w-14 h-14 rounded-full bg-primary/90 text-background-dark backdrop-blur-sm shadow-xl hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-3xl filled">play_arrow</span>
+</button>
+</div>
+<!-- Bottom Gradient & Info -->
+<div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent pt-12 pb-4 px-4">
+<div class="flex items-end justify-between">
+<div>
+<h1 class="text-2xl font-bold text-white leading-tight">Goblet Squat</h1>
+<p class="text-slate-300 text-sm font-medium">Quadriceps Focus</p>
+</div>
+<button class="p-2 text-white/80 hover:text-white">
+<span class="material-symbols-outlined">info</span>
+</button>
+</div>
+</div>
+</div>
+<!-- AI Tip -->
+<div class="flex items-start gap-3 p-3 rounded-lg bg-primary/10 border border-primary/20">
+<span class="material-symbols-outlined text-primary mt-0.5 text-lg">auto_awesome</span>
+<div>
+<p class="text-sm font-semibold text-primary mb-0.5">AI Tip</p>
+<p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">Keep your chest up and elbows tucked inside your knees at the bottom of the squat.</p>
+</div>
+</div>
+</section>
+<!-- Logging Section -->
+<section class="flex flex-col gap-2">
+<!-- Table Header -->
+<div class="grid grid-cols-12 gap-2 px-2 pb-1 text-[11px] uppercase tracking-wider font-bold text-slate-400 dark:text-slate-500 text-center">
+<div class="col-span-2 text-left">Set</div>
+<div class="col-span-3">Prev</div>
+<div class="col-span-3">lbs</div>
+<div class="col-span-2">Reps</div>
+<div class="col-span-2 text-right">Done</div>
+</div>
+<!-- Set 1 (Completed) -->
+<div class="group relative rounded-lg bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 shadow-sm transition-all overflow-hidden">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>
+<div class="grid grid-cols-12 gap-2 p-3 items-center">
+<div class="col-span-2 text-left font-bold text-slate-900 dark:text-white text-lg pl-2">1</div>
+<div class="col-span-3 text-center text-xs text-slate-500 font-medium">40 × 10</div>
+<div class="col-span-3">
+<input class="w-full bg-slate-100 dark:bg-background-dark border-none rounded text-center font-bold text-slate-900 dark:text-white focus:ring-1 focus:ring-primary p-2 text-sm appearance-none" placeholder="-" type="number" value="45"/>
+</div>
+<div class="col-span-2">
+<input class="w-full bg-slate-100 dark:bg-background-dark border-none rounded text-center font-bold text-slate-900 dark:text-white focus:ring-1 focus:ring-primary p-2 text-sm appearance-none" placeholder="-" type="number" value="10"/>
+</div>
+<div class="col-span-2 flex justify-end">
+<button class="w-8 h-8 rounded bg-primary flex items-center justify-center text-background-dark shadow-sm hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-xl font-bold">check</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Set 2 (Active) -->
+<div class="group relative rounded-lg bg-white dark:bg-surface-dark border-2 border-primary/50 shadow-md transition-all overflow-hidden">
+<div class="grid grid-cols-12 gap-2 p-3 items-center">
+<div class="col-span-2 text-left font-bold text-slate-900 dark:text-white text-lg pl-3">2</div>
+<div class="col-span-3 text-center text-xs text-slate-500 font-medium">40 × 10</div>
+<div class="col-span-3">
+<input class="w-full bg-slate-100 dark:bg-background-dark border-none rounded text-center font-bold text-slate-900 dark:text-white focus:ring-1 focus:ring-primary p-2 text-sm appearance-none placeholder-slate-400 dark:placeholder-slate-600" placeholder="45" type="number"/>
+</div>
+<div class="col-span-2">
+<input class="w-full bg-slate-100 dark:bg-background-dark border-none rounded text-center font-bold text-slate-900 dark:text-white focus:ring-1 focus:ring-primary p-2 text-sm appearance-none placeholder-slate-400 dark:placeholder-slate-600" placeholder="10" type="number"/>
+</div>
+<div class="col-span-2 flex justify-end">
+<button class="w-8 h-8 rounded bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-400 dark:text-slate-400 hover:bg-primary/20 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-xl">check</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Set 3 (Future) -->
+<div class="group relative rounded-lg bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-800 opacity-60 hover:opacity-100 transition-opacity">
+<div class="grid grid-cols-12 gap-2 p-3 items-center">
+<div class="col-span-2 text-left font-bold text-slate-900 dark:text-white text-lg pl-3">3</div>
+<div class="col-span-3 text-center text-xs text-slate-500 font-medium">40 × 10</div>
+<div class="col-span-3">
+<input class="w-full bg-slate-100 dark:bg-background-dark border-none rounded text-center font-bold text-slate-900 dark:text-white focus:ring-1 focus:ring-primary p-2 text-sm appearance-none" placeholder="-" type="number"/>
+</div>
+<div class="col-span-2">
+<input class="w-full bg-slate-100 dark:bg-background-dark border-none rounded text-center font-bold text-slate-900 dark:text-white focus:ring-1 focus:ring-primary p-2 text-sm appearance-none" placeholder="-" type="number"/>
+</div>
+<div class="col-span-2 flex justify-end">
+<button class="w-8 h-8 rounded bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-400 dark:text-slate-400 hover:bg-primary/20 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-xl">check</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Add Set Button -->
+<button class="mt-2 py-3 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 text-sm font-medium text-slate-500 dark:text-slate-400 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-lg">add</span>
+                Add Set
+            </button>
+</section>
+</main>
+<!-- Fixed Footer Actions -->
+<div class="fixed bottom-0 left-0 w-full bg-white dark:bg-background-dark border-t border-slate-200 dark:border-slate-800 p-4 pb-8 z-40 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] dark:shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.5)]">
+<div class="flex gap-3">
+<!-- Rest Timer Button (Secondary) -->
+<button class="flex flex-col items-center justify-center h-14 w-20 rounded-xl bg-slate-100 dark:bg-surface-dark text-slate-900 dark:text-slate-200 font-bold hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
+<span class="material-symbols-outlined text-xl">timer</span>
+<span class="text-[10px] uppercase font-bold tracking-wide mt-0.5">Rest</span>
+</button>
+<!-- Next Exercise Button (Primary) -->
+<button class="flex-1 h-14 rounded-xl bg-primary text-background-dark text-lg font-bold flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
+<span>Next Exercise</span>
+<span class="material-symbols-outlined font-bold">arrow_forward</span>
+</button>
+</div>
+</div>
+</body></html>

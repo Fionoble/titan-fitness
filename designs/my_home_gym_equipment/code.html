@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>My Home Gym Equipment</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#2bee79",
+                        "background-light": "#f6f8f7",
+                        "background-dark": "#102217",
+                        "surface-dark": "#1c2e24", // Slightly lighter than background for cards
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom scrollbar for webkit browsers */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #28392f;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3b5445;
+        }
+        
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display antialiased selection:bg-primary selection:text-background-dark">
+<div class="mx-auto max-w-md h-screen flex flex-col relative overflow-hidden bg-background-light dark:bg-background-dark shadow-2xl">
+<!-- Header -->
+<header class="flex items-center justify-between px-4 py-4 z-10 sticky top-0 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm border-b border-gray-200 dark:border-[#28392f]">
+<button class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-gray-200 dark:hover:bg-[#28392f] transition-colors text-slate-900 dark:text-white">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="text-lg font-bold tracking-tight">My Equipment</h1>
+<button class="text-primary font-semibold text-sm hover:opacity-80 transition-opacity px-2 py-1">
+                Save
+            </button>
+</header>
+<!-- Main Content (Scrollable) -->
+<main class="flex-1 overflow-y-auto px-4 pb-24 space-y-6 pt-4">
+<!-- Search Bar -->
+<div class="relative group">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-gray-500 dark:text-[#9db9a8]">search</span>
+</div>
+<input class="block w-full pl-10 pr-3 py-3 rounded-xl border-none bg-white dark:bg-[#1c2e24] text-slate-900 dark:text-white placeholder-gray-500 dark:placeholder-[#9db9a8] focus:ring-2 focus:ring-primary focus:bg-white dark:focus:bg-[#23352b] transition-all shadow-sm" placeholder="Search equipment..." type="text"/>
+</div>
+<!-- Suggestion / Quick Add -->
+<div class="p-4 rounded-2xl bg-gradient-to-br from-[#1c2e24] to-[#15231c] border border-[#28392f] relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4 opacity-10">
+<span class="material-symbols-outlined text-9xl text-primary">fitness_center</span>
+</div>
+<h3 class="font-bold text-white text-lg mb-1 relative z-10">AI Quick Setup</h3>
+<p class="text-sm text-[#9db9a8] mb-3 relative z-10">Scan your room to auto-detect equipment.</p>
+<button class="flex items-center gap-2 text-primary font-medium text-sm relative z-10 hover:underline">
+<span class="material-symbols-outlined text-lg">photo_camera</span>
+                    Scan Room
+                </button>
+</div>
+<!-- Category: Weights -->
+<section>
+<div class="flex items-center justify-between mb-3">
+<h2 class="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">weight</span>
+                        Weights
+                    </h2>
+<span class="text-xs font-medium text-gray-500 dark:text-[#9db9a8] bg-gray-100 dark:bg-[#28392f] px-2 py-1 rounded-full">4 items</span>
+</div>
+<div class="space-y-3">
+<!-- Item 1: Active -->
+<label class="flex items-center justify-between p-4 rounded-xl bg-white dark:bg-[#1c2e24] border-2 border-primary cursor-pointer transition-all shadow-md group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">fitness_center</span>
+</div>
+<div>
+<p class="font-semibold text-slate-900 dark:text-white group-hover:text-primary transition-colors">Dumbbells</p>
+<p class="text-xs text-gray-500 dark:text-[#9db9a8]">Adjustable or fixed</p>
+</div>
+</div>
+<div class="relative">
+<input checked="" class="peer sr-only" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 dark:bg-[#28392f] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+</div>
+</label>
+<!-- Item 2: Inactive -->
+<label class="flex items-center justify-between p-4 rounded-xl bg-white dark:bg-[#1c2e24] border border-transparent hover:border-[#28392f] dark:hover:border-[#3b5445] cursor-pointer transition-all shadow-sm">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-gray-100 dark:bg-[#28392f] flex items-center justify-center text-gray-500 dark:text-[#9db9a8]">
+<span class="material-symbols-outlined">circle</span>
+</div>
+<div>
+<p class="font-medium text-slate-900 dark:text-white">Kettlebells</p>
+<p class="text-xs text-gray-500 dark:text-[#9db9a8]">Various weights</p>
+</div>
+</div>
+<div class="relative">
+<input class="peer sr-only" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 dark:bg-[#28392f] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/50 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+</div>
+</label>
+<!-- Item 3: Active -->
+<label class="flex items-center justify-between p-4 rounded-xl bg-white dark:bg-[#1c2e24] border-2 border-primary cursor-pointer transition-all shadow-md group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">horizontal_rule</span>
+</div>
+<div>
+<p class="font-semibold text-slate-900 dark:text-white group-hover:text-primary transition-colors">Barbell</p>
+<p class="text-xs text-gray-500 dark:text-[#9db9a8]">Standard or Olympic</p>
+</div>
+</div>
+<div class="relative">
+<input checked="" class="peer sr-only" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 dark:bg-[#28392f] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+</div>
+</label>
+<!-- Item 4: Inactive -->
+<label class="flex items-center justify-between p-4 rounded-xl bg-white dark:bg-[#1c2e24] border border-transparent hover:border-[#28392f] dark:hover:border-[#3b5445] cursor-pointer transition-all shadow-sm">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-gray-100 dark:bg-[#28392f] flex items-center justify-center text-gray-500 dark:text-[#9db9a8]">
+<span class="material-symbols-outlined">chair_alt</span>
+</div>
+<div>
+<p class="font-medium text-slate-900 dark:text-white">Bench</p>
+<p class="text-xs text-gray-500 dark:text-[#9db9a8]">Flat or adjustable</p>
+</div>
+</div>
+<div class="relative">
+<input class="peer sr-only" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 dark:bg-[#28392f] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/50 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+</div>
+</label>
+</div>
+</section>
+<!-- Category: Cardio -->
+<section>
+<div class="flex items-center justify-between mb-3 mt-6">
+<h2 class="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">monitor_heart</span>
+                        Cardio
+                    </h2>
+</div>
+<div class="space-y-3">
+<!-- Item 1 -->
+<label class="flex items-center justify-between p-4 rounded-xl bg-white dark:bg-[#1c2e24] border border-transparent hover:border-[#28392f] dark:hover:border-[#3b5445] cursor-pointer transition-all shadow-sm">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-gray-100 dark:bg-[#28392f] flex items-center justify-center text-gray-500 dark:text-[#9db9a8]">
+<span class="material-symbols-outlined">directions_bike</span>
+</div>
+<div>
+<p class="font-medium text-slate-900 dark:text-white">Stationary Bike</p>
+<p class="text-xs text-gray-500 dark:text-[#9db9a8]">Spin or upright</p>
+</div>
+</div>
+<div class="relative">
+<input class="peer sr-only" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 dark:bg-[#28392f] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/50 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+</div>
+</label>
+<!-- Item 2: Active -->
+<label class="flex items-center justify-between p-4 rounded-xl bg-white dark:bg-[#1c2e24] border-2 border-primary cursor-pointer transition-all shadow-md group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">rowing</span>
+</div>
+<div>
+<p class="font-semibold text-slate-900 dark:text-white group-hover:text-primary transition-colors">Rowing Machine</p>
+<p class="text-xs text-gray-500 dark:text-[#9db9a8]">Air or water</p>
+</div>
+</div>
+<div class="relative">
+<input checked="" class="peer sr-only" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 dark:bg-[#28392f] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+</div>
+</label>
+<!-- Item 3 -->
+<label class="flex items-center justify-between p-4 rounded-xl bg-white dark:bg-[#1c2e24] border border-transparent hover:border-[#28392f] dark:hover:border-[#3b5445] cursor-pointer transition-all shadow-sm">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-gray-100 dark:bg-[#28392f] flex items-center justify-center text-gray-500 dark:text-[#9db9a8]">
+<span class="material-symbols-outlined">steps</span>
+</div>
+<div>
+<p class="font-medium text-slate-900 dark:text-white">Jump Rope</p>
+<p class="text-xs text-gray-500 dark:text-[#9db9a8]">Speed or weighted</p>
+</div>
+</div>
+<div class="relative">
+<input class="peer sr-only" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 dark:bg-[#28392f] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/50 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+</div>
+</label>
+</div>
+</section>
+<!-- Category: Recovery -->
+<section>
+<div class="flex items-center justify-between mb-3 mt-6">
+<h2 class="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">self_improvement</span>
+                        Recovery &amp; Gear
+                    </h2>
+</div>
+<div class="space-y-3">
+<!-- Item 1: Active -->
+<label class="flex items-center justify-between p-4 rounded-xl bg-white dark:bg-[#1c2e24] border-2 border-primary cursor-pointer transition-all shadow-md group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">waves</span>
+</div>
+<div>
+<p class="font-semibold text-slate-900 dark:text-white group-hover:text-primary transition-colors">Yoga Mat</p>
+<p class="text-xs text-gray-500 dark:text-[#9db9a8]">Standard</p>
+</div>
+</div>
+<div class="relative">
+<input checked="" class="peer sr-only" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 dark:bg-[#28392f] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+</div>
+</label>
+<!-- Item 2 -->
+<label class="flex items-center justify-between p-4 rounded-xl bg-white dark:bg-[#1c2e24] border border-transparent hover:border-[#28392f] dark:hover:border-[#3b5445] cursor-pointer transition-all shadow-sm">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-gray-100 dark:bg-[#28392f] flex items-center justify-center text-gray-500 dark:text-[#9db9a8]">
+<span class="material-symbols-outlined">radio_button_checked</span>
+</div>
+<div>
+<p class="font-medium text-slate-900 dark:text-white">Foam Roller</p>
+<p class="text-xs text-gray-500 dark:text-[#9db9a8]">Recovery tool</p>
+</div>
+</div>
+<div class="relative">
+<input class="peer sr-only" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 dark:bg-[#28392f] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/50 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+</div>
+</label>
+</div>
+</section>
+<div class="h-8"></div>
+</main>
+<!-- Floating Action Button / Add Custom -->
+<div class="absolute bottom-24 right-4 z-20">
+<button class="flex items-center gap-2 bg-primary text-background-dark font-bold px-5 py-3 rounded-full shadow-lg shadow-primary/30 hover:shadow-primary/50 transition-all hover:scale-105">
+<span class="material-symbols-outlined">add</span>
+                Add Custom Equipment
+            </button>
+</div>
+<!-- Bottom Navigation Bar -->
+<nav class="flex gap-2 border-t border-[#28392f] bg-[#1c2720] px-4 pb-3 pt-2 z-30 absolute bottom-0 w-full">
+<a class="just flex flex-1 flex-col items-center justify-end gap-1 text-[#9db9a8] hover:text-white transition-colors group" href="#">
+<div class="flex h-8 items-center justify-center transition-transform group-hover:-translate-y-1">
+<span class="material-symbols-outlined text-2xl">home</span>
+</div>
+<p class="text-xs font-medium leading-normal tracking-[0.015em]">Home</p>
+</a>
+<a class="just flex flex-1 flex-col items-center justify-end gap-1 text-[#9db9a8] hover:text-white transition-colors group" href="#">
+<div class="flex h-8 items-center justify-center transition-transform group-hover:-translate-y-1">
+<span class="material-symbols-outlined text-2xl">fitness_center</span>
+</div>
+<p class="text-xs font-medium leading-normal tracking-[0.015em]">Workout</p>
+</a>
+<a class="just flex flex-1 flex-col items-center justify-end gap-1 rounded-full text-primary" href="#">
+<div class="flex h-8 items-center justify-center">
+<span class="material-symbols-outlined text-2xl font-variation-settings-fill">inventory_2</span>
+</div>
+<p class="text-xs font-medium leading-normal tracking-[0.015em]">Equipment</p>
+</a>
+<a class="just flex flex-1 flex-col items-center justify-end gap-1 text-[#9db9a8] hover:text-white transition-colors group" href="#">
+<div class="flex h-8 items-center justify-center transition-transform group-hover:-translate-y-1">
+<span class="material-symbols-outlined text-2xl">account_circle</span>
+</div>
+<p class="text-xs font-medium leading-normal tracking-[0.015em]">Profile</p>
+</a>
+</nav>
+</div>
+</body></html>

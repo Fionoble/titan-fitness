@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Workout Discovery Screen</title>
+<!-- Fonts and Icons -->
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#2bee79",
+                        "background-light": "#f6f8f7",
+                        "background-dark": "#102217",
+                        "surface-dark": "#1c2720", // Slightly lighter than background-dark for cards
+                    },
+                    fontFamily: {
+                        "display": ["Lexend", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+        
+        .glass-gradient {
+            background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(16, 34, 23, 0.9) 80%, rgba(16, 34, 23, 1) 100%);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 antialiased selection:bg-primary selection:text-background-dark">
+<div class="relative mx-auto flex h-full min-h-screen w-full max-w-md flex-col overflow-hidden bg-background-light dark:bg-background-dark shadow-2xl">
+<!-- Header Section -->
+<header class="sticky top-0 z-20 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm px-4 pt-6 pb-2">
+<div class="flex items-center justify-between mb-4">
+<div class="flex-1">
+<p class="text-sm font-medium text-slate-500 dark:text-slate-400">Good evening,</p>
+<h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Ready to sweat, Alex?</h1>
+</div>
+<div class="h-10 w-10 overflow-hidden rounded-full border-2 border-primary">
+<img alt="User Profile" class="h-full w-full object-cover" data-alt="Portrait of a young woman smiling" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD8zT34AyYA5hJ9AsXVLLCh8VKGE5OLoXoauDadyTNfr9RabXaKpTtsPBa7ga2ltz4GJ5FROF00KufMl6KLqRPAS6NuMpD5u7OR84jbbRkbpqrruAkcizAJ_qZ-tv-kYASbqwyPcuqV37jTHnRVaR7kM42JqGhm3h2H_jvX7uRLCreqFB4ANpQRZHH2_xZBP5vMxjzegyIIPjZiu3w1pQ2b0cKaYlW9to9jN2CrkuC7K6Ksz-afPMtm-KMSecUbWopYZJNRveQ9fg"/>
+</div>
+</div>
+<!-- Search Bar -->
+<label class="flex flex-col h-12 w-full mb-4 group">
+<div class="flex w-full flex-1 items-center rounded-xl bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-700 focus-within:border-primary dark:focus-within:border-primary transition-colors">
+<div class="flex items-center justify-center pl-4 text-slate-400 dark:text-slate-500 group-focus-within:text-primary transition-colors">
+<span class="material-symbols-outlined text-2xl">search</span>
+</div>
+<input class="flex w-full min-w-0 flex-1 bg-transparent px-3 py-2 text-base text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-0 border-none ring-0 focus:ring-0" placeholder="Find routines, equipment, or muscles..."/>
+<button class="flex items-center justify-center pr-4 text-slate-400 dark:text-slate-500 hover:text-primary dark:hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-2xl">mic</span>
+</button>
+</div>
+</label>
+<!-- Filters -->
+<div class="flex gap-3 overflow-x-auto no-scrollbar pb-2">
+<button class="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full bg-primary px-5 transition-transform active:scale-95">
+<span class="text-background-dark text-sm font-semibold">All</span>
+</button>
+<button class="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-700 px-5 transition-transform active:scale-95 hover:border-primary/50 dark:hover:border-primary/50">
+<span class="material-symbols-outlined text-primary text-[18px]">auto_awesome</span>
+<span class="text-slate-700 dark:text-slate-200 text-sm font-medium">Recommended</span>
+</button>
+<button class="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-700 px-5 transition-transform active:scale-95 hover:border-primary/50 dark:hover:border-primary/50">
+<span class="text-slate-700 dark:text-slate-200 text-sm font-medium">New</span>
+</button>
+<button class="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full bg-white dark:bg-surface-dark border border-slate-200 dark:border-slate-700 px-5 transition-transform active:scale-95 hover:border-primary/50 dark:hover:border-primary/50">
+<span class="text-slate-700 dark:text-slate-200 text-sm font-medium">Favorites</span>
+</button>
+</div>
+</header>
+<!-- Main Content: Scrollable Area -->
+<main class="flex-1 overflow-y-auto overflow-x-hidden px-4 py-2 pb-24 space-y-6">
+<!-- AI Recommendation Spotlight -->
+<section>
+<div class="flex items-center justify-between mb-3">
+<h2 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">bolt</span>
+                        Top Pick for You
+                    </h2>
+</div>
+<div class="relative h-64 w-full overflow-hidden rounded-2xl group cursor-pointer shadow-lg shadow-black/20">
+<img alt="Woman lifting weights in a gym setting" class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" data-alt="Intense strength training session" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAauHCnczH383V4VaqJ1W2uDLyB6EwDEgGZJt8SJzxlPoyYLX_nHQqHK3WN3q4KQhXNI0GPYHWZrMhXhZQ6UFB0qi8cfgph-ivKcW30djA_xTuPSK3lePmWwYsqRF5OyZVzCwFr5aHPLCLFsCCezR1opiNjrG84qwOtgDOUXD845GLl07ud8AweGgfUF7BLTdMLS8vdPXvcPGm7N-fSzEzpRVlmQFa7FILh3PPd-p6oS8Ne6XsTv_igmprfEWNtpzGAkuNuySSSjg"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background-dark via-background-dark/50 to-transparent"></div>
+<div class="absolute top-3 left-3">
+<span class="inline-flex items-center rounded-lg bg-primary/90 px-2.5 py-1 text-xs font-bold text-background-dark backdrop-blur-md">
+                            94% Match
+                        </span>
+</div>
+<div class="absolute bottom-0 left-0 w-full p-4">
+<p class="text-primary text-xs font-bold uppercase tracking-wider mb-1">Strength &amp; Hypertrophy</p>
+<h3 class="text-2xl font-bold text-white mb-2 leading-tight">Full Body Power Builder</h3>
+<div class="flex items-center gap-3 text-slate-300 text-xs font-medium">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">timer</span> 45 min</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">fitness_center</span> Intermediate</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Categories Grid -->
+<section>
+<div class="flex items-center justify-between mb-3">
+<h2 class="text-lg font-bold text-slate-900 dark:text-white">Browse Styles</h2>
+</div>
+<div class="grid grid-cols-1 gap-4">
+<!-- Card 1: Functional -->
+<div class="relative h-48 w-full overflow-hidden rounded-2xl group cursor-pointer shadow-md shadow-black/20">
+<img alt="Man doing kettlebell swing in living room" class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 opacity-80" data-alt="Person performing kettlebell exercise at home" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCaJRzypiNA0DggAuc_ZIKqvJv8ohB7AKlYyz0ORV82GUJUa6xjCnSON-QwFItDUKnS7QrWfQVftvSdw7Ik0WxDtzq1ZyQlSHNjZZ8wiXV7TZ1oCWY2c8KpfLaiGQ735pV0Okr7rRUh_zMmXcQl_E4ncDHcBpZspRabEupDOl0DAuMrw5G7lpkpvyRlr_ulPKhKGFDmfX12lPiVmCrA6VufqHsAzJeBaLaAxRofUw69GpJ1ktcrkqlBWmkqgY9ryfx-wvK82FdB3A"/>
+<div class="absolute inset-0 bg-gradient-to-r from-background-dark/90 via-background-dark/40 to-transparent"></div>
+<div class="absolute inset-0 p-5 flex flex-col justify-end items-start">
+<div class="bg-surface-dark/30 backdrop-blur-sm p-1.5 rounded-lg mb-2 inline-block">
+<span class="material-symbols-outlined text-primary block">accessibility_new</span>
+</div>
+<h3 class="text-xl font-bold text-white mb-1">Functional Training</h3>
+<p class="text-slate-300 text-sm line-clamp-1">Move better in daily life with practical movements.</p>
+</div>
+<div class="absolute top-4 right-4 bg-black/40 backdrop-blur-md rounded-full px-3 py-1">
+<span class="text-xs font-medium text-white">12 Routines</span>
+</div>
+</div>
+<!-- Card 2: HIIT -->
+<div class="relative h-48 w-full overflow-hidden rounded-2xl group cursor-pointer shadow-md shadow-black/20">
+<img alt="Person doing box jumps" class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 opacity-80" data-alt="High intensity interval training jumping exercise" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCctjAmJheb2WmHdhKoNHw-SO4pzCUbGndGFKk6sIXDUEQpFuMoLwouY0_oZ2XmtYgiX7AKg9ymow1KH9uqOFEJ-bawGgHh80GJySHjM5bZhJNGfHomD7vsU-yYx09sZYUdQ70kX7LlptfgXZNmGT_sWp5cZ4O5mJZcto0d348DBUGy6PhGrcofbrCDVtJ-QKL5zlwDh_eHXf0JThMeJ7YA5f7yqo14CgpXoiFGjMkutDctI6_l45RYOImO5hb-qJUqsRFeKCpXJg"/>
+<div class="absolute inset-0 bg-gradient-to-l from-background-dark/90 via-background-dark/40 to-transparent"></div>
+<div class="absolute inset-0 p-5 flex flex-col justify-end items-end text-right">
+<div class="bg-surface-dark/30 backdrop-blur-sm p-1.5 rounded-lg mb-2 inline-block">
+<span class="material-symbols-outlined text-primary block">timer</span>
+</div>
+<h3 class="text-xl font-bold text-white mb-1">HIIT &amp; Conditioning</h3>
+<p class="text-slate-300 text-sm line-clamp-1">Burn calories fast with high-intensity intervals.</p>
+</div>
+<div class="absolute top-4 left-4 bg-black/40 backdrop-blur-md rounded-full px-3 py-1">
+<span class="text-xs font-medium text-white">8 Routines</span>
+</div>
+</div>
+<!-- Card 3: Mobility -->
+<div class="relative h-48 w-full overflow-hidden rounded-2xl group cursor-pointer shadow-md shadow-black/20">
+<img alt="Woman doing yoga stretch on mat" class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 opacity-80" data-alt="Peaceful yoga stretching pose" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBDOLoW2VxlsztELGY0uu4pPU0_5ZfslbAgB-4baqZ59vMFw1hhG8A7ShnQ6r3K_yED_eQxRlNRf6FW6RC2vTwIe0I7ftsTrIZBoQQpB_A9j6X-n5bgJnsnjyfPe7CdatqoIGI1_MyaDx0jCNqeDdeVBrkOTZQBod1BQcG_ZzbtcPqo75KY-7S3YTrx4tiR3hkzJi0zhurcwV-wk1QkkYXyuuGukAH1GBuuVh3O8dex2FoN2OxDlT864v7WVEXElxz80ikR0b9sVA"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background-dark/90 via-background-dark/20 to-transparent"></div>
+<div class="absolute inset-0 p-5 flex flex-col justify-end items-start">
+<div class="bg-surface-dark/30 backdrop-blur-sm p-1.5 rounded-lg mb-2 inline-block">
+<span class="material-symbols-outlined text-primary block">self_improvement</span>
+</div>
+<h3 class="text-xl font-bold text-white mb-1">Mobility &amp; Recovery</h3>
+<p class="text-slate-300 text-sm line-clamp-1">Heal, lengthen, and restore your body.</p>
+</div>
+<div class="absolute top-4 right-4 bg-black/40 backdrop-blur-md rounded-full px-3 py-1">
+<span class="text-xs font-medium text-white">5 Routines</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 z-30 w-full max-w-md border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-surface-dark/95 backdrop-blur-lg pb-safe pt-2">
+<div class="flex items-end justify-around px-2 pb-4">
+<a class="group flex flex-1 flex-col items-center gap-1" href="#">
+<div class="flex h-8 w-12 items-center justify-center rounded-full group-hover:bg-slate-100 dark:group-hover:bg-slate-800 transition-colors">
+<span class="material-symbols-outlined text-slate-500 dark:text-slate-400 group-hover:text-primary transition-colors">home</span>
+</div>
+<span class="text-[10px] font-medium text-slate-500 dark:text-slate-400 group-hover:text-primary transition-colors">Home</span>
+</a>
+<a class="group flex flex-1 flex-col items-center gap-1" href="#">
+<div class="flex h-8 w-12 items-center justify-center rounded-full bg-primary/10 dark:bg-primary/20">
+<span class="material-symbols-outlined text-primary fill-current">explore</span>
+</div>
+<span class="text-[10px] font-medium text-primary">Discover</span>
+</a>
+<a class="group flex flex-1 flex-col items-center gap-1" href="#">
+<div class="flex h-8 w-12 items-center justify-center rounded-full group-hover:bg-slate-100 dark:group-hover:bg-slate-800 transition-colors">
+<span class="material-symbols-outlined text-slate-500 dark:text-slate-400 group-hover:text-primary transition-colors">smart_toy</span>
+</div>
+<span class="text-[10px] font-medium text-slate-500 dark:text-slate-400 group-hover:text-primary transition-colors">AI Coach</span>
+</a>
+<a class="group flex flex-1 flex-col items-center gap-1" href="#">
+<div class="flex h-8 w-12 items-center justify-center rounded-full group-hover:bg-slate-100 dark:group-hover:bg-slate-800 transition-colors">
+<span class="material-symbols-outlined text-slate-500 dark:text-slate-400 group-hover:text-primary transition-colors">person</span>
+</div>
+<span class="text-[10px] font-medium text-slate-500 dark:text-slate-400 group-hover:text-primary transition-colors">Profile</span>
+</a>
+</div>
+</nav>
+</div>
+<!-- Spacer for Safari bottom bar -->
+<div class="h-6 w-full bg-background-light dark:bg-background-dark"></div>
+</body></html>

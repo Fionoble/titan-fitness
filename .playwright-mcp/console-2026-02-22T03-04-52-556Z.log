@@ -1,0 +1,10 @@
+[     205ms] [WARNING] Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key. @ http://localhost:4174/node_modules/.vite/deps/@supabase_supabase-js.js?v=b27ead21:5426
+[   22595ms] [ERROR] WebSocket connection to 'ws://localhost:4174/?token=HM1G4acKcdnJ' failed:  @ http://localhost:4174/@vite/client:535
+[   23599ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:4174/:0
+[   24602ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:4174/:0
+[   25604ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:4174/:0
+[   26606ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:4174/:0
+[   27608ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:4174/:0
+[   28611ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:4174/:0
+[   29614ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:4174/:0
+[   30618ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:4174/:0

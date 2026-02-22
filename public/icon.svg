@@ -1,0 +1,10 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'>
+  <rect width='512' height='512' rx='102' fill='#102217'/>
+  <g transform='translate(256,256)'>
+    <line x1='-130' y1='0' x2='130' y2='0' stroke='#2bee79' stroke-width='30' stroke-linecap='round'/>
+    <line x1='-100' y1='-80' x2='-100' y2='80' stroke='#2bee79' stroke-width='40' stroke-linecap='round'/>
+    <line x1='100' y1='-80' x2='100' y2='80' stroke='#2bee79' stroke-width='40' stroke-linecap='round'/>
+    <circle cx='-145' cy='0' r='30' fill='#2bee79'/>
+    <circle cx='145' cy='0' r='30' fill='#2bee79'/>
+  </g>
+</svg>
