@@ -253,6 +253,9 @@ export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, se
               >
                 Save & Start Chatting
               </button>
+              <p class="text-xs text-slate-500 text-center mt-2">
+                Your key is stored locally and sent only to the selected provider.
+              </p>
             </div>
           </div>
         )}

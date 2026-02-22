@@ -189,6 +189,22 @@ export function Profile({ profile, sessions, onUpdateProfile, onNavigateEquipmen
           )}
         </div>
 
+        {/* Privacy & Data */}
+        <div class="space-y-2">
+          <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider px-1">Privacy & Data</h3>
+          <div class="bg-surface-dark rounded-xl p-4 border border-white/5">
+            <div class="flex items-start gap-3">
+              <div class="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 shrink-0">
+                <Icon name="lock" />
+              </div>
+              <div class="text-sm text-slate-400 space-y-1.5">
+                <p>All workout data and profile info are stored locally on your device using IndexedDB. Nothing is sent to any server.</p>
+                <p>When using the AI Coach, your equipment list and recent workout history are sent to the selected AI provider (Anthropic or OpenAI) to generate responses. API keys are stored in your browser's localStorage.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* App info */}
         <div class="text-center pt-4 pb-8">
           <p class="text-slate-600 text-xs">Titan Fitness v1.0.0</p>
