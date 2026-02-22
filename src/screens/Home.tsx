@@ -62,7 +62,7 @@ export function Home({ plan, loading, userName, onStartWorkout, onRegenerate, on
   return (
     <main class="flex-1 overflow-y-auto no-scrollbar pb-40">
       {/* Header */}
-      <div class="px-5 pt-6 pb-2">
+      <div class="px-5 pt-6 pt-safe pb-2">
         <div class="flex items-center justify-between mb-5">
           <div class="flex items-center gap-3">
             <div class="relative">
@@ -220,7 +220,7 @@ export function Home({ plan, loading, userName, onStartWorkout, onRegenerate, on
 
       {/* Start Workout FAB */}
       {plan && (
-        <div class="fixed bottom-20 pb-safe left-0 w-full px-6 z-20 pointer-events-none max-w-[430px] mx-auto" style="left: 50%; transform: translateX(-50%);">
+        <div class="fixed bottom-nav-offset left-0 w-full px-6 z-20 pointer-events-none max-w-[430px] mx-auto" style="left: 50%; transform: translateX(-50%);">
           <button
             onClick={onStartWorkout}
             class="w-full bg-primary text-bg-dark h-14 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-primary/20 pointer-events-auto active:scale-[0.98] transition-all font-bold text-lg tracking-wide"

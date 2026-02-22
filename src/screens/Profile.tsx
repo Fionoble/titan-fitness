@@ -39,7 +39,7 @@ export function Profile({ profile, sessions, onUpdateProfile, onNavigateEquipmen
 
   return (
     <div class="flex-1 overflow-y-auto no-scrollbar pb-24">
-      <header class="sticky top-0 z-30 bg-bg-dark/95 backdrop-blur-md border-b border-white/5">
+      <header class="sticky top-0 z-30 bg-bg-dark/95 backdrop-blur-md border-b border-white/5 pt-safe">
         <div class="px-4 py-4 flex items-center justify-center">
           <h1 class="text-lg font-bold tracking-tight">Profile</h1>
         </div>

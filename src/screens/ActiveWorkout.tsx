@@ -183,7 +183,7 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
   return (
     <div class="flex flex-col h-full bg-bg-dark">
       {/* Header */}
-      <header class="sticky top-0 z-50 bg-bg-dark/95 backdrop-blur-md border-b border-white/5">
+      <header class="sticky top-0 z-50 bg-bg-dark/95 backdrop-blur-md border-b border-white/5 pt-safe">
         <div class="flex items-center justify-between px-4 py-3">
           <button onClick={onCancel} class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-dark transition-colors">
             <Icon name="arrow_back" />

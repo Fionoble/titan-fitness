@@ -1,0 +1,2 @@
+[      60ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ http://localhost:5199/:0
+[   48618ms] [ERROR] WebSocket connection to 'ws://localhost:5199/?token=uRvgRP38lfmH' failed:  @ http://localhost:5199/@vite/client:744

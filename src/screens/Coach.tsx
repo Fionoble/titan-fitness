@@ -170,7 +170,7 @@ export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, se
   return (
     <div class="flex flex-col h-full bg-bg-dark">
       {/* Header */}
-      <header class="sticky top-0 z-50 bg-bg-dark/95 backdrop-blur-sm border-b border-white/5 px-4 pt-4 pb-3 flex items-center justify-between">
+      <header class="sticky top-0 z-50 bg-bg-dark/95 backdrop-blur-sm border-b border-white/5 px-4 pt-4 pt-safe pb-3 flex items-center justify-between">
         <div class="w-10">
           {messages.length > 0 && onClearChat && (
             <button
@@ -330,7 +330,7 @@ export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, se
       </main>
 
       {/* Bottom input area - sits above BottomNav (~70px) */}
-      <div class="fixed bottom-[68px] left-0 w-full bg-bg-dark border-t border-white/5 z-40 pb-2 pt-2 max-w-[430px] mx-auto" style="left: 50%; transform: translateX(-50%);">
+      <div class="fixed bottom-nav-offset left-0 w-full bg-bg-dark border-t border-white/5 z-40 pb-2 pt-2 max-w-[430px] mx-auto" style="left: 50%; transform: translateX(-50%);">
         <div class="absolute top-[-20px] left-0 w-full h-20 bg-gradient-to-t from-bg-dark to-transparent pointer-events-none -z-10"></div>
 
         {/* Quick action chips */}

@@ -44,7 +44,7 @@ export function Discover({ equipment, onSelectStyle }: DiscoverProps) {
   return (
     <div class="flex-1 overflow-y-auto no-scrollbar pb-24">
       {/* Header */}
-      <header class="sticky top-0 z-20 bg-bg-dark/95 backdrop-blur-sm px-4 pt-6 pb-2">
+      <header class="sticky top-0 z-20 bg-bg-dark/95 backdrop-blur-sm px-4 pt-6 pt-safe pb-2">
         <div class="flex items-center justify-between mb-4">
           <div class="flex-1">
             <p class="text-sm font-medium text-slate-400">Explore workouts</p>
