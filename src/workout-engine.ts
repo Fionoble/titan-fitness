@@ -1,4 +1,5 @@
 import type { Equipment, WorkoutPlan, Exercise, WorkoutStyle, WorkoutSession } from './types';
+import { uuid } from './utils';
 
 // Exercise database organized by muscle group and equipment
 const EXERCISE_DB: Record<string, { name: string; muscleGroup: string; equipment: string[]; defaultSets: number; defaultReps: string }[]> = {
@@ -204,7 +205,7 @@ export function generateWorkout(
 
     const prevWeight = previousWeights[ex.name];
     selectedExercises.push({
-      id: crypto.randomUUID(),
+      id: uuid(),
       name: ex.name,
       muscleGroup: ex.muscleGroup,
       equipment: ex.equipment,
@@ -222,7 +223,7 @@ export function generateWorkout(
       if (selectedExercises.length >= config.exerciseCount) break;
       if (usedNames.has(ex.name)) continue;
       selectedExercises.push({
-        id: crypto.randomUUID(),
+        id: uuid(),
         name: ex.name,
         muscleGroup: ex.muscleGroup,
         equipment: [],
@@ -239,7 +240,7 @@ export function generateWorkout(
   const focusLabel = targetMuscles.length > 2 ? 'Full Body' : targetMuscles.join(' & ');
 
   return {
-    id: crypto.randomUUID(),
+    id: uuid(),
     name: `${focusLabel} ${pick(names)}`,
     style,
     exercises: selectedExercises,

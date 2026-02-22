@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
 import { Icon } from '../components/Icon';
 import type { WorkoutPlan, WorkoutSession, ExerciseLog, SetLog } from '../types';
+import { uuid } from '../utils';
 
 interface ActiveWorkoutProps {
   plan: WorkoutPlan;
@@ -161,7 +162,7 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
     }
 
     const session: WorkoutSession = {
-      id: crypto.randomUUID(),
+      id: uuid(),
       planId: plan.id,
       name: plan.name,
       style: plan.style,

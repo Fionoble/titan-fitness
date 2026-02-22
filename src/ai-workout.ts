@@ -1,4 +1,5 @@
 import type { Equipment, WorkoutPlan, WorkoutSession, WorkoutCriteria, ChatMessage } from './types';
+import { uuid } from './utils';
 import { sendMessage, isAIConfigured } from './ai';
 
 export function parseWorkoutFromResponse(text: string): WorkoutPlan | null {
@@ -15,11 +16,11 @@ export function parseWorkoutFromResponse(text: string): WorkoutPlan | null {
 
     // Build a full WorkoutPlan with defaults for missing fields
     const plan: WorkoutPlan = {
-      id: crypto.randomUUID(),
+      id: uuid(),
       name: parsed.name,
       style: parsed.style,
       exercises: parsed.exercises.map((ex: any) => ({
-        id: crypto.randomUUID(),
+        id: uuid(),
         name: ex.name || 'Unknown Exercise',
         muscleGroup: ex.muscleGroup || 'Full Body',
         equipment: ex.equipment || [],

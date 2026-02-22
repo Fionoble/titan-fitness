@@ -3,6 +3,7 @@ import { Icon } from '../components/Icon';
 import type { ChatMessage, Equipment, WorkoutSession, WorkoutPlan } from '../types';
 import { sendMessage, isAIConfigured, setAIConfig } from '../ai';
 import { parseWorkoutFromResponse, stripJsonBlock, buildAdjustPrompt } from '../ai-workout';
+import { uuid } from '../utils';
 
 interface CoachProps {
   messages: ChatMessage[];
@@ -115,7 +116,7 @@ export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, se
     if (!msg) return;
 
     const userMsg: ChatMessage = {
-      id: crypto.randomUUID(),
+      id: uuid(),
       role: 'user',
       content: msg,
       timestamp: new Date().toISOString(),
@@ -133,7 +134,7 @@ export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, se
       const cleanContent = parsedPlan ? stripJsonBlock(response) : response;
 
       const aiMsg: ChatMessage = {
-        id: crypto.randomUUID(),
+        id: uuid(),
         role: 'assistant',
         content: cleanContent || "Here's your workout plan!",
         timestamp: new Date().toISOString(),
@@ -142,7 +143,7 @@ export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, se
       await onReceiveMessage(aiMsg);
     } catch {
       const errorMsg: ChatMessage = {
-        id: crypto.randomUUID(),
+        id: uuid(),
         role: 'assistant',
         content: "Sorry, I couldn't process that. Please try again.",
         timestamp: new Date().toISOString(),
@@ -338,6 +339,7 @@ export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, se
           {QUICK_ACTIONS.map((action) => (
             <button
               key={action.label}
+              onTouchEnd={(e) => { e.preventDefault(); handleSend(action.label); }}
               onClick={() => handleSend(action.label)}
               disabled={isTyping}
               class="shrink-0 h-9 px-4 rounded-lg bg-surface-dark border border-transparent hover:border-primary/50 text-slate-300 text-sm font-medium transition-all active:scale-95 whitespace-nowrap flex items-center gap-2 disabled:opacity-50"
@@ -362,7 +364,8 @@ export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, se
             />
           </div>
           <button
-            onMouseDown={(e) => { e.preventDefault(); handleSend(); }}
+            onTouchEnd={(e) => { e.preventDefault(); handleSend(); }}
+            onClick={() => handleSend()}
             disabled={!input.trim() || isTyping}
             class="w-12 h-12 rounded-xl bg-primary hover:bg-green-400 text-bg-dark flex items-center justify-center shrink-0 shadow-lg shadow-primary/20 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
