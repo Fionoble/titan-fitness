@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'preact/hooks';
 import { Icon } from '../components/Icon';
-import type { WorkoutPlan, WorkoutSession, ExerciseLog } from '../types';
+import type { WorkoutPlan, WorkoutSession, ExerciseLog, Exercise } from '../types';
 import { uuid } from '../utils';
 import { groupExercises, groupLabel } from '../group-utils';
 import type { ExerciseGroup } from '../group-utils';
@@ -9,6 +9,26 @@ interface ActiveWorkoutProps {
   plan: WorkoutPlan;
   onComplete: (session: WorkoutSession) => void;
   onCancel: () => void;
+}
+
+function isTimeBased(reps: string): boolean {
+  return /\d+\s*s($|\s|\/)/i.test(reps) || /\d+\s*min/i.test(reps) || /\d+\s*sec/i.test(reps);
+}
+
+function parseTimeSeconds(reps: string): number {
+  const minMatch = reps.match(/(\d+)\s*min/i);
+  if (minMatch) return parseInt(minMatch[1]) * 60;
+  const secMatch = reps.match(/(\d+)\s*s/i);
+  if (secMatch) return parseInt(secMatch[1]);
+  return 60;
+}
+
+interface ExerciseTimerState {
+  logIdx: number;
+  setIdx: number;
+  seconds: number;
+  running: boolean;
+  mode: 'countdown' | 'countup';
 }
 
 const AI_TIPS: Record<string, string> = {
@@ -54,8 +74,10 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
   );
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [restTimer, setRestTimer] = useState<number | null>(null);
+  const [exTimer, setExTimer] = useState<ExerciseTimerState | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval>>();
   const restRef = useRef<ReturnType<typeof setInterval>>();
+  const exTimerRef = useRef<ReturnType<typeof setInterval>>();
   const startTimeRef = useRef(new Date().toISOString());
 
   // Main timer
@@ -80,8 +102,85 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
     }
   }, [restTimer]);
 
+  // Exercise timer (for time-based exercises)
+  useEffect(() => {
+    if (exTimer?.running) {
+      exTimerRef.current = setInterval(() => {
+        setExTimer((prev) => {
+          if (!prev || !prev.running) return prev;
+          if (prev.mode === 'countdown') {
+            if (prev.seconds <= 1) {
+              clearInterval(exTimerRef.current);
+              // Auto-complete the set
+              completeTimedSet(prev.logIdx, prev.setIdx, parseTimeSeconds(plan.exercises[prev.logIdx].reps));
+              return null;
+            }
+            return { ...prev, seconds: prev.seconds - 1 };
+          } else {
+            return { ...prev, seconds: prev.seconds + 1 };
+          }
+        });
+      }, 1000);
+      return () => clearInterval(exTimerRef.current);
+    }
+  }, [exTimer?.running, exTimer?.logIdx, exTimer?.setIdx]);
+
+  const completeTimedSet = useCallback((logIdx: number, setIdx: number, timeSeconds: number) => {
+    const exercise = plan.exercises[logIdx];
+    setExerciseLogs((prev) => {
+      const updated = [...prev];
+      const log = { ...updated[logIdx] };
+      const sets = [...log.sets];
+      sets[setIdx] = { ...sets[setIdx], completed: true, reps: timeSeconds, weight: null };
+      log.sets = sets;
+      updated[logIdx] = log;
+      return updated;
+    });
+    setExTimer(null);
+
+    // Group-aware rest logic
+    if (isMultiExGroupRef.current) {
+      const group = groupsRef.current;
+      const isLastEx = activeExInGroupRef.current >= group.exercises.length - 1;
+      if (isLastEx) {
+        setRestTimer(90);
+        setActiveExInGroup(0);
+      } else {
+        setActiveExInGroup((i) => i + 1);
+      }
+    } else {
+      setRestTimer(exercise.restSeconds || 60);
+    }
+  }, [plan.exercises]);
+
+  const startExTimer = useCallback((logIdx: number, setIdx: number, mode: 'countdown' | 'countup') => {
+    const exercise = plan.exercises[logIdx];
+    const targetSec = parseTimeSeconds(exercise.reps);
+    setExTimer({
+      logIdx,
+      setIdx,
+      seconds: mode === 'countdown' ? targetSec : 0,
+      running: true,
+      mode,
+    });
+  }, [plan.exercises]);
+
+  const stopExTimer = useCallback(() => {
+    if (!exTimer) return;
+    const elapsed = exTimer.mode === 'countup' ? exTimer.seconds : parseTimeSeconds(plan.exercises[exTimer.logIdx].reps) - exTimer.seconds;
+    completeTimedSet(exTimer.logIdx, exTimer.setIdx, elapsed);
+  }, [exTimer, plan.exercises, completeTimedSet]);
+
   const currentGroup = groups[currentGroupIdx];
   const isMultiExGroup = currentGroup.exercises.length > 1;
+
+  // Refs for use in timer callbacks
+  const isMultiExGroupRef = useRef(isMultiExGroup);
+  isMultiExGroupRef.current = isMultiExGroup;
+  const groupsRef = useRef(currentGroup);
+  groupsRef.current = currentGroup;
+  const activeExInGroupRef = useRef(activeExInGroup);
+  activeExInGroupRef.current = activeExInGroup;
 
   const completedGroups = groups.filter((g) =>
     g.exercises.every((ex) => {
@@ -228,6 +327,9 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
   // Render set grid for a single exercise
   const renderSetGrid = (exercise: typeof plan.exercises[0], logIdx: number, isHighlighted: boolean) => {
     const log = exerciseLogs[logIdx];
+    const timed = isTimeBased(exercise.reps);
+    const targetSeconds = timed ? parseTimeSeconds(exercise.reps) : 0;
+
     return (
       <div class={`space-y-2 ${isMultiExGroup && !isHighlighted ? 'opacity-60' : ''}`}>
         {/* Exercise header for multi-exercise groups */}
@@ -240,67 +342,164 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
           </div>
         )}
 
-        <div class="grid grid-cols-12 gap-2 px-2 pb-1 text-[11px] uppercase tracking-wider font-bold text-slate-500 text-center">
-          <div class="col-span-2 text-left">Set</div>
-          <div class="col-span-3">Prev</div>
-          <div class="col-span-3">lbs</div>
-          <div class="col-span-2">Reps</div>
-          <div class="col-span-2 text-right">Done</div>
-        </div>
-
-        {log.sets.map((set, idx) => {
-          const isActive = !set.completed && (idx === 0 || log.sets[idx - 1]?.completed);
-          return (
-            <div
-              key={idx}
-              class={`relative rounded-lg overflow-hidden transition-all ${
-                set.completed
-                  ? 'bg-surface-dark border border-white/5'
-                  : isActive && isHighlighted
-                  ? 'bg-surface-dark border-2 border-primary/50 shadow-md'
-                  : 'bg-surface-dark border border-white/5 opacity-60'
-              }`}
-            >
-              {set.completed && <div class="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>}
-              <div class="grid grid-cols-12 gap-2 p-3 items-center">
-                <div class="col-span-2 text-left font-bold text-lg pl-2">{set.setNumber}</div>
-                <div class="col-span-3 text-center text-xs text-slate-500 font-medium">
-                  {exercise.weight ? `${exercise.weight} × ${exercise.reps}` : '—'}
-                </div>
-                <div class="col-span-3">
-                  <input
-                    type="number"
-                    value={set.weight ?? ''}
-                    placeholder={exercise.weight?.toString() || '-'}
-                    onInput={(e) => updateSet(logIdx, idx, 'weight', (e.target as HTMLInputElement).value ? Number((e.target as HTMLInputElement).value) : null)}
-                    class="w-full bg-bg-dark border-none rounded text-center font-bold text-white focus:ring-1 focus:ring-primary p-2 text-sm"
-                  />
-                </div>
-                <div class="col-span-2">
-                  <input
-                    type="number"
-                    value={set.reps ?? ''}
-                    placeholder={exercise.reps.replace(/[^0-9]/g, '') || '-'}
-                    onInput={(e) => updateSet(logIdx, idx, 'reps', (e.target as HTMLInputElement).value ? Number((e.target as HTMLInputElement).value) : null)}
-                    class="w-full bg-bg-dark border-none rounded text-center font-bold text-white focus:ring-1 focus:ring-primary p-2 text-sm"
-                  />
-                </div>
-                <div class="col-span-2 flex justify-end">
-                  <button
-                    onClick={() => toggleSetComplete(logIdx, idx)}
-                    class={`w-8 h-8 rounded flex items-center justify-center transition-all ${
-                      set.completed
-                        ? 'bg-primary text-bg-dark shadow-sm'
-                        : 'bg-slate-700 text-slate-400 hover:bg-primary/20 hover:text-primary'
-                    }`}
-                  >
-                    <Icon name="check" class="text-xl font-bold" />
-                  </button>
-                </div>
-              </div>
+        {timed ? (
+          /* Time-based exercise UI */
+          <>
+            <div class="grid grid-cols-12 gap-2 px-2 pb-1 text-[11px] uppercase tracking-wider font-bold text-slate-500 text-center">
+              <div class="col-span-2 text-left">Set</div>
+              <div class="col-span-3">Target</div>
+              <div class="col-span-5">Time</div>
+              <div class="col-span-2 text-right">Done</div>
             </div>
-          );
-        })}
+
+            {log.sets.map((set, idx) => {
+              const isActive = !set.completed && (idx === 0 || log.sets[idx - 1]?.completed);
+              const isTimerActive = exTimer?.logIdx === logIdx && exTimer?.setIdx === idx && exTimer?.running;
+              const isTimerForThis = exTimer?.logIdx === logIdx && exTimer?.setIdx === idx;
+
+              return (
+                <div
+                  key={idx}
+                  class={`relative rounded-lg overflow-hidden transition-all ${
+                    set.completed
+                      ? 'bg-surface-dark border border-white/5'
+                      : isActive && isHighlighted
+                      ? 'bg-surface-dark border-2 border-primary/50 shadow-md'
+                      : 'bg-surface-dark border border-white/5 opacity-60'
+                  }`}
+                >
+                  {set.completed && <div class="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>}
+                  <div class="grid grid-cols-12 gap-2 p-3 items-center">
+                    <div class="col-span-2 text-left font-bold text-lg pl-2">{set.setNumber}</div>
+                    <div class="col-span-3 text-center text-xs text-slate-500 font-medium">
+                      {exercise.reps}
+                    </div>
+                    <div class="col-span-5 flex items-center justify-center gap-2">
+                      {set.completed ? (
+                        <span class="text-sm font-bold text-primary">{formatTime(set.reps || targetSeconds)}</span>
+                      ) : isTimerForThis ? (
+                        <div class="flex items-center gap-2">
+                          <span class={`text-lg font-bold tabular-nums ${isTimerActive ? 'text-primary' : 'text-white'}`}>
+                            {formatTime(exTimer!.seconds)}
+                          </span>
+                          <button
+                            onClick={stopExTimer}
+                            class="px-2 py-1 rounded bg-red-500/20 text-red-400 text-xs font-bold hover:bg-red-500/30 transition-colors"
+                          >
+                            Stop
+                          </button>
+                        </div>
+                      ) : isActive && isHighlighted ? (
+                        <div class="flex gap-1">
+                          <button
+                            onClick={() => startExTimer(logIdx, idx, 'countdown')}
+                            class="px-2 py-1 rounded bg-primary/20 text-primary text-xs font-bold hover:bg-primary/30 transition-colors flex items-center gap-1"
+                            title="Countdown from target"
+                          >
+                            <Icon name="timer" class="text-sm" />
+                            {formatTime(targetSeconds)}
+                          </button>
+                          <button
+                            onClick={() => startExTimer(logIdx, idx, 'countup')}
+                            class="px-2 py-1 rounded bg-white/10 text-slate-300 text-xs font-bold hover:bg-white/15 transition-colors flex items-center gap-1"
+                            title="Count up"
+                          >
+                            <Icon name="arrow_upward" class="text-sm" />
+                            0:00
+                          </button>
+                        </div>
+                      ) : (
+                        <span class="text-xs text-slate-500">—</span>
+                      )}
+                    </div>
+                    <div class="col-span-2 flex justify-end">
+                      {set.completed ? (
+                        <div class="w-8 h-8 rounded flex items-center justify-center bg-primary text-bg-dark shadow-sm">
+                          <Icon name="check" class="text-xl font-bold" />
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            // Manual complete for timed exercises
+                            completeTimedSet(logIdx, idx, targetSeconds);
+                          }}
+                          class="w-8 h-8 rounded flex items-center justify-center bg-slate-700 text-slate-400 hover:bg-primary/20 hover:text-primary transition-all"
+                        >
+                          <Icon name="check" class="text-xl font-bold" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        ) : (
+          /* Standard weight/reps UI */
+          <>
+            <div class="grid grid-cols-12 gap-2 px-2 pb-1 text-[11px] uppercase tracking-wider font-bold text-slate-500 text-center">
+              <div class="col-span-2 text-left">Set</div>
+              <div class="col-span-3">Prev</div>
+              <div class="col-span-3">lbs</div>
+              <div class="col-span-2">Reps</div>
+              <div class="col-span-2 text-right">Done</div>
+            </div>
+
+            {log.sets.map((set, idx) => {
+              const isActive = !set.completed && (idx === 0 || log.sets[idx - 1]?.completed);
+              return (
+                <div
+                  key={idx}
+                  class={`relative rounded-lg overflow-hidden transition-all ${
+                    set.completed
+                      ? 'bg-surface-dark border border-white/5'
+                      : isActive && isHighlighted
+                      ? 'bg-surface-dark border-2 border-primary/50 shadow-md'
+                      : 'bg-surface-dark border border-white/5 opacity-60'
+                  }`}
+                >
+                  {set.completed && <div class="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>}
+                  <div class="grid grid-cols-12 gap-2 p-3 items-center">
+                    <div class="col-span-2 text-left font-bold text-lg pl-2">{set.setNumber}</div>
+                    <div class="col-span-3 text-center text-xs text-slate-500 font-medium">
+                      {exercise.weight ? `${exercise.weight} × ${exercise.reps}` : '—'}
+                    </div>
+                    <div class="col-span-3">
+                      <input
+                        type="number"
+                        value={set.weight ?? ''}
+                        placeholder={exercise.weight?.toString() || '-'}
+                        onInput={(e) => updateSet(logIdx, idx, 'weight', (e.target as HTMLInputElement).value ? Number((e.target as HTMLInputElement).value) : null)}
+                        class="w-full bg-bg-dark border-none rounded text-center font-bold text-white focus:ring-1 focus:ring-primary p-2 text-sm"
+                      />
+                    </div>
+                    <div class="col-span-2">
+                      <input
+                        type="number"
+                        value={set.reps ?? ''}
+                        placeholder={exercise.reps.replace(/[^0-9]/g, '') || '-'}
+                        onInput={(e) => updateSet(logIdx, idx, 'reps', (e.target as HTMLInputElement).value ? Number((e.target as HTMLInputElement).value) : null)}
+                        class="w-full bg-bg-dark border-none rounded text-center font-bold text-white focus:ring-1 focus:ring-primary p-2 text-sm"
+                      />
+                    </div>
+                    <div class="col-span-2 flex justify-end">
+                      <button
+                        onClick={() => toggleSetComplete(logIdx, idx)}
+                        class={`w-8 h-8 rounded flex items-center justify-center transition-all ${
+                          set.completed
+                            ? 'bg-primary text-bg-dark shadow-sm'
+                            : 'bg-slate-700 text-slate-400 hover:bg-primary/20 hover:text-primary'
+                        }`}
+                      >
+                        <Icon name="check" class="text-xl font-bold" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        )}
 
         {/* Add Set */}
         <button

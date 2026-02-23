@@ -87,6 +87,8 @@ export interface UserProfile {
   name: string;
   aiApiKey?: string;
   aiProvider?: 'anthropic' | 'openai';
+  injuries?: string;
+  additionalEquipment?: string;
   createdAt: string;
 }
 

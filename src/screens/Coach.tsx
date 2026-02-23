@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { Icon } from '../components/Icon';
-import type { ChatMessage, Equipment, WorkoutSession, WorkoutPlan } from '../types';
+import type { ChatMessage, Equipment, WorkoutSession, WorkoutPlan, UserProfile } from '../types';
 import { sendMessage, isAIConfigured, setAIConfig } from '../ai';
 import { parseWorkoutFromResponse, stripJsonBlock, buildAdjustPrompt } from '../ai-workout';
 import { uuid } from '../utils';
@@ -15,6 +15,7 @@ interface CoachProps {
   onClearChat?: () => void;
   pendingAdjustPlan?: WorkoutPlan | null;
   onClearPendingAdjust?: () => void;
+  profile?: UserProfile | null;
 }
 
 const QUICK_ACTIONS = [
@@ -88,7 +89,7 @@ function WorkoutPlanCard({ plan, onApply }: { plan: WorkoutPlan; onApply?: (plan
   );
 }
 
-export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, sessions, onApplyPlan, onClearChat, pendingAdjustPlan, onClearPendingAdjust }: CoachProps) {
+export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, sessions, onApplyPlan, onClearChat, pendingAdjustPlan, onClearPendingAdjust, profile }: CoachProps) {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -127,7 +128,8 @@ export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, se
     setIsTyping(true);
 
     try {
-      const response = await sendMessage(msg, [...messages, userMsg], equipment, sessions);
+      const profileContext = profile ? { injuries: profile.injuries, additionalEquipment: profile.additionalEquipment } : undefined;
+      const response = await sendMessage(msg, [...messages, userMsg], equipment, sessions, profileContext);
 
       // Check if the response contains a workout plan
       const parsedPlan = parseWorkoutFromResponse(response);

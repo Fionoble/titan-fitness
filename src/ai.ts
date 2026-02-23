@@ -21,7 +21,7 @@ export function setAIConfig(apiKey: string, provider: 'anthropic' | 'openai') {
   localStorage.setItem('titan_ai_provider', provider);
 }
 
-function buildSystemPrompt(equipment: Equipment[], recentSessions: WorkoutSession[]): string {
+function buildSystemPrompt(equipment: Equipment[], recentSessions: WorkoutSession[], injuries?: string, additionalEquipment?: string): string {
   const enabledEquip = equipment.filter((e) => e.enabled).map((e) => e.name);
   const recentWorkouts = recentSessions.slice(0, 5).map((s) => {
     const exercises = s.exercises.map((e) => `${e.exerciseName} (${e.sets.length} sets)`).join(', ');
@@ -32,6 +32,8 @@ function buildSystemPrompt(equipment: Equipment[], recentSessions: WorkoutSessio
 
 USER'S HOME GYM EQUIPMENT:
 ${enabledEquip.length > 0 ? enabledEquip.map((e) => `- ${e}`).join('\n') : '- No equipment configured yet (bodyweight only)'}
+${additionalEquipment ? `\nADDITIONAL EQUIPMENT/NOTES:\n${additionalEquipment}` : ''}
+${injuries ? `\nCURRENT INJURIES/LIMITATIONS:\n${injuries}\nIMPORTANT: Always account for these injuries. Avoid exercises that aggravate them and suggest alternatives.` : ''}
 
 RECENT WORKOUT HISTORY:
 ${recentWorkouts.length > 0 ? recentWorkouts.join('\n') : '- No recent workouts yet'}
@@ -45,7 +47,7 @@ GUIDELINES:
 - Be conversational and supportive, like a personal trainer
 
 WORKOUT GENERATION:
-When asked to generate, create, or adjust a workout, you MUST include a JSON workout plan in your response inside a \`\`\`json code fence. The JSON must match this exact schema:
+When asked to generate, create, adjust, or modify a workout, you MUST ALWAYS include the COMPLETE workout plan as a JSON block in a \`\`\`json code fence. This is CRITICAL — never describe changes without including the full updated JSON. Even if you're only adding or removing one exercise, output the entire plan. The JSON must match this exact schema:
 {
   "name": "string - workout name",
   "style": "strength|hypertrophy|functional|hiit|cardio|recovery|mobility|power|endurance",
@@ -74,14 +76,15 @@ export async function sendMessage(
   userMessage: string,
   chatHistory: ChatMessage[],
   equipment: Equipment[],
-  recentSessions: WorkoutSession[]
+  recentSessions: WorkoutSession[],
+  profileContext?: { injuries?: string; additionalEquipment?: string }
 ): Promise<string> {
   const config = getConfig();
   if (!config) {
     return "I'd love to help! Please set up your AI API key in the Profile settings to enable the chat. You can use either an Anthropic or OpenAI key.";
   }
 
-  const systemPrompt = buildSystemPrompt(equipment, recentSessions);
+  const systemPrompt = buildSystemPrompt(equipment, recentSessions, profileContext?.injuries, profileContext?.additionalEquipment);
 
   try {
     if (config.provider === 'anthropic') {

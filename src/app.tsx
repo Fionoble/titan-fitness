@@ -85,6 +85,7 @@ export function App() {
           onStartWorkout={startWorkout}
           onRegenerate={handleRegenerate}
           onAdjustWithAI={handleAdjustWithAI}
+          onUpdatePlan={applyPlan}
         />
         <Route
           path={withBase('/discover')}
@@ -109,6 +110,7 @@ export function App() {
           onClearChat={clearChat}
           pendingAdjustPlan={pendingAdjustPlan}
           onClearPendingAdjust={() => setPendingAdjustPlan(null)}
+          profile={profile}
         />
         <Route
           path={withBase('/profile')}
@@ -133,6 +135,7 @@ export function App() {
           onStartWorkout={startWorkout}
           onRegenerate={handleRegenerate}
           onAdjustWithAI={handleAdjustWithAI}
+          onUpdatePlan={applyPlan}
         />
       </Router>
 

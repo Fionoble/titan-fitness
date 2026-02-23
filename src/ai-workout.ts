@@ -2,50 +2,65 @@ import type { Equipment, WorkoutPlan, WorkoutSession, WorkoutCriteria, ChatMessa
 import { uuid } from './utils';
 import { sendMessage, isAIConfigured } from './ai';
 
+function extractJson(text: string): string | null {
+  // Try ```json code fence first
+  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenceMatch) return fenceMatch[1].trim();
+
+  // Fallback: find a raw JSON object with "exercises" array
+  const braceMatch = text.match(/\{[\s\S]*?"exercises"\s*:\s*\[[\s\S]*?\][\s\S]*?\}/);
+  if (braceMatch) return braceMatch[0];
+
+  return null;
+}
+
+function buildPlanFromJson(parsed: any): WorkoutPlan | null {
+  // Validate required fields
+  if (!parsed.name || !parsed.style || !Array.isArray(parsed.exercises) || parsed.exercises.length === 0) {
+    return null;
+  }
+
+  return {
+    id: uuid(),
+    name: parsed.name,
+    style: parsed.style,
+    exercises: parsed.exercises.map((ex: any) => ({
+      id: uuid(),
+      name: ex.name || 'Unknown Exercise',
+      muscleGroup: ex.muscleGroup || 'Full Body',
+      equipment: ex.equipment || [],
+      sets: ex.sets || 3,
+      reps: String(ex.reps || '10'),
+      weight: ex.weight || undefined,
+      restSeconds: ex.restSeconds || 60,
+      group: ex.group || undefined,
+    })),
+    durationMin: parsed.durationMin || 45,
+    estimatedCalories: parsed.estimatedCalories || 300,
+    focus: parsed.focus || 'Full Body',
+    equipmentUsed: [...new Set((parsed.exercises || []).flatMap((e: any) => e.equipment || []))] as string[],
+    generatedAt: new Date().toISOString(),
+    intensity: parsed.intensity || 2,
+  };
+}
+
 export function parseWorkoutFromResponse(text: string): WorkoutPlan | null {
-  const jsonMatch = text.match(/```json\s*([\s\S]*?)```/);
-  if (!jsonMatch) return null;
+  const jsonStr = extractJson(text);
+  if (!jsonStr) return null;
 
   try {
-    const parsed = JSON.parse(jsonMatch[1].trim());
-
-    // Validate required fields
-    if (!parsed.name || !parsed.style || !Array.isArray(parsed.exercises) || parsed.exercises.length === 0) {
-      return null;
-    }
-
-    // Build a full WorkoutPlan with defaults for missing fields
-    const plan: WorkoutPlan = {
-      id: uuid(),
-      name: parsed.name,
-      style: parsed.style,
-      exercises: parsed.exercises.map((ex: any) => ({
-        id: uuid(),
-        name: ex.name || 'Unknown Exercise',
-        muscleGroup: ex.muscleGroup || 'Full Body',
-        equipment: ex.equipment || [],
-        sets: ex.sets || 3,
-        reps: String(ex.reps || '10'),
-        weight: ex.weight || undefined,
-        restSeconds: ex.restSeconds || 60,
-        group: ex.group || undefined,
-      })),
-      durationMin: parsed.durationMin || 45,
-      estimatedCalories: parsed.estimatedCalories || 300,
-      focus: parsed.focus || 'Full Body',
-      equipmentUsed: [...new Set((parsed.exercises || []).flatMap((e: any) => e.equipment || []))] as string[],
-      generatedAt: new Date().toISOString(),
-      intensity: parsed.intensity || 2,
-    };
-
-    return plan;
+    const parsed = JSON.parse(jsonStr);
+    return buildPlanFromJson(parsed);
   } catch {
     return null;
   }
 }
 
 export function stripJsonBlock(text: string): string {
-  return text.replace(/```json\s*[\s\S]*?```/g, '').trim();
+  return text
+    .replace(/```(?:json)?\s*[\s\S]*?```/g, '')
+    .replace(/\{[\s\S]*?"exercises"\s*:\s*\[[\s\S]*?\][\s\S]*?\}/g, '')
+    .trim();
 }
 
 function buildWorkoutPrompt(equipment: Equipment[], criteria?: WorkoutCriteria): string {

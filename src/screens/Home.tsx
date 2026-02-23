@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'preact/hooks';
 import { Icon } from '../components/Icon';
-import type { WorkoutPlan, WorkoutCriteria, WorkoutStyle } from '../types';
+import type { WorkoutPlan, WorkoutCriteria, WorkoutStyle, Exercise } from '../types';
 import { groupExercises, groupLabel } from '../group-utils';
 
 interface HomeProps {
@@ -10,6 +10,7 @@ interface HomeProps {
   onStartWorkout: () => void;
   onRegenerate: (style?: string, criteria?: WorkoutCriteria) => void;
   onAdjustWithAI?: () => void;
+  onUpdatePlan?: (plan: WorkoutPlan) => void;
 }
 
 function getGreeting(): string {
@@ -40,9 +41,12 @@ const STYLE_OPTIONS: { value: WorkoutStyle; label: string }[] = [
   { value: 'endurance', label: 'Endurance' },
 ];
 
-function ExerciseCard({ ex, label }: { ex: import('../types').Exercise; label: string | number }) {
+function ExerciseCard({ ex, label, onTap }: { ex: Exercise; label: string | number; onTap?: () => void }) {
   return (
-    <div class="bg-surface-dark rounded-xl p-3 flex items-center gap-4 border border-white/5 hover:border-primary/30 transition-colors">
+    <div
+      onClick={onTap}
+      class={`bg-surface-dark rounded-xl p-3 flex items-center gap-4 border border-white/5 hover:border-primary/30 transition-colors ${onTap ? 'cursor-pointer active:scale-[0.98]' : ''}`}
+    >
       <div class="w-14 h-14 rounded-lg bg-surface-darker flex items-center justify-center shrink-0">
         <span class="text-2xl font-bold text-primary/60">{label}</span>
       </div>
@@ -65,11 +69,12 @@ function ExerciseCard({ ex, label }: { ex: import('../types').Exercise; label: s
           )}
         </div>
       </div>
+      {onTap && <Icon name="edit" class="text-slate-600 text-lg shrink-0" />}
     </div>
   );
 }
 
-function ExerciseList({ exercises }: { exercises: import('../types').Exercise[] }) {
+function ExerciseList({ exercises, onEditExercise }: { exercises: Exercise[]; onEditExercise?: (ex: Exercise) => void }) {
   const groups = useMemo(() => groupExercises(exercises), [exercises]);
   let counter = 0;
 
@@ -78,7 +83,8 @@ function ExerciseList({ exercises }: { exercises: import('../types').Exercise[] 
       {groups.map((group) => {
         if (group.type === 'standalone') {
           counter++;
-          return <ExerciseCard key={group.groupId} ex={group.exercises[0]} label={counter} />;
+          const ex = group.exercises[0];
+          return <ExerciseCard key={group.groupId} ex={ex} label={counter} onTap={onEditExercise ? () => onEditExercise(ex) : undefined} />;
         }
 
         const badge = group.groupId;
@@ -93,7 +99,7 @@ function ExerciseList({ exercises }: { exercises: import('../types').Exercise[] 
             <div class="border-l-2 border-primary/40 pl-3 space-y-2">
               {group.exercises.map((ex) => {
                 counter++;
-                return <ExerciseCard key={ex.id} ex={ex} label={badge} />;
+                return <ExerciseCard key={ex.id} ex={ex} label={badge} onTap={onEditExercise ? () => onEditExercise(ex) : undefined} />;
               })}
             </div>
           </div>
@@ -103,11 +109,137 @@ function ExerciseList({ exercises }: { exercises: import('../types').Exercise[] 
   );
 }
 
-export function Home({ plan, loading, userName, onStartWorkout, onRegenerate, onAdjustWithAI }: HomeProps) {
+function EditExerciseModal({ exercise, onSave, onRemove, onClose }: {
+  exercise: Exercise;
+  onSave: (updated: Exercise) => void;
+  onRemove: () => void;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState(exercise.name);
+  const [sets, setSets] = useState(exercise.sets.toString());
+  const [reps, setReps] = useState(exercise.reps);
+  const [weight, setWeight] = useState(exercise.weight?.toString() || '');
+  const [muscleGroup, setMuscleGroup] = useState(exercise.muscleGroup);
+
+  const handleSave = () => {
+    onSave({
+      ...exercise,
+      name: name.trim() || exercise.name,
+      sets: parseInt(sets) || exercise.sets,
+      reps: reps.trim() || exercise.reps,
+      weight: weight ? Number(weight) : undefined,
+      muscleGroup: muscleGroup.trim() || exercise.muscleGroup,
+    });
+  };
+
+  return (
+    <div class="fixed inset-0 z-[100] flex items-end justify-center">
+      <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
+      <div class="relative w-full max-w-[430px] bg-bg-dark border-t border-white/10 rounded-t-2xl p-5 pb-8 animate-slide-up">
+        <div class="w-10 h-1 bg-slate-600 rounded-full mx-auto mb-4"></div>
+        <h3 class="text-lg font-bold text-white mb-4">Edit Exercise</h3>
+
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1 uppercase tracking-wider">Name</label>
+            <input
+              type="text"
+              value={name}
+              onInput={(e) => setName((e.target as HTMLInputElement).value)}
+              class="w-full bg-surface-dark border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-primary/50 focus:ring-1 focus:ring-primary/50"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1 uppercase tracking-wider">Muscle Group</label>
+            <input
+              type="text"
+              value={muscleGroup}
+              onInput={(e) => setMuscleGroup((e.target as HTMLInputElement).value)}
+              class="w-full bg-surface-dark border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-primary/50 focus:ring-1 focus:ring-primary/50"
+            />
+          </div>
+
+          <div class="grid grid-cols-3 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1 uppercase tracking-wider">Sets</label>
+              <input
+                type="number"
+                value={sets}
+                onInput={(e) => setSets((e.target as HTMLInputElement).value)}
+                class="w-full bg-surface-dark border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white text-center focus:border-primary/50 focus:ring-1 focus:ring-primary/50"
+              />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1 uppercase tracking-wider">Reps</label>
+              <input
+                type="text"
+                value={reps}
+                onInput={(e) => setReps((e.target as HTMLInputElement).value)}
+                placeholder="10-12"
+                class="w-full bg-surface-dark border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white text-center focus:border-primary/50 focus:ring-1 focus:ring-primary/50"
+              />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1 uppercase tracking-wider">Weight</label>
+              <input
+                type="number"
+                value={weight}
+                onInput={(e) => setWeight((e.target as HTMLInputElement).value)}
+                placeholder="lbs"
+                class="w-full bg-surface-dark border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white text-center focus:border-primary/50 focus:ring-1 focus:ring-primary/50"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="flex gap-3 mt-6">
+          <button
+            onClick={onRemove}
+            class="h-12 w-12 rounded-xl bg-red-500/10 text-red-400 flex items-center justify-center hover:bg-red-500/20 transition-colors shrink-0"
+            title="Remove exercise"
+          >
+            <Icon name="delete" />
+          </button>
+          <button
+            onClick={onClose}
+            class="flex-1 py-3 rounded-xl bg-surface-dark text-slate-300 font-semibold text-sm"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            class="flex-1 py-3 rounded-xl bg-primary text-bg-dark font-bold text-sm"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function Home({ plan, loading, userName, onStartWorkout, onRegenerate, onAdjustWithAI, onUpdatePlan }: HomeProps) {
   const [showRegenModal, setShowRegenModal] = useState(false);
   const [regenStyle, setRegenStyle] = useState<WorkoutStyle | ''>('');
   const [regenMood, setRegenMood] = useState('');
   const [regenLimitations, setRegenLimitations] = useState('');
+  const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
+
+  const handleSaveExercise = (updated: Exercise) => {
+    if (!plan || !onUpdatePlan) return;
+    const newExercises = plan.exercises.map((ex) => ex.id === updated.id ? updated : ex);
+    onUpdatePlan({ ...plan, exercises: newExercises });
+    setEditingExercise(null);
+  };
+
+  const handleRemoveExercise = () => {
+    if (!plan || !onUpdatePlan || !editingExercise) return;
+    if (plan.exercises.length <= 1) return; // don't remove last exercise
+    const newExercises = plan.exercises.filter((ex) => ex.id !== editingExercise.id);
+    onUpdatePlan({ ...plan, exercises: newExercises });
+    setEditingExercise(null);
+  };
 
   const handleRegenerate = () => {
     const criteria: WorkoutCriteria = {};
@@ -248,8 +380,18 @@ export function Home({ plan, loading, userName, onStartWorkout, onRegenerate, on
             <h3 class="text-lg font-bold text-white">Exercises</h3>
             <span class="text-xs text-primary font-medium">{plan.exercises.length} Moves</span>
           </div>
-          <ExerciseList exercises={plan.exercises} />
+          <ExerciseList exercises={plan.exercises} onEditExercise={onUpdatePlan ? setEditingExercise : undefined} />
         </div>
+      )}
+
+      {/* Exercise Edit Modal */}
+      {editingExercise && (
+        <EditExerciseModal
+          exercise={editingExercise}
+          onSave={handleSaveExercise}
+          onRemove={handleRemoveExercise}
+          onClose={() => setEditingExercise(null)}
+        />
       )}
 
       {/* Start Workout FAB */}

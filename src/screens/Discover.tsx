@@ -26,6 +26,12 @@ const STYLE_IMAGES: Record<WorkoutStyle, string> = {
 export function Discover({ equipment, onSelectStyle }: DiscoverProps) {
   const [activeFilter, setActiveFilter] = useState('All');
   const [search, setSearch] = useState('');
+  const [loadingStyle, setLoadingStyle] = useState<string | null>(null);
+
+  const handleSelect = (style: string) => {
+    setLoadingStyle(style);
+    onSelectStyle(style);
+  };
 
   const enabledEquipment = equipment.filter((e) => e.enabled);
   const filteredStyles = ALL_STYLES.filter((s) => {
@@ -95,11 +101,20 @@ export function Discover({ equipment, onSelectStyle }: DiscoverProps) {
             </h2>
           </div>
           <button
-            onClick={() => onSelectStyle(topPick)}
-            class="relative h-64 w-full overflow-hidden rounded-2xl group cursor-pointer shadow-lg shadow-black/20 text-left"
+            onClick={() => handleSelect(topPick)}
+            disabled={!!loadingStyle}
+            class="relative h-64 w-full overflow-hidden rounded-2xl group cursor-pointer shadow-lg shadow-black/20 text-left disabled:pointer-events-none"
           >
             <div class="absolute inset-0" style={{ background: STYLE_IMAGES[topPick] }}></div>
             <div class="absolute inset-0 bg-gradient-to-t from-bg-dark via-bg-dark/50 to-transparent"></div>
+            {loadingStyle === topPick && (
+              <div class="absolute inset-0 z-10 bg-bg-dark/70 flex items-center justify-center">
+                <div class="flex flex-col items-center gap-3">
+                  <div class="w-10 h-10 rounded-full border-3 border-primary/30 border-t-primary animate-spin"></div>
+                  <span class="text-sm font-semibold text-primary">Generating...</span>
+                </div>
+              </div>
+            )}
             <div class="absolute top-3 left-3">
               <span class="inline-flex items-center rounded-lg bg-primary/90 px-2.5 py-1 text-xs font-bold text-bg-dark backdrop-blur-md">
                 Best Match
@@ -135,11 +150,20 @@ export function Discover({ equipment, onSelectStyle }: DiscoverProps) {
               return (
                 <button
                   key={style}
-                  onClick={() => onSelectStyle(style)}
-                  class="relative h-44 w-full overflow-hidden rounded-2xl group cursor-pointer shadow-md shadow-black/20 text-left"
+                  onClick={() => handleSelect(style)}
+                  disabled={!!loadingStyle}
+                  class="relative h-44 w-full overflow-hidden rounded-2xl group cursor-pointer shadow-md shadow-black/20 text-left disabled:pointer-events-none"
                 >
                   <div class="absolute inset-0" style={{ background: STYLE_IMAGES[style] }}></div>
                   <div class={`absolute inset-0 bg-gradient-to-${isRight ? 'l' : 'r'} from-bg-dark/90 via-bg-dark/40 to-transparent`}></div>
+                  {loadingStyle === style && (
+                    <div class="absolute inset-0 z-10 bg-bg-dark/70 flex items-center justify-center">
+                      <div class="flex flex-col items-center gap-3">
+                        <div class="w-10 h-10 rounded-full border-3 border-primary/30 border-t-primary animate-spin"></div>
+                        <span class="text-sm font-semibold text-primary">Generating...</span>
+                      </div>
+                    </div>
+                  )}
                   <div class={`absolute inset-0 p-5 flex flex-col justify-end ${isRight ? 'items-end text-right' : 'items-start'}`}>
                     <div class="bg-surface-dark/30 backdrop-blur-sm p-1.5 rounded-lg mb-2 inline-block">
                       <Icon name={info.icon} class="text-primary block" />

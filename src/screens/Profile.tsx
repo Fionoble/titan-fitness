@@ -16,6 +16,9 @@ export function Profile({ profile, sessions, onUpdateProfile, onNavigateEquipmen
   const [showAPISetup, setShowAPISetup] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [provider, setProvider] = useState<'anthropic' | 'openai'>('anthropic');
+  const [injuries, setInjuries] = useState(profile?.injuries || '');
+  const [additionalEquipment, setAdditionalEquipment] = useState(profile?.additionalEquipment || '');
+  const [showFitnessContext, setShowFitnessContext] = useState(false);
 
   const totalWorkouts = sessions.length;
   const totalVolume = sessions.reduce((sum, s) => sum + s.totalVolume, 0);
@@ -113,6 +116,62 @@ export function Profile({ profile, sessions, onUpdateProfile, onNavigateEquipmen
             </div>
             <Icon name="chevron_right" class="text-slate-500" />
           </button>
+
+          <button
+            onClick={() => setShowFitnessContext(!showFitnessContext)}
+            class="w-full flex items-center justify-between p-4 bg-surface-dark rounded-xl border border-white/5 hover:border-primary/30 transition-colors"
+          >
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-400">
+                <Icon name="health_and_safety" />
+              </div>
+              <div class="text-left">
+                <p class="font-semibold text-white">Injuries & Context</p>
+                <p class="text-xs text-slate-400">Limitations, extra equipment info</p>
+              </div>
+            </div>
+            <Icon name={showFitnessContext ? 'expand_less' : 'chevron_right'} class="text-slate-500" />
+          </button>
+
+          {showFitnessContext && (
+            <div class="bg-surface-dark rounded-xl p-4 border border-white/5 space-y-4">
+              <p class="text-sm text-slate-300">
+                This info is shared with the AI Coach to personalize your workouts and avoid aggravating injuries.
+              </p>
+
+              <div>
+                <label class="block text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">Current Injuries / Limitations</label>
+                <textarea
+                  value={injuries}
+                  onInput={(e) => setInjuries((e.target as HTMLTextAreaElement).value)}
+                  placeholder="e.g. torn rotator cuff (left), lower back pain, bad right knee..."
+                  rows={3}
+                  class="w-full bg-bg-dark border border-white/10 rounded-lg px-3 py-2.5 text-white placeholder-slate-500 focus:ring-primary focus:border-primary text-sm resize-none"
+                />
+              </div>
+
+              <div>
+                <label class="block text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">Additional Equipment Notes</label>
+                <textarea
+                  value={additionalEquipment}
+                  onInput={(e) => setAdditionalEquipment((e.target as HTMLTextAreaElement).value)}
+                  placeholder="e.g. adjustable dumbbells up to 50lbs, doorway pull-up bar with limited head clearance..."
+                  rows={3}
+                  class="w-full bg-bg-dark border border-white/10 rounded-lg px-3 py-2.5 text-white placeholder-slate-500 focus:ring-primary focus:border-primary text-sm resize-none"
+                />
+              </div>
+
+              <button
+                onClick={() => {
+                  onUpdateProfile({ injuries: injuries.trim() || undefined, additionalEquipment: additionalEquipment.trim() || undefined });
+                  setShowFitnessContext(false);
+                }}
+                class="w-full py-2.5 bg-primary text-bg-dark rounded-lg font-semibold text-sm"
+              >
+                Save
+              </button>
+            </div>
+          )}
 
           <button
             onClick={() => setShowAPISetup(!showAPISetup)}
