@@ -18,6 +18,7 @@ export interface Exercise {
   weight?: number;
   notes?: string;
   restSeconds?: number;
+  group?: string; // e.g. "A", "B" — exercises with same group are done together
 }
 
 export interface WorkoutPlan {

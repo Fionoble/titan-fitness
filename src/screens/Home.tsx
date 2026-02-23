@@ -1,6 +1,7 @@
-import { useState } from 'preact/hooks';
+import { useState, useMemo } from 'preact/hooks';
 import { Icon } from '../components/Icon';
 import type { WorkoutPlan, WorkoutCriteria, WorkoutStyle } from '../types';
+import { groupExercises, groupLabel } from '../group-utils';
 
 interface HomeProps {
   plan: WorkoutPlan | null;
@@ -38,6 +39,69 @@ const STYLE_OPTIONS: { value: WorkoutStyle; label: string }[] = [
   { value: 'power', label: 'Power' },
   { value: 'endurance', label: 'Endurance' },
 ];
+
+function ExerciseCard({ ex, label }: { ex: import('../types').Exercise; label: string | number }) {
+  return (
+    <div class="bg-surface-dark rounded-xl p-3 flex items-center gap-4 border border-white/5 hover:border-primary/30 transition-colors">
+      <div class="w-14 h-14 rounded-lg bg-surface-darker flex items-center justify-center shrink-0">
+        <span class="text-2xl font-bold text-primary/60">{label}</span>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex justify-between items-start mb-1">
+          <h4 class="text-white font-medium truncate pr-2">{ex.name}</h4>
+          <span class="text-xs text-slate-400 bg-surface-darker px-1.5 py-0.5 rounded shrink-0">
+            {ex.muscleGroup}
+          </span>
+        </div>
+        <div class="flex items-center gap-3 text-sm text-slate-400">
+          <span>{ex.sets} Sets</span>
+          <span class="w-1 h-1 rounded-full bg-slate-600"></span>
+          <span>{ex.reps}</span>
+          {ex.weight && (
+            <>
+              <span class="w-1 h-1 rounded-full bg-slate-600"></span>
+              <span>{ex.weight} lbs</span>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ExerciseList({ exercises }: { exercises: import('../types').Exercise[] }) {
+  const groups = useMemo(() => groupExercises(exercises), [exercises]);
+  let counter = 0;
+
+  return (
+    <div class="space-y-3">
+      {groups.map((group) => {
+        if (group.type === 'standalone') {
+          counter++;
+          return <ExerciseCard key={group.groupId} ex={group.exercises[0]} label={counter} />;
+        }
+
+        const badge = group.groupId;
+        return (
+          <div key={group.groupId} class="relative">
+            {/* Group header */}
+            <div class="flex items-center gap-2 mb-2">
+              <Icon name="link" class="text-primary text-sm" />
+              <span class="text-xs font-bold text-primary uppercase tracking-wider">{groupLabel(group.type)}</span>
+            </div>
+            {/* Grouped exercises with left accent */}
+            <div class="border-l-2 border-primary/40 pl-3 space-y-2">
+              {group.exercises.map((ex) => {
+                counter++;
+                return <ExerciseCard key={ex.id} ex={ex} label={badge} />;
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export function Home({ plan, loading, userName, onStartWorkout, onRegenerate, onAdjustWithAI }: HomeProps) {
   const [showRegenModal, setShowRegenModal] = useState(false);
@@ -184,37 +248,7 @@ export function Home({ plan, loading, userName, onStartWorkout, onRegenerate, on
             <h3 class="text-lg font-bold text-white">Exercises</h3>
             <span class="text-xs text-primary font-medium">{plan.exercises.length} Moves</span>
           </div>
-          <div class="space-y-3">
-            {plan.exercises.map((ex, i) => (
-              <div
-                key={ex.id}
-                class="bg-surface-dark rounded-xl p-3 flex items-center gap-4 border border-white/5 hover:border-primary/30 transition-colors"
-              >
-                <div class="w-14 h-14 rounded-lg bg-surface-darker flex items-center justify-center shrink-0">
-                  <span class="text-2xl font-bold text-primary/60">{i + 1}</span>
-                </div>
-                <div class="flex-1 min-w-0">
-                  <div class="flex justify-between items-start mb-1">
-                    <h4 class="text-white font-medium truncate pr-2">{ex.name}</h4>
-                    <span class="text-xs text-slate-400 bg-surface-darker px-1.5 py-0.5 rounded shrink-0">
-                      {ex.muscleGroup}
-                    </span>
-                  </div>
-                  <div class="flex items-center gap-3 text-sm text-slate-400">
-                    <span>{ex.sets} Sets</span>
-                    <span class="w-1 h-1 rounded-full bg-slate-600"></span>
-                    <span>{ex.reps}</span>
-                    {ex.weight && (
-                      <>
-                        <span class="w-1 h-1 rounded-full bg-slate-600"></span>
-                        <span>{ex.weight} lbs</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <ExerciseList exercises={plan.exercises} />
         </div>
       )}
 

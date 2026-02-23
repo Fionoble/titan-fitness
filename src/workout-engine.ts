@@ -235,7 +235,10 @@ export function generateWorkout(
     }
   }
 
-  const equipUsed = [...new Set(selectedExercises.flatMap((e) => e.equipment))];
+  // Apply supersets for applicable styles
+  const finalExercises = applySupersets(selectedExercises, style);
+
+  const equipUsed = [...new Set(finalExercises.flatMap((e) => e.equipment))];
   const names = STYLE_NAMES[style];
   const focusLabel = targetMuscles.length > 2 ? 'Full Body' : targetMuscles.join(' & ');
 
@@ -243,7 +246,7 @@ export function generateWorkout(
     id: uuid(),
     name: `${focusLabel} ${pick(names)}`,
     style,
-    exercises: selectedExercises,
+    exercises: finalExercises,
     durationMin: config.durationMin,
     estimatedCalories: config.calories,
     focus: focusLabel,
@@ -251,6 +254,86 @@ export function generateWorkout(
     generatedAt: new Date().toISOString(),
     intensity: style === 'recovery' || style === 'mobility' ? 1 : style === 'hiit' || style === 'power' ? 3 : 2,
   };
+}
+
+// Antagonist muscle pairs for superset matching
+const ANTAGONIST_PAIRS: [string[], string[]][] = [
+  [['Chest', 'Upper Chest'], ['Back']],
+  [['Biceps'], ['Triceps']],
+  [['Quads'], ['Hamstrings']],
+  [['Shoulders'], ['Core']],
+];
+
+const SUPERSET_STYLES: Set<WorkoutStyle> = new Set(['hypertrophy', 'functional', 'hiit', 'endurance']);
+
+function applySupersets(exercises: Exercise[], style: WorkoutStyle): Exercise[] {
+  if (!SUPERSET_STYLES.has(style)) return exercises;
+
+  const result = [...exercises];
+  const paired = new Set<number>();
+  let groupCount = 0;
+  const maxGroups = style === 'hiit' ? 1 : 2;
+
+  // For HIIT, try to create one circuit of 3-4 exercises
+  if (style === 'hiit') {
+    const circuitSize = Math.min(4, Math.max(3, result.length - 2));
+    if (result.length >= circuitSize + 1) {
+      const groupLetter = String.fromCharCode(65 + groupCount);
+      for (let i = 0; i < circuitSize; i++) {
+        result[i] = { ...result[i], group: groupLetter };
+        paired.add(i);
+      }
+      return result;
+    }
+  }
+
+  // Try antagonist pairing
+  for (const [groupA, groupB] of ANTAGONIST_PAIRS) {
+    if (groupCount >= maxGroups) break;
+
+    let idxA = -1;
+    let idxB = -1;
+
+    for (let i = 0; i < result.length; i++) {
+      if (paired.has(i)) continue;
+      if (idxA === -1 && groupA.includes(result[i].muscleGroup)) idxA = i;
+      else if (idxB === -1 && groupB.includes(result[i].muscleGroup)) idxB = i;
+      if (idxA !== -1 && idxB !== -1) break;
+    }
+
+    if (idxA !== -1 && idxB !== -1) {
+      const groupLetter = String.fromCharCode(65 + groupCount);
+      result[idxA] = { ...result[idxA], group: groupLetter };
+      result[idxB] = { ...result[idxB], group: groupLetter };
+      paired.add(idxA);
+      paired.add(idxB);
+      groupCount++;
+    }
+  }
+
+  if (groupCount === 0) return result;
+
+  // Reorder so grouped exercises are adjacent
+  const ordered: Exercise[] = [];
+  const added = new Set<number>();
+
+  for (let i = 0; i < result.length; i++) {
+    if (added.has(i)) continue;
+    ordered.push(result[i]);
+    added.add(i);
+
+    if (result[i].group) {
+      // Add all other exercises in the same group right after
+      for (let j = i + 1; j < result.length; j++) {
+        if (!added.has(j) && result[j].group === result[i].group) {
+          ordered.push(result[j]);
+          added.add(j);
+        }
+      }
+    }
+  }
+
+  return ordered;
 }
 
 export function getStyleInfo(style: WorkoutStyle): { label: string; icon: string; color: string; description: string } {

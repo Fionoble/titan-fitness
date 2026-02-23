@@ -57,7 +57,8 @@ When asked to generate, create, or adjust a workout, you MUST include a JSON wor
       "sets": 3,
       "reps": "string - e.g. '10-12', '15', 'Failure', '30s'",
       "weight": null,
-      "restSeconds": 60
+      "restSeconds": 60,
+      "group": "string or null - optional, e.g. 'A'. Exercises with same group form a superset/circuit and must be adjacent"
     }
   ],
   "durationMin": 45,
@@ -65,7 +66,8 @@ When asked to generate, create, or adjust a workout, you MUST include a JSON wor
   "focus": "string - e.g. 'Chest & Triceps'",
   "intensity": 2
 }
-Always include a brief conversational message before or after the JSON block. Equipment IDs are: dumbbells, barbell, kettlebells, bench, pull-up-bar, resistance-bands, yoga-mat, foam-roller, jump-rope, medicine-ball, ab-wheel.`;
+Always include a brief conversational message before or after the JSON block. Equipment IDs are: dumbbells, barbell, kettlebells, bench, pull-up-bar, resistance-bands, yoga-mat, foam-roller, jump-rope, medicine-ball, ab-wheel.
+You may group 2-3 complementary exercises as supersets by giving them the same group letter (e.g. "A"). Don't superset every exercise — keep some standalone.`;
 }
 
 export async function sendMessage(

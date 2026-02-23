@@ -28,6 +28,7 @@ export function parseWorkoutFromResponse(text: string): WorkoutPlan | null {
         reps: String(ex.reps || '10'),
         weight: ex.weight || undefined,
         restSeconds: ex.restSeconds || 60,
+        group: ex.group || undefined,
       })),
       durationMin: parsed.durationMin || 45,
       estimatedCalories: parsed.estimatedCalories || 300,
@@ -94,7 +95,7 @@ export async function generateWorkoutViaAI(
 
 export function buildAdjustPrompt(plan: WorkoutPlan, adjustmentRequest: string): string {
   const exerciseList = plan.exercises
-    .map((ex) => `- ${ex.name} (${ex.muscleGroup}): ${ex.sets}x${ex.reps}${ex.weight ? ` @ ${ex.weight}lbs` : ''}`)
+    .map((ex) => `- ${ex.name} (${ex.muscleGroup}): ${ex.sets}x${ex.reps}${ex.weight ? ` @ ${ex.weight}lbs` : ''}${ex.group ? ` [Group ${ex.group}]` : ''}`)
     .join('\n');
 
   return `I'm currently reviewing this workout plan:
