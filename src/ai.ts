@@ -93,8 +93,11 @@ export async function sendMessage(
       return await callOpenAI(config.apiKey, systemPrompt, chatHistory, userMessage);
     }
   } catch (err: any) {
-    if (err.message?.includes('401') || err.message?.includes('invalid')) {
+    if (err.message?.includes('401')) {
       return "There's an issue with your API key. Please check it in Profile settings.";
+    }
+    if (err.message?.includes('404') || err.message?.includes('model_not_found') || err.message?.includes('invalid_model')) {
+      return `The AI model isn't available on your account. Error: ${err.message}`;
     }
     return `Sorry, I had trouble connecting. Error: ${err.message}`;
   }
@@ -146,9 +149,9 @@ async function callOpenAI(apiKey: string, system: string, history: ChatMessage[]
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'gpt-5-mini',
       messages,
-      max_tokens: 1024,
+      max_completion_tokens: 8192,
     }),
   });
 
