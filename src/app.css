@@ -11,16 +11,20 @@
 }
 
 /* Base styles */
+html {
+  min-height: calc(100% + env(safe-area-inset-top));
+}
+
 html, body, #app {
   height: 100dvh;
   margin: 0;
   padding: 0;
 }
 
-/* PWA standalone: use -webkit-fill-available to get true screen height on iOS */
-html.pwa-standalone, html.pwa-standalone body, html.pwa-standalone #app {
-  height: 100vh;
-  height: -webkit-fill-available;
+/* PWA standalone on iOS: nudge fixed bottom elements down to fill the gap
+   left by the absent browser chrome. Adjust --pwa-bottom-nudge as needed. */
+html.pwa-standalone {
+  --pwa-bottom-nudge: -36px;
 }
 
 body {
@@ -52,6 +56,12 @@ body {
 /* Safe area */
 .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
 .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+
+/* Fixed bottom nav offset for elements above it */
+.bottom-nav-offset { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+html.pwa-standalone .bottom-nav-offset {
+  bottom: calc(76px + env(safe-area-inset-bottom, 0px) + var(--pwa-bottom-nudge));
+}
 
 /* Number input spinners hidden */
 input[type="number"]::-webkit-inner-spin-button,

@@ -15,8 +15,8 @@ export function BottomNav() {
   const currentPath = stripBase(path);
 
   return (
-    <nav class="shrink-0 bg-[#0d1b12] border-t border-white/5">
-      <div class="flex items-center justify-around px-2 pt-2 pb-3">
+    <nav class="fixed bottom-[var(--pwa-bottom-nudge,0px)] left-0 right-0 z-50 bg-[#0d1b12]/95 backdrop-blur-md border-t border-white/5">
+      <div class="max-w-[430px] mx-auto flex items-center justify-around px-2 pt-2 pb-3">
         {tabs.map((tab) => {
           const isActive = currentPath === tab.id;
           return (

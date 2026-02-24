@@ -48,7 +48,7 @@ export function Discover({ equipment, onSelectStyle }: DiscoverProps) {
   const topPickInfo = getStyleInfo(topPick);
 
   return (
-    <div class="flex-1 overflow-y-auto no-scrollbar min-h-0 pb-4">
+    <div class="flex-1 overflow-y-auto no-scrollbar pb-24">
       {/* Header */}
       <header class="sticky top-0 z-20 bg-bg-dark/95 backdrop-blur-sm px-4 pt-6 pt-safe pb-2">
         <div class="flex items-center justify-between mb-4">
