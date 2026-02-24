@@ -227,14 +227,15 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
       const sets = [...log.sets];
       const set = { ...sets[setIdx] };
       set.completed = !set.completed;
-      // Auto-fill from placeholder/previous values when completing
+      // Auto-fill from most recent completed set, then fall back to plan defaults
       if (set.completed) {
-        if (set.weight === null && exercise.weight) {
-          set.weight = exercise.weight;
+        const lastCompleted = sets.slice(0, setIdx).reverse().find((s) => s.completed);
+        if (set.weight === null) {
+          set.weight = lastCompleted?.weight ?? exercise.weight ?? null;
         }
         if (set.reps === null) {
-          const numericReps = parseInt(exercise.reps.replace(/[^0-9]/g, ''));
-          if (!isNaN(numericReps)) set.reps = numericReps;
+          const fallbackReps = parseInt(exercise.reps.replace(/[^0-9]/g, ''));
+          set.reps = lastCompleted?.reps ?? (isNaN(fallbackReps) ? null : fallbackReps);
         }
       }
       sets[setIdx] = set;
@@ -447,6 +448,10 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
 
             {log.sets.map((set, idx) => {
               const isActive = !set.completed && (idx === 0 || log.sets[idx - 1]?.completed);
+              // Find most recent completed set for THIS exercise to use as placeholder
+              const lastCompleted = log.sets.slice(0, idx).reverse().find((s) => s.completed);
+              const weightPlaceholder = lastCompleted?.weight?.toString() ?? exercise.weight?.toString() ?? '-';
+              const repsPlaceholder = lastCompleted?.reps?.toString() ?? (exercise.reps.replace(/[^0-9]/g, '') || '-');
               return (
                 <div
                   key={idx}
@@ -468,7 +473,7 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
                       <input
                         type="number"
                         value={set.weight ?? ''}
-                        placeholder={exercise.weight?.toString() || '-'}
+                        placeholder={weightPlaceholder}
                         onInput={(e) => updateSet(logIdx, idx, 'weight', (e.target as HTMLInputElement).value ? Number((e.target as HTMLInputElement).value) : null)}
                         class="w-full bg-bg-dark border-none rounded text-center font-bold text-white focus:ring-1 focus:ring-primary p-2 text-sm"
                       />
@@ -477,7 +482,7 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
                       <input
                         type="number"
                         value={set.reps ?? ''}
-                        placeholder={exercise.reps.replace(/[^0-9]/g, '') || '-'}
+                        placeholder={repsPlaceholder}
                         onInput={(e) => updateSet(logIdx, idx, 'reps', (e.target as HTMLInputElement).value ? Number((e.target as HTMLInputElement).value) : null)}
                         class="w-full bg-bg-dark border-none rounded text-center font-bold text-white focus:ring-1 focus:ring-primary p-2 text-sm"
                       />
