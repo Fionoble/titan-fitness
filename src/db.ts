@@ -169,3 +169,45 @@ export async function clearChat(): Promise<void> {
   const db = await getDB();
   await db.clear('chatMessages');
 }
+
+// Export / Import
+const STORE_NAMES = ['equipment', 'workoutPlans', 'sessions', 'personalRecords', 'profile', 'chatMessages'] as const;
+
+export async function exportAllData(): Promise<string> {
+  const db = await getDB();
+  const data: Record<string, any> = {};
+  for (const store of STORE_NAMES) {
+    data[store] = await db.getAll(store);
+  }
+  // Include localStorage AI config
+  data._localStorage = {
+    titan_ai_key: localStorage.getItem('titan_ai_key'),
+    titan_ai_provider: localStorage.getItem('titan_ai_provider'),
+  };
+  return JSON.stringify(data, null, 2);
+}
+
+export async function importAllData(json: string): Promise<void> {
+  const data = JSON.parse(json);
+  const db = await getDB();
+
+  for (const store of STORE_NAMES) {
+    if (!Array.isArray(data[store])) continue;
+    const tx = db.transaction(store, 'readwrite');
+    await tx.store.clear();
+    for (const item of data[store]) {
+      await tx.store.put(item);
+    }
+    await tx.done;
+  }
+
+  // Restore localStorage AI config
+  if (data._localStorage) {
+    if (data._localStorage.titan_ai_key) {
+      localStorage.setItem('titan_ai_key', data._localStorage.titan_ai_key);
+    }
+    if (data._localStorage.titan_ai_provider) {
+      localStorage.setItem('titan_ai_provider', data._localStorage.titan_ai_provider);
+    }
+  }
+}

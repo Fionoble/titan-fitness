@@ -1,7 +1,8 @@
-import { useState } from 'preact/hooks';
+import { useState, useRef } from 'preact/hooks';
 import { Icon } from '../components/Icon';
 import type { UserProfile, WorkoutSession } from '../types';
 import { isAIConfigured, setAIConfig } from '../ai';
+import { exportAllData, importAllData } from '../db';
 
 interface ProfileProps {
   profile: UserProfile | null;
@@ -19,6 +20,8 @@ export function Profile({ profile, sessions, onUpdateProfile, onNavigateEquipmen
   const [injuries, setInjuries] = useState(profile?.injuries || '');
   const [additionalEquipment, setAdditionalEquipment] = useState(profile?.additionalEquipment || '');
   const [showFitnessContext, setShowFitnessContext] = useState(false);
+  const [importStatus, setImportStatus] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const totalWorkouts = sessions.length;
   const totalVolume = sessions.reduce((sum, s) => sum + s.totalVolume, 0);
@@ -38,6 +41,36 @@ export function Profile({ profile, sessions, onUpdateProfile, onNavigateEquipmen
       setShowAPISetup(false);
       setApiKey('');
     }
+  };
+
+  const handleExport = async () => {
+    try {
+      const json = await exportAllData();
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `titan-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert('Export failed. Please try again.');
+    }
+  };
+
+  const handleImport = async (e: Event) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      await importAllData(text);
+      setImportStatus('success');
+      setTimeout(() => window.location.reload(), 1500);
+    } catch {
+      setImportStatus('error');
+    }
+    // Reset file input so same file can be re-selected
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   return (
@@ -262,6 +295,43 @@ export function Profile({ profile, sessions, onUpdateProfile, onNavigateEquipmen
               </div>
             </div>
           </div>
+
+          <div class="flex gap-2">
+            <button
+              onClick={handleExport}
+              class="flex-1 flex items-center justify-center gap-2 p-4 bg-surface-dark rounded-xl border border-white/5 hover:border-primary/30 transition-colors"
+            >
+              <Icon name="download" class="text-primary" />
+              <span class="font-semibold text-white text-sm">Export Data</span>
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              class="flex-1 flex items-center justify-center gap-2 p-4 bg-surface-dark rounded-xl border border-white/5 hover:border-primary/30 transition-colors"
+            >
+              <Icon name="upload" class="text-blue-400" />
+              <span class="font-semibold text-white text-sm">Import Data</span>
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              onChange={handleImport}
+              class="hidden"
+            />
+          </div>
+
+          {importStatus === 'success' && (
+            <div class="flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-lg text-sm text-primary font-medium">
+              <Icon name="check_circle" />
+              Data imported! Reloading...
+            </div>
+          )}
+          {importStatus === 'error' && (
+            <div class="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400 font-medium">
+              <Icon name="error" />
+              Import failed. Check the file and try again.
+            </div>
+          )}
         </div>
 
         {/* App info */}
