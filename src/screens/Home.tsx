@@ -256,7 +256,7 @@ export function Home({ plan, loading, userName, onStartWorkout, onRegenerate, on
   };
 
   return (
-    <main class="flex-1 overflow-y-auto no-scrollbar pb-40">
+    <main class="flex-1 overflow-y-auto no-scrollbar min-h-0">
       {/* Header */}
       <div class="px-5 pt-6 pt-safe pb-2">
         <div class="flex items-center justify-between mb-5">
@@ -375,7 +375,7 @@ export function Home({ plan, loading, userName, onStartWorkout, onRegenerate, on
 
       {/* Exercise List */}
       {plan && (
-        <div class="px-5 pb-20">
+        <div class="px-5 pb-4">
           <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-bold text-white">Exercises</h3>
             <span class="text-xs text-primary font-medium">{plan.exercises.length} Moves</span>
@@ -396,10 +396,10 @@ export function Home({ plan, loading, userName, onStartWorkout, onRegenerate, on
 
       {/* Start Workout FAB */}
       {plan && (
-        <div class="fixed bottom-nav-offset left-0 w-full px-6 z-20 pointer-events-none max-w-[430px] mx-auto" style="left: 50%; transform: translateX(-50%);">
+        <div class="sticky bottom-0 px-6 py-3 z-20 bg-gradient-to-t from-bg-dark via-bg-dark/95 to-transparent pt-6">
           <button
             onClick={onStartWorkout}
-            class="w-full bg-primary text-bg-dark h-14 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-primary/20 pointer-events-auto active:scale-[0.98] transition-all font-bold text-lg tracking-wide"
+            class="w-full bg-primary text-bg-dark h-14 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-primary/20 active:scale-[0.98] transition-all font-bold text-lg tracking-wide"
           >
             <Icon name="play_arrow" class="text-2xl" />
             START WORKOUT

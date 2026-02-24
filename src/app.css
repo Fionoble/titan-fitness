@@ -17,6 +17,12 @@ html, body, #app {
   padding: 0;
 }
 
+/* PWA standalone: use -webkit-fill-available to get true screen height on iOS */
+html.pwa-standalone, html.pwa-standalone body, html.pwa-standalone #app {
+  height: 100vh;
+  height: -webkit-fill-available;
+}
+
 body {
   font-family: var(--font-family-display);
   background-color: var(--color-bg-dark);
@@ -34,9 +40,6 @@ body {
   position: relative;
 }
 
-/* Bottom offset for fixed elements above the BottomNav (nav ~68px + safe area) */
-.bottom-nav-offset { bottom: calc(68px + env(safe-area-inset-bottom, 20px)); }
-
 /* Hide scrollbar */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -47,7 +50,7 @@ body {
 }
 
 /* Safe area */
-.pb-safe { padding-bottom: env(safe-area-inset-bottom, 20px); }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
 .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
 
 /* Number input spinners hidden */

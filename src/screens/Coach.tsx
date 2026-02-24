@@ -201,7 +201,7 @@ export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, se
       </header>
 
       {/* Chat area */}
-      <main class="flex-1 overflow-y-auto p-4 space-y-4 pb-56">
+      <main class="flex-1 overflow-y-auto min-h-0 p-4 space-y-4 pb-4">
         {!configured && messages.length === 0 && (
           <div class="text-center py-8">
             <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-surface-dark border border-white/10 flex items-center justify-center">
@@ -336,8 +336,7 @@ export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, se
       </main>
 
       {/* Bottom input area - sits above BottomNav (~70px) */}
-      <div class="fixed bottom-nav-offset left-0 w-full bg-bg-dark border-t border-white/5 z-40 pb-2 pt-2 max-w-[430px] mx-auto" style="left: 50%; transform: translateX(-50%);">
-        <div class="absolute top-[-20px] left-0 w-full h-20 bg-gradient-to-t from-bg-dark to-transparent pointer-events-none -z-10"></div>
+      <div class="shrink-0 bg-bg-dark border-t border-white/5 z-40 pb-2 pt-2">
 
         {/* Quick action chips */}
         <div class="flex overflow-x-auto gap-2 px-4 pb-3 no-scrollbar">

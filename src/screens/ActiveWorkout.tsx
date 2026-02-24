@@ -550,7 +550,7 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
       </header>
 
       {/* Main scrollable */}
-      <main class="flex-1 overflow-y-auto p-4 pb-32 space-y-4">
+      <main class="flex-1 overflow-y-auto min-h-0 p-4 pb-4 space-y-4">
         {/* Exercise hero card */}
         <div class="relative w-full rounded-xl overflow-hidden bg-surface-dark">
           <div class="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent"></div>
@@ -640,7 +640,7 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
       )}
 
       {/* Bottom actions */}
-      <div class="fixed bottom-0 left-0 w-full bg-bg-dark border-t border-white/5 p-4 pb-safe z-40 max-w-[430px] mx-auto" style="left: 50%; transform: translateX(-50%);">
+      <div class="shrink-0 bg-bg-dark border-t border-white/5 p-4 pb-safe z-40">
         <div class="flex gap-3">
           {currentGroupIdx > 0 && (
             <button
