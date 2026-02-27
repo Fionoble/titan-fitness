@@ -1,5 +1,5 @@
 import type { Equipment, WorkoutPlan, Exercise, WorkoutStyle, WorkoutSession } from './types';
-import { uuid } from './utils';
+import { uuid, normalizeExerciseName } from './utils';
 
 // Exercise database organized by muscle group and equipment
 const EXERCISE_DB: Record<string, { name: string; muscleGroup: string; equipment: string[]; defaultSets: number; defaultReps: string }[]> = {
@@ -203,7 +203,7 @@ export function generateWorkout(
     if (selectedExercises.length >= config.exerciseCount) break;
     if (usedNames.has(ex.name)) continue;
 
-    const prevWeight = previousWeights[ex.name];
+    const prevWeight = previousWeights[normalizeExerciseName(ex.name)];
     selectedExercises.push({
       id: uuid(),
       name: ex.name,

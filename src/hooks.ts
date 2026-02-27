@@ -4,6 +4,19 @@ import type { Equipment, WorkoutPlan, WorkoutSession, ChatMessage, UserProfile, 
 import { generateWorkout, getTodayStyle } from './workout-engine';
 import { generateWorkoutViaAI } from './ai-workout';
 import { isAIConfigured } from './ai';
+import { normalizeExerciseName } from './utils';
+
+/** Apply previous weights to a plan's exercises (for AI-generated plans that may lack them) */
+function applyPrevWeights(plan: WorkoutPlan, prevWeights: Record<string, number>): WorkoutPlan {
+  return {
+    ...plan,
+    exercises: plan.exercises.map((ex) => {
+      if (ex.weight) return ex; // already has a weight
+      const prev = prevWeights[normalizeExerciseName(ex.name)];
+      return prev ? { ...ex, weight: prev } : ex;
+    }),
+  };
+}
 
 export function useEquipment() {
   const [equipment, setEquipment] = useState<Equipment[]>([]);
@@ -31,25 +44,32 @@ export function useTodayWorkout(equipment: Equipment[]) {
   const [plan, setPlan] = useState<WorkoutPlan | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const generateLocal = useCallback((sessions: WorkoutSession[], style?: string) => {
-    const enabled = equipment.filter((e) => e.enabled);
+  const buildPrevWeights = useCallback((sessions: WorkoutSession[]) => {
     const prevWeights: Record<string, number> = {};
     for (const s of sessions) {
       for (const ex of s.exercises) {
+        const key = normalizeExerciseName(ex.exerciseName);
         for (const set of ex.sets) {
-          if (set.weight && (!prevWeights[ex.exerciseName] || set.weight > prevWeights[ex.exerciseName])) {
-            prevWeights[ex.exerciseName] = set.weight;
+          if (set.weight && (!prevWeights[key] || set.weight > prevWeights[key])) {
+            prevWeights[key] = set.weight;
           }
         }
       }
     }
+    return prevWeights;
+  }, []);
+
+  const generateLocal = useCallback((sessions: WorkoutSession[], style?: string, prevWeights?: Record<string, number>) => {
+    const enabled = equipment.filter((e) => e.enabled);
+    const weights = prevWeights || buildPrevWeights(sessions);
     const workoutStyle = (style || getTodayStyle(sessions)) as any;
-    return generateWorkout(enabled, workoutStyle, sessions, prevWeights);
-  }, [equipment]);
+    return generateWorkout(enabled, workoutStyle, sessions, weights);
+  }, [equipment, buildPrevWeights]);
 
   const generate = useCallback(async (style?: string, criteria?: WorkoutCriteria) => {
     setLoading(true);
     const sessions = await db.getRecentSessions(5);
+    const prevWeights = buildPrevWeights(sessions);
 
     // Try AI generation first if configured
     if (isAIConfigured()) {
@@ -58,10 +78,11 @@ export function useTodayWorkout(equipment: Equipment[]) {
         const effectiveCriteria = criteria || (style ? { style: style as any } : undefined);
         const result = await generateWorkoutViaAI(equipment, sessions, chatHistory, effectiveCriteria);
         if (result) {
-          await db.savePlan(result.plan);
-          setPlan(result.plan);
+          const planWithWeights = applyPrevWeights(result.plan, prevWeights);
+          await db.savePlan(planWithWeights);
+          setPlan(planWithWeights);
           setLoading(false);
-          return result.plan;
+          return planWithWeights;
         }
       } catch {
         // Fall through to local generation
@@ -69,7 +90,7 @@ export function useTodayWorkout(equipment: Equipment[]) {
     }
 
     // Local fallback
-    const newPlan = generateLocal(sessions, style);
+    const newPlan = generateLocal(sessions, style, prevWeights);
     await db.savePlan(newPlan);
     setPlan(newPlan);
     setLoading(false);
