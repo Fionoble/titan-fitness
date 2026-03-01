@@ -1,0 +1,434 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A3BA76BCAC0D439A9B1B9407 /* TitanFitnessApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57EA108AAB8C48CAB9805987 /* TitanFitnessApp.swift */; };
+		2947813AED774817B50ABB58 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F3845285D0441F4994802DE /* ContentView.swift */; };
+		290EF1D0D8EE4C33B73AA502 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9DCC79D352F4BC09819C3A0 /* Theme.swift */; };
+		0DC77BCD73D94B01B1129E70 /* Exercise.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6276F91C1D1943059E67895F /* Exercise.swift */; };
+		61C62373603E47129EFA8A12 /* WorkoutPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC2ADDDCB47F460DBC2592D8 /* WorkoutPlan.swift */; };
+		AAC4769C68344F3A80C97F14 /* WorkoutSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F16430721BE408CBC605596 /* WorkoutSession.swift */; };
+		E81DD2667B8A42FDB5FD1B8A /* Equipment.swift in Sources */ = {isa = PBXBuildFile; fileRef = B19F20ACDE784A9096A2E286 /* Equipment.swift */; };
+		F376AA363BFD43C9B22D0325 /* Nutrition.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7932ECE76484BFBB0FD5A00 /* Nutrition.swift */; };
+		FC64787180AA43DFB7852F21 /* UserProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7D34245B696421B9644BE6D /* UserProfile.swift */; };
+		7B7EA2BC9823428F8C054886 /* ChatMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AC91D0D73434ACDB73CD457 /* ChatMessage.swift */; };
+		F6DAC1BEE7684A9C848EF41E /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 961531F7F1A6429C898B31E1 /* HomeView.swift */; };
+		5C5C4579BF9A440C8D9FCFD4 /* ActiveWorkoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31EDF32E8234EFB8B81E467 /* ActiveWorkoutView.swift */; };
+		A2FC8740F65843E183EA71F9 /* ProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DCFCBA245134C2ABA38E4ED /* ProgressView.swift */; };
+		66711DFA19FB4FE491649124 /* NutritionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAE38396C6F14A3192BE9352 /* NutritionView.swift */; };
+		B779CE0AB738423EB9AF1FB1 /* CoachView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 205F5718F3884661A1D0B662 /* CoachView.swift */; };
+		C03C69A771A64802AC67D914 /* EquipmentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F3915ADB10483085978248 /* EquipmentView.swift */; };
+		697E4D2D1E854EE6B4AEF50B /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97D59EC357F049C1A5E1A90D /* ProfileView.swift */; };
+		ED1C6D21AE6E4E41A9D595E8 /* DiscoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79260B39DE2E4508BEF5DD8C /* DiscoverView.swift */; };
+		C3A0BE22F7874E71ABFA69A7 /* WorkoutViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EFFC96B514D400A99E33934 /* WorkoutViewModel.swift */; };
+		7FEFF93300394CC4AB628DA1 /* NutritionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25EB8179B2A8435194F57CD0 /* NutritionViewModel.swift */; };
+		5BC05D5B9EC548519541E959 /* ProgressViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5AC2FD7E23B4822ACF8D145 /* ProgressViewModel.swift */; };
+		73B7AE2EA23B4576BF86CE18 /* CoachViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2615F00457E045C8A7EE8FB9 /* CoachViewModel.swift */; };
+		C8B043A338264922BC5DF510 /* ProfileViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C44DFFEB1694B89B5064469 /* ProfileViewModel.swift */; };
+		AE74077EDC844905894C7E2C /* WorkoutEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08859EAEFEA44FD18BA81EDA /* WorkoutEngine.swift */; };
+		F4A28A3E9B2042A6B7866300 /* AIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6824DEA6666A4D5AA7B41A60 /* AIService.swift */; };
+		87EC3AD43F9C40568248F153 /* NutritionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B9C0F3A53AD4CE7A33D364A /* NutritionService.swift */; };
+		EFBEB435BC47480889DE306E /* BarcodeScannerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00B9F1E25094968A5A3A2EE /* BarcodeScannerService.swift */; };
+		CEABBA1E4C1A47438549A6C7 /* DataStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22913704C34F4CEE98FBF764 /* DataStore.swift */; };
+		9591EA77DDE64A80BDD15428 /* CalorieRingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0608C4BE28445C2AB7FF04B /* CalorieRingView.swift */; };
+		DB55887A96D548C9A34833C7 /* MacroBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5C30898F1744D20A6CF6510 /* MacroBarView.swift */; };
+		049ADA2B61E44C9D88984600 /* ExerciseCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16CFF41739584B62A205DDF2 /* ExerciseCardView.swift */; };
+		392E07CA3F9D43C8A543CE7E /* SetGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4391C4C0C024EE2BBB3FB12 /* SetGridView.swift */; };
+		7B8C0010CAE14DA585F51554 /* RestTimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD0022932F0144A4BB2A6EFC /* RestTimerView.swift */; };
+		E9573B7170C848B0BE29456B /* BottomNavBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 781EFCD44580486F87ABF674 /* BottomNavBar.swift */; };
+		F8E2D99DFD2F46DA980E9C79 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3A403D84190241319911D8F7 /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		57EA108AAB8C48CAB9805987 /* TitanFitnessApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitanFitnessApp.swift; sourceTree = "<group>"; };
+		2F3845285D0441F4994802DE /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		F9DCC79D352F4BC09819C3A0 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		6276F91C1D1943059E67895F /* Exercise.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Exercise.swift; sourceTree = "<group>"; };
+		CC2ADDDCB47F460DBC2592D8 /* WorkoutPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutPlan.swift; sourceTree = "<group>"; };
+		2F16430721BE408CBC605596 /* WorkoutSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSession.swift; sourceTree = "<group>"; };
+		B19F20ACDE784A9096A2E286 /* Equipment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Equipment.swift; sourceTree = "<group>"; };
+		A7932ECE76484BFBB0FD5A00 /* Nutrition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Nutrition.swift; sourceTree = "<group>"; };
+		D7D34245B696421B9644BE6D /* UserProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfile.swift; sourceTree = "<group>"; };
+		6AC91D0D73434ACDB73CD457 /* ChatMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessage.swift; sourceTree = "<group>"; };
+		961531F7F1A6429C898B31E1 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		A31EDF32E8234EFB8B81E467 /* ActiveWorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveWorkoutView.swift; sourceTree = "<group>"; };
+		1DCFCBA245134C2ABA38E4ED /* ProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressView.swift; sourceTree = "<group>"; };
+		BAE38396C6F14A3192BE9352 /* NutritionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NutritionView.swift; sourceTree = "<group>"; };
+		205F5718F3884661A1D0B662 /* CoachView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachView.swift; sourceTree = "<group>"; };
+		F1F3915ADB10483085978248 /* EquipmentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EquipmentView.swift; sourceTree = "<group>"; };
+		97D59EC357F049C1A5E1A90D /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		79260B39DE2E4508BEF5DD8C /* DiscoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoverView.swift; sourceTree = "<group>"; };
+		8EFFC96B514D400A99E33934 /* WorkoutViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutViewModel.swift; sourceTree = "<group>"; };
+		25EB8179B2A8435194F57CD0 /* NutritionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NutritionViewModel.swift; sourceTree = "<group>"; };
+		E5AC2FD7E23B4822ACF8D145 /* ProgressViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressViewModel.swift; sourceTree = "<group>"; };
+		2615F00457E045C8A7EE8FB9 /* CoachViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachViewModel.swift; sourceTree = "<group>"; };
+		4C44DFFEB1694B89B5064469 /* ProfileViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileViewModel.swift; sourceTree = "<group>"; };
+		08859EAEFEA44FD18BA81EDA /* WorkoutEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutEngine.swift; sourceTree = "<group>"; };
+		6824DEA6666A4D5AA7B41A60 /* AIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIService.swift; sourceTree = "<group>"; };
+		2B9C0F3A53AD4CE7A33D364A /* NutritionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NutritionService.swift; sourceTree = "<group>"; };
+		D00B9F1E25094968A5A3A2EE /* BarcodeScannerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarcodeScannerService.swift; sourceTree = "<group>"; };
+		22913704C34F4CEE98FBF764 /* DataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataStore.swift; sourceTree = "<group>"; };
+		E0608C4BE28445C2AB7FF04B /* CalorieRingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalorieRingView.swift; sourceTree = "<group>"; };
+		B5C30898F1744D20A6CF6510 /* MacroBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacroBarView.swift; sourceTree = "<group>"; };
+		16CFF41739584B62A205DDF2 /* ExerciseCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseCardView.swift; sourceTree = "<group>"; };
+		E4391C4C0C024EE2BBB3FB12 /* SetGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetGridView.swift; sourceTree = "<group>"; };
+		BD0022932F0144A4BB2A6EFC /* RestTimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestTimerView.swift; sourceTree = "<group>"; };
+		781EFCD44580486F87ABF674 /* BottomNavBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottomNavBar.swift; sourceTree = "<group>"; };
+		3A403D84190241319911D8F7 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		706445C8BBFE470C8D58C497 /* TitanFitness.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TitanFitness.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		68006ADFBBFB4DC99B0BBBB6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		E200A3203304477399765EC4 = {
+			isa = PBXGroup;
+			children = (
+				EB624B6DB48A44688459C13C /* TitanFitness */,
+				3C3F01EAD43E4391965522B0 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		3C3F01EAD43E4391965522B0 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				706445C8BBFE470C8D58C497 /* TitanFitness.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		EB624B6DB48A44688459C13C /* TitanFitness */ = {
+			isa = PBXGroup;
+			children = (
+				57EA108AAB8C48CAB9805987 /* TitanFitnessApp.swift */,
+				2F3845285D0441F4994802DE /* ContentView.swift */,
+				F9DCC79D352F4BC09819C3A0 /* Theme.swift */,
+				81CE6BDA368E47DFABDA3730 /* Models */,
+				5BE79DEBEEAC4F68864B89FE /* Views */,
+				4719381DC4DD4FD89717115E /* ViewModels */,
+				6F0B7B910053423BA488F4FB /* Services */,
+				0DF1BA8F914D43D9A38C6A86 /* Components */,
+				3A403D84190241319911D8F7 /* Assets.xcassets */,
+			);
+			path = TitanFitness;
+			sourceTree = "<group>";
+		};
+		81CE6BDA368E47DFABDA3730 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				6276F91C1D1943059E67895F /* Exercise.swift */,
+				CC2ADDDCB47F460DBC2592D8 /* WorkoutPlan.swift */,
+				2F16430721BE408CBC605596 /* WorkoutSession.swift */,
+				B19F20ACDE784A9096A2E286 /* Equipment.swift */,
+				A7932ECE76484BFBB0FD5A00 /* Nutrition.swift */,
+				D7D34245B696421B9644BE6D /* UserProfile.swift */,
+				6AC91D0D73434ACDB73CD457 /* ChatMessage.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		5BE79DEBEEAC4F68864B89FE /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				961531F7F1A6429C898B31E1 /* HomeView.swift */,
+				A31EDF32E8234EFB8B81E467 /* ActiveWorkoutView.swift */,
+				1DCFCBA245134C2ABA38E4ED /* ProgressView.swift */,
+				BAE38396C6F14A3192BE9352 /* NutritionView.swift */,
+				205F5718F3884661A1D0B662 /* CoachView.swift */,
+				F1F3915ADB10483085978248 /* EquipmentView.swift */,
+				97D59EC357F049C1A5E1A90D /* ProfileView.swift */,
+				79260B39DE2E4508BEF5DD8C /* DiscoverView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		4719381DC4DD4FD89717115E /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				8EFFC96B514D400A99E33934 /* WorkoutViewModel.swift */,
+				25EB8179B2A8435194F57CD0 /* NutritionViewModel.swift */,
+				E5AC2FD7E23B4822ACF8D145 /* ProgressViewModel.swift */,
+				2615F00457E045C8A7EE8FB9 /* CoachViewModel.swift */,
+				4C44DFFEB1694B89B5064469 /* ProfileViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		6F0B7B910053423BA488F4FB /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				08859EAEFEA44FD18BA81EDA /* WorkoutEngine.swift */,
+				6824DEA6666A4D5AA7B41A60 /* AIService.swift */,
+				2B9C0F3A53AD4CE7A33D364A /* NutritionService.swift */,
+				D00B9F1E25094968A5A3A2EE /* BarcodeScannerService.swift */,
+				22913704C34F4CEE98FBF764 /* DataStore.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		0DF1BA8F914D43D9A38C6A86 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				E0608C4BE28445C2AB7FF04B /* CalorieRingView.swift */,
+				B5C30898F1744D20A6CF6510 /* MacroBarView.swift */,
+				16CFF41739584B62A205DDF2 /* ExerciseCardView.swift */,
+				E4391C4C0C024EE2BBB3FB12 /* SetGridView.swift */,
+				BD0022932F0144A4BB2A6EFC /* RestTimerView.swift */,
+				781EFCD44580486F87ABF674 /* BottomNavBar.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		238149DD931A4675BEF64E4B /* TitanFitness */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1AB04FA243CE4212B1F569E1 /* Build configuration list for PBXNativeTarget "TitanFitness" */;
+			buildPhases = (
+				77DD108C51564EC096ED98E5 /* Sources */,
+				68006ADFBBFB4DC99B0BBBB6 /* Frameworks */,
+				6C65ABB35A634B5689D1A003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TitanFitness;
+			productName = TitanFitness;
+			productReference = 706445C8BBFE470C8D58C497 /* TitanFitness.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		762DCE27DC264B1EA7AA82B0 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = AFCDF2BA10834D3EB5631383 /* Build configuration list for PBXProject "TitanFitness" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = E200A3203304477399765EC4;
+			productRefGroup = 3C3F01EAD43E4391965522B0 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				238149DD931A4675BEF64E4B /* TitanFitness */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		6C65ABB35A634B5689D1A003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F8E2D99DFD2F46DA980E9C79 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		77DD108C51564EC096ED98E5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A3BA76BCAC0D439A9B1B9407 /* TitanFitnessApp.swift in Sources */,
+				2947813AED774817B50ABB58 /* ContentView.swift in Sources */,
+				290EF1D0D8EE4C33B73AA502 /* Theme.swift in Sources */,
+				0DC77BCD73D94B01B1129E70 /* Exercise.swift in Sources */,
+				61C62373603E47129EFA8A12 /* WorkoutPlan.swift in Sources */,
+				AAC4769C68344F3A80C97F14 /* WorkoutSession.swift in Sources */,
+				E81DD2667B8A42FDB5FD1B8A /* Equipment.swift in Sources */,
+				F376AA363BFD43C9B22D0325 /* Nutrition.swift in Sources */,
+				FC64787180AA43DFB7852F21 /* UserProfile.swift in Sources */,
+				7B7EA2BC9823428F8C054886 /* ChatMessage.swift in Sources */,
+				F6DAC1BEE7684A9C848EF41E /* HomeView.swift in Sources */,
+				5C5C4579BF9A440C8D9FCFD4 /* ActiveWorkoutView.swift in Sources */,
+				A2FC8740F65843E183EA71F9 /* ProgressView.swift in Sources */,
+				66711DFA19FB4FE491649124 /* NutritionView.swift in Sources */,
+				B779CE0AB738423EB9AF1FB1 /* CoachView.swift in Sources */,
+				C03C69A771A64802AC67D914 /* EquipmentView.swift in Sources */,
+				697E4D2D1E854EE6B4AEF50B /* ProfileView.swift in Sources */,
+				ED1C6D21AE6E4E41A9D595E8 /* DiscoverView.swift in Sources */,
+				C3A0BE22F7874E71ABFA69A7 /* WorkoutViewModel.swift in Sources */,
+				7FEFF93300394CC4AB628DA1 /* NutritionViewModel.swift in Sources */,
+				5BC05D5B9EC548519541E959 /* ProgressViewModel.swift in Sources */,
+				73B7AE2EA23B4576BF86CE18 /* CoachViewModel.swift in Sources */,
+				C8B043A338264922BC5DF510 /* ProfileViewModel.swift in Sources */,
+				AE74077EDC844905894C7E2C /* WorkoutEngine.swift in Sources */,
+				F4A28A3E9B2042A6B7866300 /* AIService.swift in Sources */,
+				87EC3AD43F9C40568248F153 /* NutritionService.swift in Sources */,
+				EFBEB435BC47480889DE306E /* BarcodeScannerService.swift in Sources */,
+				CEABBA1E4C1A47438549A6C7 /* DataStore.swift in Sources */,
+				9591EA77DDE64A80BDD15428 /* CalorieRingView.swift in Sources */,
+				DB55887A96D548C9A34833C7 /* MacroBarView.swift in Sources */,
+				049ADA2B61E44C9D88984600 /* ExerciseCardView.swift in Sources */,
+				392E07CA3F9D43C8A543CE7E /* SetGridView.swift in Sources */,
+				7B8C0010CAE14DA585F51554 /* RestTimerView.swift in Sources */,
+				E9573B7170C848B0BE29456B /* BottomNavBar.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		9C29A9DB1C074473AF40A507 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		A0A932AF0B244D6FA6337BA2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		AB46706630F44B26B8F3A09B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Titan Fitness";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Camera is used to scan food barcodes for nutrition tracking.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UIUserInterfaceStyle = Dark;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.titanfitness.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1";
+			};
+			name = Debug;
+		};
+		BE8EFCAD18BF4FE88992552E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Titan Fitness";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Camera is used to scan food barcodes for nutrition tracking.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UIUserInterfaceStyle = Dark;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.titanfitness.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		AFCDF2BA10834D3EB5631383 /* Build configuration list for PBXProject "TitanFitness" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9C29A9DB1C074473AF40A507 /* Debug */,
+				A0A932AF0B244D6FA6337BA2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1AB04FA243CE4212B1F569E1 /* Build configuration list for PBXNativeTarget "TitanFitness" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AB46706630F44B26B8F3A09B /* Debug */,
+				BE8EFCAD18BF4FE88992552E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 762DCE27DC264B1EA7AA82B0 /* Project object */;
+}
