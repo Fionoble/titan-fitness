@@ -1,7 +1,9 @@
 import { useState, useMemo } from 'preact/hooks';
+import { useLocation } from 'preact-iso';
 import { Icon } from '../components/Icon';
 import type { WorkoutPlan, WorkoutCriteria, WorkoutStyle, Exercise } from '../types';
 import { groupExercises, groupLabel } from '../group-utils';
+import { withBase } from '../base';
 
 interface HomeProps {
   plan: WorkoutPlan | null;
@@ -219,6 +221,27 @@ function EditExerciseModal({ exercise, onSave, onRemove, onClose }: {
   );
 }
 
+function DiscoverCard() {
+  const { route } = useLocation();
+  return (
+    <div class="px-5 mb-6">
+      <button
+        onClick={() => route(withBase('/discover'))}
+        class="w-full bg-surface-dark rounded-xl p-4 border border-white/5 flex items-center gap-4 hover:border-primary/30 transition-colors text-left active:scale-[0.98]"
+      >
+        <div class="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+          <Icon name="explore" class="text-primary text-2xl" />
+        </div>
+        <div class="flex-1 min-w-0">
+          <h4 class="text-white font-semibold text-sm">Discover Workouts</h4>
+          <p class="text-slate-400 text-xs">Browse styles, find new routines</p>
+        </div>
+        <Icon name="chevron_right" class="text-slate-500 text-xl shrink-0" />
+      </button>
+    </div>
+  );
+}
+
 export function Home({ plan, loading, userName, onStartWorkout, onRegenerate, onAdjustWithAI, onUpdatePlan }: HomeProps) {
   const [showRegenModal, setShowRegenModal] = useState(false);
   const [regenStyle, setRegenStyle] = useState<WorkoutStyle | ''>('');
@@ -383,6 +406,9 @@ export function Home({ plan, loading, userName, onStartWorkout, onRegenerate, on
           <ExerciseList exercises={plan.exercises} onEditExercise={onUpdatePlan ? setEditingExercise : undefined} />
         </div>
       )}
+
+      {/* Discover Workouts Card */}
+      <DiscoverCard />
 
       {/* Exercise Edit Modal */}
       {editingExercise && (

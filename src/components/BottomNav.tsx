@@ -4,7 +4,7 @@ import { stripBase, withBase } from '../base';
 
 const tabs = [
   { id: '/', icon: 'home', label: 'Home' },
-  { id: '/discover', icon: 'explore', label: 'Discover' },
+  { id: '/nutrition', icon: 'restaurant', label: 'Nutrition' },
   { id: '/progress', icon: 'bar_chart', label: 'Progress' },
   { id: '/coach', icon: 'smart_toy', label: 'AI Coach' },
   { id: '/profile', icon: 'person', label: 'Profile' },

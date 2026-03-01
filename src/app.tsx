@@ -7,6 +7,7 @@ import { Progress } from './screens/Progress';
 import { EquipmentScreen } from './screens/Equipment';
 import { Coach } from './screens/Coach';
 import { Discover } from './screens/Discover';
+import { Nutrition } from './screens/Nutrition';
 import { Profile } from './screens/Profile';
 import { useEquipment, useTodayWorkout, useSessions, useChat, useProfile } from './hooks';
 import { withBase } from './base';
@@ -92,6 +93,11 @@ export function App() {
           component={Discover}
           equipment={equipment}
           onSelectStyle={handleSelectStyle}
+        />
+        <Route
+          path={withBase('/nutrition')}
+          component={Nutrition}
+          profile={profile}
         />
         <Route
           path={withBase('/progress')}

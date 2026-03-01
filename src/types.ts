@@ -115,3 +115,40 @@ export interface WorkoutCriteria {
   style?: WorkoutStyle;
   customPrompt?: string;
 }
+
+// Nutrition types
+
+export interface FoodEntry {
+  id: string;
+  name: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fats: number;
+  servingSize: number;
+  servingUnit: string;
+  barcode?: string;
+  source: 'scan' | 'ai' | 'manual';
+}
+
+export interface MealLog {
+  id: string;
+  date: string;
+  meal: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+  entries: FoodEntry[];
+  timestamp: number;
+}
+
+export interface NutritionGoals {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fats: number;
+  source: 'ai' | 'manual';
+}
+
+export interface DailyNutrition {
+  date: string;
+  meals: MealLog[];
+  goals: NutritionGoals;
+}
