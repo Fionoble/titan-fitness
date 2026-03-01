@@ -12,15 +12,15 @@ const ALL_STYLES: WorkoutStyle[] = ['strength', 'hypertrophy', 'functional', 'hi
 const FILTERS = ['All', 'Recommended', 'New', 'Favorites'];
 
 const STYLE_IMAGES: Record<WorkoutStyle, string> = {
-  strength: 'linear-gradient(135deg, #1a3a2a 0%, #0d2218 100%)',
-  hypertrophy: 'linear-gradient(135deg, #2a1a3a 0%, #18102a 100%)',
-  functional: 'linear-gradient(135deg, #1a2a3a 0%, #0d1828 100%)',
-  hiit: 'linear-gradient(135deg, #3a2a1a 0%, #281d0d 100%)',
-  cardio: 'linear-gradient(135deg, #3a1a1a 0%, #280d0d 100%)',
-  recovery: 'linear-gradient(135deg, #2a1a3a 0%, #1d0d28 100%)',
-  mobility: 'linear-gradient(135deg, #1a3a3a 0%, #0d2828 100%)',
-  power: 'linear-gradient(135deg, #3a3a1a 0%, #28280d 100%)',
-  endurance: 'linear-gradient(135deg, #3a1a2a 0%, #280d1d 100%)',
+  strength: '/images/discover/strength.jpg',
+  hypertrophy: '/images/discover/hypertrophy.jpg',
+  functional: '/images/discover/functional.jpg',
+  hiit: '/images/discover/hiit.jpg',
+  cardio: '/images/discover/cardio.jpg',
+  recovery: '/images/discover/recovery.jpg',
+  mobility: '/images/discover/mobility.jpg',
+  power: '/images/discover/power.jpg',
+  endurance: '/images/discover/endurance.jpg',
 };
 
 export function Discover({ equipment, onSelectStyle }: DiscoverProps) {
@@ -105,7 +105,7 @@ export function Discover({ equipment, onSelectStyle }: DiscoverProps) {
             disabled={!!loadingStyle}
             class="relative h-64 w-full overflow-hidden rounded-2xl group cursor-pointer shadow-lg shadow-black/20 text-left disabled:pointer-events-none"
           >
-            <div class="absolute inset-0" style={{ background: STYLE_IMAGES[topPick] }}></div>
+            <img src={STYLE_IMAGES[topPick]} alt="" class="absolute inset-0 w-full h-full object-cover" />
             <div class="absolute inset-0 bg-gradient-to-t from-bg-dark via-bg-dark/50 to-transparent"></div>
             {loadingStyle === topPick && (
               <div class="absolute inset-0 z-10 bg-bg-dark/70 flex items-center justify-center">
@@ -154,7 +154,7 @@ export function Discover({ equipment, onSelectStyle }: DiscoverProps) {
                   disabled={!!loadingStyle}
                   class="relative h-44 w-full overflow-hidden rounded-2xl group cursor-pointer shadow-md shadow-black/20 text-left disabled:pointer-events-none"
                 >
-                  <div class="absolute inset-0" style={{ background: STYLE_IMAGES[style] }}></div>
+                  <img src={STYLE_IMAGES[style]} alt="" class="absolute inset-0 w-full h-full object-cover" />
                   <div class={`absolute inset-0 bg-gradient-to-${isRight ? 'l' : 'r'} from-bg-dark/90 via-bg-dark/40 to-transparent`}></div>
                   {loadingStyle === style && (
                     <div class="absolute inset-0 z-10 bg-bg-dark/70 flex items-center justify-center">

@@ -176,6 +176,7 @@ function AddFoodModal({ mealType, onAdd, onClose }: {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResults, setAiResults] = useState<FoodEntry[]>([]);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [aiSelected, setAiSelected] = useState<Set<string>>(new Set());
 
   // Scanner state
   const [showScanner, setShowScanner] = useState(false);
@@ -204,9 +205,11 @@ function AddFoodModal({ mealType, onAdd, onClose }: {
     setAiLoading(true);
     setAiError(null);
     setAiResults([]);
+    setAiSelected(new Set());
     try {
       const results = await estimateNutrition(aiInput);
       setAiResults(results);
+      setAiSelected(new Set(results.map(r => r.id)));
     } catch (err: any) {
       setAiError(err.message || 'Failed to estimate nutrition');
     }
@@ -490,26 +493,69 @@ function AddFoodModal({ mealType, onAdd, onClose }: {
                 )}
                 {aiResults.length > 0 && (
                   <div class="space-y-2">
-                    <p class="text-xs text-slate-400 uppercase tracking-wider font-medium">Estimated items</p>
-                    {aiResults.map((food) => (
-                      <div key={food.id} class="bg-surface-dark rounded-xl p-3 border border-white/5">
-                        <div class="flex justify-between items-start mb-2">
-                          <h4 class="text-white font-medium text-sm">{food.name}</h4>
-                          <span class="text-primary font-bold text-sm">{food.calories} cal</span>
-                        </div>
-                        <div class="flex gap-3 text-xs text-slate-400">
-                          <span>P: {food.protein}g</span>
-                          <span>C: {food.carbs}g</span>
-                          <span>F: {food.fats}g</span>
-                        </div>
+                    <div class="flex items-center justify-between">
+                      <p class="text-xs text-slate-400 uppercase tracking-wider font-medium">Estimated items</p>
+                      <button
+                        onClick={() => {
+                          if (aiSelected.size === aiResults.length) {
+                            setAiSelected(new Set());
+                          } else {
+                            setAiSelected(new Set(aiResults.map(r => r.id)));
+                          }
+                        }}
+                        class="text-xs text-primary font-medium"
+                      >
+                        {aiSelected.size === aiResults.length ? 'Deselect All' : 'Select All'}
+                      </button>
+                    </div>
+                    {aiResults.map((food) => {
+                      const selected = aiSelected.has(food.id);
+                      return (
                         <button
-                          onClick={() => onAdd(food)}
-                          class="mt-2 w-full py-2 rounded-lg bg-primary/15 text-primary text-xs font-semibold border border-primary/20"
+                          key={food.id}
+                          onClick={() => {
+                            const next = new Set(aiSelected);
+                            if (selected) next.delete(food.id);
+                            else next.add(food.id);
+                            setAiSelected(next);
+                          }}
+                          class={`w-full text-left bg-surface-dark rounded-xl p-3 border transition-colors ${
+                            selected ? 'border-primary/50 bg-primary/5' : 'border-white/5'
+                          }`}
                         >
-                          Add to {mealLabel}
+                          <div class="flex items-start gap-3">
+                            <div class={`mt-0.5 w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
+                              selected ? 'bg-primary border-primary' : 'border-slate-600'
+                            }`}>
+                              {selected && <Icon name="check" class="text-bg-dark text-sm" />}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                              <div class="flex justify-between items-start mb-1">
+                                <h4 class="text-white font-medium text-sm">{food.name}</h4>
+                                <span class="text-primary font-bold text-sm ml-2">{food.calories} cal</span>
+                              </div>
+                              <div class="flex gap-3 text-xs text-slate-400">
+                                <span>P: {food.protein}g</span>
+                                <span>C: {food.carbs}g</span>
+                                <span>F: {food.fats}g</span>
+                              </div>
+                            </div>
+                          </div>
                         </button>
-                      </div>
-                    ))}
+                      );
+                    })}
+                    {aiSelected.size > 0 && (
+                      <button
+                        onClick={() => {
+                          aiResults
+                            .filter(f => aiSelected.has(f.id))
+                            .forEach(f => onAdd(f));
+                        }}
+                        class="w-full py-3 rounded-xl bg-primary text-bg-dark font-semibold text-sm"
+                      >
+                        Add {aiSelected.size === aiResults.length ? 'All' : aiSelected.size} {aiSelected.size === 1 ? 'Item' : 'Items'} to {mealLabel}
+                      </button>
+                    )}
                   </div>
                 )}
               </>
