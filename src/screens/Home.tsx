@@ -22,6 +22,32 @@ function getGreeting(): string {
   return 'Good Evening';
 }
 
+const WORKOUT_IMAGES: Record<string, string> = {
+  'Chest & Triceps': '/images/workouts/chest-triceps.jpg',
+  'Back & Biceps': '/images/workouts/back-biceps.jpg',
+  'Shoulders & Traps': '/images/workouts/shoulders-traps.jpg',
+  'Chest & Shoulders': '/images/workouts/chest-shoulders.jpg',
+  'Shoulders & Triceps': '/images/workouts/shoulders-triceps.jpg',
+  'Quads & Glutes': '/images/workouts/quads-glutes.jpg',
+  'Full Body': '/images/workouts/full-body.jpg',
+};
+
+const STYLE_FALLBACK_IMAGES: Record<string, string> = {
+  strength: '/images/discover/strength.jpg',
+  hypertrophy: '/images/discover/hypertrophy.jpg',
+  functional: '/images/discover/functional.jpg',
+  hiit: '/images/discover/hiit.jpg',
+  cardio: '/images/discover/cardio.jpg',
+  recovery: '/images/discover/recovery.jpg',
+  mobility: '/images/discover/mobility.jpg',
+  power: '/images/discover/power.jpg',
+  endurance: '/images/discover/endurance.jpg',
+};
+
+function getWorkoutImage(focus: string, style: string): string | null {
+  return WORKOUT_IMAGES[focus] || STYLE_FALLBACK_IMAGES[style] || WORKOUT_IMAGES['Full Body'] || null;
+}
+
 function getMotivation(): string {
   const phrases = ['Ready to crush it?', 'Let\'s get after it!', 'Time to level up!', 'Ready to sweat?', 'Let\'s build something!'];
   return phrases[new Date().getDate() % phrases.length];
@@ -330,9 +356,16 @@ export function Home({ plan, loading, userName, onStartWorkout, onRegenerate, on
       ) : plan ? (
         <div class="px-4 mb-8">
           <div class="relative overflow-hidden rounded-2xl bg-surface-dark shadow-lg shadow-primary/5">
-            {/* Gradient background */}
-            <div class="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-primary/5"></div>
-            <div class="absolute inset-0 bg-gradient-to-t from-bg-dark via-bg-dark/80 to-transparent"></div>
+            {/* Background image */}
+            {(() => {
+              const img = getWorkoutImage(plan.focus, plan.style);
+              return img ? (
+                <img src={img} alt="" class="absolute inset-0 w-full h-full object-cover opacity-40" />
+              ) : (
+                <div class="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-primary/5"></div>
+              );
+            })()}
+            <div class="absolute inset-0 bg-gradient-to-t from-bg-dark via-bg-dark/60 to-bg-dark/30"></div>
 
             <div class="relative z-10 p-6 flex flex-col h-[320px] justify-between">
               <div class="flex justify-between items-start">
