@@ -35,34 +35,36 @@ function CalorieRing({ consumed, goal }: { consumed: number; goal: number }) {
 
   return (
     <div class="flex flex-col items-center py-4">
-      <svg width="200" height="200" viewBox="0 0 200 200" class="transform -rotate-90">
-        {/* Background circle */}
-        <circle
-          cx="100" cy="100" r={radius}
-          stroke="#1a2e22"
-          stroke-width={strokeWidth}
-          fill="none"
-        />
-        {/* Progress circle */}
-        <circle
-          cx="100" cy="100" r={radius}
-          stroke={overBudget ? '#ef4444' : '#2bee79'}
-          stroke-width={strokeWidth}
-          fill="none"
-          stroke-linecap="round"
-          stroke-dasharray={circumference}
-          stroke-dashoffset={offset}
-          class="transition-all duration-700 ease-out"
-        />
-      </svg>
-      <div class="absolute flex flex-col items-center justify-center">
-        <span class="text-3xl font-bold text-white">{remaining}</span>
-        <span class="text-xs text-slate-400 uppercase tracking-wider">
-          {overBudget ? 'over' : 'remaining'}
-        </span>
-        <div class="flex items-center gap-1 mt-1">
-          <Icon name="local_fire_department" class="text-primary text-sm" />
-          <span class="text-xs text-slate-300">{consumed} / {goal}</span>
+      <div class="relative w-[200px] h-[200px]">
+        <svg width="200" height="200" viewBox="0 0 200 200" class="transform -rotate-90">
+          {/* Background circle */}
+          <circle
+            cx="100" cy="100" r={radius}
+            stroke="#1a2e22"
+            stroke-width={strokeWidth}
+            fill="none"
+          />
+          {/* Progress circle */}
+          <circle
+            cx="100" cy="100" r={radius}
+            stroke={overBudget ? '#ef4444' : '#2bee79'}
+            stroke-width={strokeWidth}
+            fill="none"
+            stroke-linecap="round"
+            stroke-dasharray={circumference}
+            stroke-dashoffset={offset}
+            class="transition-all duration-700 ease-out"
+          />
+        </svg>
+        <div class="absolute inset-0 flex flex-col items-center justify-center">
+          <span class="text-3xl font-bold text-white">{remaining}</span>
+          <span class="text-xs text-slate-400 uppercase tracking-wider">
+            {overBudget ? 'over' : 'remaining'}
+          </span>
+          <div class="flex items-center gap-1 mt-1">
+            <Icon name="local_fire_department" class="text-primary text-sm" />
+            <span class="text-xs text-slate-300">{consumed} / {goal}</span>
+          </div>
         </div>
       </div>
     </div>
