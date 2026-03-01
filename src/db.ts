@@ -1,8 +1,8 @@
 import { openDB, type IDBPDatabase } from 'idb';
-import type { Equipment, WorkoutPlan, WorkoutSession, PersonalRecord, UserProfile, ChatMessage } from './types';
+import type { Equipment, WorkoutPlan, WorkoutSession, PersonalRecord, UserProfile, ChatMessage, MealLog, FoodEntry, NutritionGoals } from './types';
 
 const DB_NAME = 'titan-fitness';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
@@ -30,6 +30,18 @@ function getDB() {
         if (!db.objectStoreNames.contains('chatMessages')) {
           const store = db.createObjectStore('chatMessages', { keyPath: 'id' });
           store.createIndex('by-time', 'timestamp');
+        }
+        // Nutrition stores (added in v2)
+        if (!db.objectStoreNames.contains('nutritionLogs')) {
+          const store = db.createObjectStore('nutritionLogs', { keyPath: 'id' });
+          store.createIndex('by-date', 'date');
+        }
+        if (!db.objectStoreNames.contains('foods')) {
+          const store = db.createObjectStore('foods', { keyPath: 'id' });
+          store.createIndex('by-barcode', 'barcode');
+        }
+        if (!db.objectStoreNames.contains('nutritionGoals')) {
+          db.createObjectStore('nutritionGoals', { keyPath: 'date' });
         }
       },
     });
@@ -170,8 +182,51 @@ export async function clearChat(): Promise<void> {
   await db.clear('chatMessages');
 }
 
+// Nutrition Logs
+export async function saveMealLog(meal: MealLog): Promise<void> {
+  const db = await getDB();
+  await db.put('nutritionLogs', meal);
+}
+
+export async function getMealLogsForDate(date: string): Promise<MealLog[]> {
+  const db = await getDB();
+  const all = await db.getAllFromIndex('nutritionLogs', 'by-date', date);
+  return all.sort((a, b) => a.timestamp - b.timestamp);
+}
+
+export async function deleteMealLog(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('nutritionLogs', id);
+}
+
+// Nutrition Goals
+export async function saveNutritionGoals(date: string, goals: NutritionGoals): Promise<void> {
+  const db = await getDB();
+  await db.put('nutritionGoals', { date, ...goals });
+}
+
+export async function getNutritionGoals(date: string): Promise<NutritionGoals | undefined> {
+  const db = await getDB();
+  const result = await db.get('nutritionGoals', date);
+  if (!result) return undefined;
+  const { date: _, ...goals } = result;
+  return goals as NutritionGoals;
+}
+
+// Food Cache
+export async function saveFoodCache(food: FoodEntry): Promise<void> {
+  const db = await getDB();
+  await db.put('foods', food);
+}
+
+export async function getFoodByBarcode(barcode: string): Promise<FoodEntry | undefined> {
+  const db = await getDB();
+  const results = await db.getAllFromIndex('foods', 'by-barcode', barcode);
+  return results[0];
+}
+
 // Export / Import
-const STORE_NAMES = ['equipment', 'workoutPlans', 'sessions', 'personalRecords', 'profile', 'chatMessages'] as const;
+const STORE_NAMES = ['equipment', 'workoutPlans', 'sessions', 'personalRecords', 'profile', 'chatMessages', 'nutritionLogs', 'foods', 'nutritionGoals'] as const;
 
 export async function exportAllData(): Promise<string> {
   const db = await getDB();

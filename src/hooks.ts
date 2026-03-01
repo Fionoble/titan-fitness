@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'preact/hooks';
+import { useState, useEffect, useCallback, useMemo } from 'preact/hooks';
 import * as db from './db';
-import type { Equipment, WorkoutPlan, WorkoutSession, ChatMessage, UserProfile, WorkoutCriteria } from './types';
+import type { Equipment, WorkoutPlan, WorkoutSession, ChatMessage, UserProfile, WorkoutCriteria, MealLog, FoodEntry, NutritionGoals } from './types';
 import { generateWorkout, getTodayStyle } from './workout-engine';
 import { generateWorkoutViaAI } from './ai-workout';
 import { isAIConfigured } from './ai';
@@ -184,4 +184,84 @@ export function useProfile() {
   }, [profile]);
 
   return { profile, updateProfile };
+}
+
+const DEFAULT_GOALS: NutritionGoals = {
+  calories: 2000,
+  protein: 150,
+  carbs: 200,
+  fats: 65,
+  source: 'manual',
+};
+
+export function useNutrition(date: string) {
+  const [meals, setMeals] = useState<MealLog[]>([]);
+  const [goals, setGoals] = useState<NutritionGoals>(DEFAULT_GOALS);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      db.getMealLogsForDate(date),
+      db.getNutritionGoals(date),
+    ]).then(([mealLogs, savedGoals]) => {
+      setMeals(mealLogs);
+      if (savedGoals) setGoals(savedGoals);
+      setLoading(false);
+    });
+  }, [date]);
+
+  const totals = useMemo(() => {
+    let calories = 0, protein = 0, carbs = 0, fats = 0;
+    for (const meal of meals) {
+      for (const entry of meal.entries) {
+        calories += entry.calories;
+        protein += entry.protein;
+        carbs += entry.carbs;
+        fats += entry.fats;
+      }
+    }
+    return { calories, protein, carbs, fats };
+  }, [meals]);
+
+  const addFoodToMeal = useCallback(async (mealType: MealLog['meal'], food: FoodEntry) => {
+    // Find existing meal log for this type today, or create new
+    const existing = meals.find((m) => m.meal === mealType);
+    if (existing) {
+      const updated: MealLog = { ...existing, entries: [...existing.entries, food] };
+      await db.saveMealLog(updated);
+      setMeals((prev) => prev.map((m) => m.id === updated.id ? updated : m));
+    } else {
+      const newMeal: MealLog = {
+        id: `${date}-${mealType}-${Date.now()}`,
+        date,
+        meal: mealType,
+        entries: [food],
+        timestamp: Date.now(),
+      };
+      await db.saveMealLog(newMeal);
+      setMeals((prev) => [...prev, newMeal]);
+    }
+  }, [meals, date]);
+
+  const removeFoodFromMeal = useCallback(async (mealType: MealLog['meal'], foodId: string) => {
+    const existing = meals.find((m) => m.meal === mealType);
+    if (!existing) return;
+    const updatedEntries = existing.entries.filter((e) => e.id !== foodId);
+    if (updatedEntries.length === 0) {
+      await db.deleteMealLog(existing.id);
+      setMeals((prev) => prev.filter((m) => m.id !== existing.id));
+    } else {
+      const updated: MealLog = { ...existing, entries: updatedEntries };
+      await db.saveMealLog(updated);
+      setMeals((prev) => prev.map((m) => m.id === updated.id ? updated : m));
+    }
+  }, [meals]);
+
+  const updateGoals = useCallback(async (newGoals: NutritionGoals) => {
+    await db.saveNutritionGoals(date, newGoals);
+    setGoals(newGoals);
+  }, [date]);
+
+  return { meals, goals, totals, loading, addFoodToMeal, removeFoodFromMeal, updateGoals };
 }

@@ -13,6 +13,7 @@
   "license": "ISC",
   "packageManager": "pnpm@10.23.0",
   "dependencies": {
+    "html5-qrcode": "^2.3.8",
     "idb": "^8.0.3",
     "preact": "^10.28.4",
     "preact-iso": "^2.11.1"
