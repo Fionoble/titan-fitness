@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'preact/hooks';
 import { Icon } from '../components/Icon';
 import { useNutrition } from '../hooks';
 import { isAIConfigured } from '../ai';
-import { estimateNutrition, suggestGoals } from '../ai-nutrition';
+import { estimateNutrition, suggestGoals, chatWithNutritionAI } from '../ai-nutrition';
 import { getFoodByBarcode, saveFoodCache } from '../db';
 import type { FoodEntry, MealLog, NutritionGoals, UserProfile } from '../types';
 
@@ -162,7 +162,7 @@ function AddFoodModal({ mealType, onAdd, onClose }: {
   onAdd: (food: FoodEntry) => void;
   onClose: () => void;
 }) {
-  const [tab, setTab] = useState<'manual' | 'scan' | 'ai'>('manual');
+  const [tab, setTab] = useState<'manual' | 'scan' | 'ai'>(isAIConfigured() ? 'ai' : 'manual');
   const [name, setName] = useState('');
   const [calories, setCalories] = useState('');
   const [protein, setProtein] = useState('');
@@ -772,6 +772,187 @@ function MealSection({ config, entries, onAddFood, onRemoveFood }: {
   );
 }
 
+// Nutrition Chat
+interface NutritionChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+}
+
+const NUTRITION_QUICK_ACTIONS = [
+  { label: 'What should I eat next?', icon: 'restaurant' },
+  { label: 'Am I hitting my macros?', icon: 'analytics' },
+  { label: 'Suggest a high-protein snack', icon: 'egg_alt' },
+  { label: 'How can I improve my diet?', icon: 'lightbulb' },
+];
+
+function NutritionChat({ totals, goals }: {
+  totals: { calories: number; protein: number; carbs: number; fats: number };
+  goals: NutritionGoals;
+}) {
+  const [messages, setMessages] = useState<NutritionChatMessage[]>([]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const sendMessage = async (text: string) => {
+    if (!text.trim() || loading) return;
+
+    const userMsg: NutritionChatMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: text.trim(),
+      timestamp: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, userMsg]);
+    setInput('');
+    setLoading(true);
+
+    try {
+      const chatHistory = messages.map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        timestamp: m.timestamp,
+      }));
+      const response = await chatWithNutritionAI(text.trim(), chatHistory, { totals, goals });
+      const aiMsg: NutritionChatMessage = {
+        id: `ai-${Date.now()}`,
+        role: 'assistant',
+        content: response,
+        timestamp: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, aiMsg]);
+    } catch (err: any) {
+      const errMsg: NutritionChatMessage = {
+        id: `err-${Date.now()}`,
+        role: 'assistant',
+        content: err.message || 'Something went wrong. Please try again.',
+        timestamp: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, errMsg]);
+    }
+    setLoading(false);
+  };
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage(input);
+    }
+  };
+
+  if (!isAIConfigured()) {
+    return (
+      <div class="bg-surface-dark rounded-xl p-4 border border-white/5 text-center">
+        <Icon name="smart_toy" class="text-3xl text-slate-500 mb-2" />
+        <p class="text-slate-300 text-sm mb-1">AI Nutrition Coach</p>
+        <p class="text-slate-500 text-xs">Set up your API key in Profile to chat about nutrition.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div class="bg-surface-dark rounded-xl border border-white/5 overflow-hidden">
+      {/* Header */}
+      <div class="flex items-center gap-3 p-4 border-b border-white/5">
+        <div class="w-10 h-10 rounded-lg bg-primary/15 flex items-center justify-center">
+          <Icon name="nutrition" class="text-primary text-xl" />
+        </div>
+        <div class="flex-1">
+          <h4 class="text-white font-semibold text-sm">Nutrition Coach</h4>
+          <span class="text-xs text-slate-400">Ask about food, macros, meal ideas</span>
+        </div>
+        {messages.length > 0 && (
+          <button
+            onClick={() => setMessages([])}
+            class="w-8 h-8 flex items-center justify-center rounded-full bg-surface-darker text-slate-400 hover:text-red-400 transition-colors"
+            title="Clear chat"
+          >
+            <Icon name="delete_sweep" class="text-lg" />
+          </button>
+        )}
+      </div>
+
+      {/* Messages */}
+      <div class="max-h-[400px] overflow-y-auto no-scrollbar">
+        {messages.length === 0 ? (
+          <div class="p-4 space-y-2">
+            <p class="text-xs text-slate-500 mb-3">Quick questions:</p>
+            {NUTRITION_QUICK_ACTIONS.map((action) => (
+              <button
+                key={action.label}
+                onClick={() => sendMessage(action.label)}
+                class="w-full flex items-center gap-3 p-3 rounded-lg bg-surface-darker text-left hover:bg-white/5 transition-colors"
+              >
+                <Icon name={action.icon} class="text-primary text-lg" />
+                <span class="text-sm text-slate-300">{action.label}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div class="p-4 space-y-3">
+            {messages.map((msg) => (
+              <div
+                key={msg.id}
+                class={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div class={`max-w-[85%] rounded-2xl px-4 py-2.5 ${
+                  msg.role === 'user'
+                    ? 'bg-primary text-bg-dark rounded-br-md'
+                    : 'bg-surface-darker text-slate-200 rounded-bl-md'
+                }`}>
+                  <p class="text-sm whitespace-pre-wrap">{msg.content}</p>
+                </div>
+              </div>
+            ))}
+            {loading && (
+              <div class="flex justify-start">
+                <div class="bg-surface-darker rounded-2xl rounded-bl-md px-4 py-3">
+                  <div class="flex gap-1.5">
+                    <div class="w-2 h-2 rounded-full bg-primary/60 animate-bounce" style="animation-delay: 0ms" />
+                    <div class="w-2 h-2 rounded-full bg-primary/60 animate-bounce" style="animation-delay: 150ms" />
+                    <div class="w-2 h-2 rounded-full bg-primary/60 animate-bounce" style="animation-delay: 300ms" />
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+        )}
+      </div>
+
+      {/* Input */}
+      <div class="p-3 border-t border-white/5">
+        <div class="flex items-end gap-2">
+          <textarea
+            ref={inputRef}
+            value={input}
+            onInput={(e) => setInput((e.target as HTMLTextAreaElement).value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask about nutrition..."
+            rows={1}
+            class="flex-1 bg-surface-darker border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 resize-none"
+          />
+          <button
+            onClick={() => sendMessage(input)}
+            disabled={!input.trim() || loading}
+            class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-bg-dark shrink-0 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 transition-transform"
+          >
+            <Icon name="send" class="text-lg" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Nutrition({ profile }: NutritionProps) {
   const date = getTodayDate();
   const { meals, goals, totals, loading, addFoodToMeal, removeFoodFromMeal, updateGoals } = useNutrition(date);
@@ -837,7 +1018,7 @@ export function Nutrition({ profile }: NutritionProps) {
       </div>
 
       {/* Meal Sections */}
-      <div class="px-5 space-y-3 pb-10">
+      <div class="px-5 space-y-3">
         <div class="flex items-center justify-between mb-1">
           <h3 class="text-lg font-bold text-white">Meals</h3>
           <span class="text-xs text-primary font-medium">{totals.calories} cal total</span>
@@ -851,6 +1032,12 @@ export function Nutrition({ profile }: NutritionProps) {
             onRemoveFood={(foodId) => removeFoodFromMeal(config.type, foodId)}
           />
         ))}
+      </div>
+
+      {/* Nutrition Chat */}
+      <div class="px-5 pt-6 pb-10">
+        <h3 class="text-lg font-bold text-white mb-3">Nutrition Coach</h3>
+        <NutritionChat totals={totals} goals={goals} />
       </div>
 
       {/* Add food modal */}

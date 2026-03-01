@@ -1,5 +1,5 @@
 import { isAIConfigured } from './ai';
-import type { FoodEntry, NutritionGoals, UserProfile } from './types';
+import type { ChatMessage, FoodEntry, NutritionGoals, UserProfile } from './types';
 
 interface AIConfig {
   apiKey: string;
@@ -50,6 +50,19 @@ Rules:
 - Use standard nutritional science guidelines
 - Protein in grams, carbs in grams, fats in grams
 - Always return valid JSON object, nothing else`;
+
+const CHAT_SYSTEM_PROMPT = `You are Titan's nutrition coach AI. You help users with nutrition questions, meal planning, dietary patterns, food suggestions, calorie strategies, and general health-related food topics.
+
+You have access to the user's daily nutrition tracking data when provided. Use it to give personalized, context-aware advice.
+
+Guidelines:
+- Be encouraging and supportive
+- Give specific, actionable advice
+- Reference the user's actual data when available
+- Keep responses concise but informative (2-4 paragraphs max)
+- If asked about medical conditions or allergies, recommend consulting a healthcare provider
+- You can suggest meals, snacks, recipes, and dietary adjustments
+- Discuss macro ratios, meal timing, hydration, and nutrition science`;
 
 async function callAI(systemPrompt: string, userMessage: string): Promise<string> {
   const config = getConfig();
@@ -148,4 +161,69 @@ export async function suggestGoals(profile: UserProfile): Promise<NutritionGoals
     fats: Math.round(parsed.fats || 65),
     source: 'ai',
   };
+}
+
+export async function chatWithNutritionAI(
+  userMessage: string,
+  chatHistory: ChatMessage[],
+  context?: { totals?: { calories: number; protein: number; carbs: number; fats: number }; goals?: NutritionGoals }
+): Promise<string> {
+  const config = getConfig();
+  if (!config) throw new Error('AI not configured');
+
+  let systemPrompt = CHAT_SYSTEM_PROMPT;
+  if (context?.totals && context?.goals) {
+    systemPrompt += `\n\nUser's nutrition data today:
+- Consumed: ${context.totals.calories} cal, ${context.totals.protein}g protein, ${context.totals.carbs}g carbs, ${context.totals.fats}g fats
+- Goals: ${context.goals.calories} cal, ${context.goals.protein}g protein, ${context.goals.carbs}g carbs, ${context.goals.fats}g fats
+- Remaining: ${context.goals.calories - context.totals.calories} cal`;
+  }
+
+  const historyMessages = chatHistory.slice(-20).map((m) => ({
+    role: m.role as 'user' | 'assistant',
+    content: m.content,
+  }));
+
+  if (config.provider === 'anthropic') {
+    const messages = [...historyMessages, { role: 'user' as const, content: userMessage }];
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': config.apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages,
+      }),
+    });
+    if (!res.ok) throw new Error(`API error ${res.status}`);
+    const data = await res.json();
+    return data.content[0].text;
+  } else {
+    const messages = [
+      { role: 'system' as const, content: systemPrompt },
+      ...historyMessages,
+      { role: 'user' as const, content: userMessage },
+    ];
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${config.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-5-mini',
+        messages,
+        max_completion_tokens: 8192,
+      }),
+    });
+    if (!res.ok) throw new Error(`API error ${res.status}`);
+    const data = await res.json();
+    return data.choices[0].message.content;
+  }
 }
