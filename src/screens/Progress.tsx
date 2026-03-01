@@ -44,8 +44,82 @@ function getStyleColor(style: string): string {
   return map[style] || 'bg-primary/10 text-primary';
 }
 
+function WorkoutDetail({ session, onClose }: { session: WorkoutSession; onClose: () => void }) {
+  const date = new Date(session.startedAt);
+
+  return (
+    <div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end justify-center" onClick={onClose}>
+      <div
+        class="w-full max-w-[430px] bg-surface-dark rounded-t-2xl max-h-[85vh] flex flex-col animate-slide-up"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div class="px-5 pt-5 pb-3 flex items-start justify-between border-b border-white/5">
+          <div class="flex gap-3">
+            <div class={`h-11 w-11 rounded-lg flex items-center justify-center flex-shrink-0 ${getStyleColor(session.style)}`}>
+              <Icon name={getStyleIcon(session.style)} />
+            </div>
+            <div>
+              <h2 class="text-lg font-bold text-white">{session.name}</h2>
+              <p class="text-xs text-slate-400 mt-0.5 capitalize">
+                {session.style} &bull; {date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} class="text-slate-400 p-1">
+            <Icon name="close" />
+          </button>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3 px-5 py-4 border-b border-white/5">
+          <div class="flex flex-col items-center">
+            <span class="text-xs text-slate-500">Duration</span>
+            <span class="text-sm font-bold text-white">{formatDuration(session.durationSeconds)}</span>
+          </div>
+          <div class="flex flex-col items-center">
+            <span class="text-xs text-slate-500">Volume</span>
+            <span class="text-sm font-bold text-white">{session.totalVolume.toLocaleString()} lbs</span>
+          </div>
+          <div class="flex flex-col items-center">
+            <span class="text-xs text-slate-500">Sets</span>
+            <span class="text-sm font-bold text-white">{session.totalSets}</span>
+          </div>
+        </div>
+
+        <div class="overflow-y-auto flex-1 px-5 py-4 space-y-4">
+          {session.exercises.map((ex) => (
+            <div key={ex.exerciseId}>
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-sm font-semibold text-white">{ex.exerciseName}</span>
+                <span class="text-[10px] text-slate-500 uppercase">{ex.muscleGroup}</span>
+              </div>
+              <div class="space-y-1">
+                {ex.sets.map((set) => (
+                  <div
+                    key={set.setNumber}
+                    class={`flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm ${
+                      set.completed ? 'bg-white/5' : 'bg-transparent opacity-40'
+                    }`}
+                  >
+                    <span class="text-xs text-slate-500 w-5">S{set.setNumber}</span>
+                    <span class="text-slate-200 font-medium flex-1">
+                      {set.weight != null ? `${set.weight} lbs` : '\u2014'} {'\u00d7'} {set.reps ?? '\u2014'}
+                    </span>
+                    {set.completed && <Icon name="check_circle" class="text-primary text-base" />}
+                    {set.isPersonalRecord && <span class="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">PR</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Progress({ sessions }: ProgressProps) {
   const [timeFrame, setTimeFrame] = useState<TimeFrame>('week');
+  const [selectedSession, setSelectedSession] = useState<WorkoutSession | null>(null);
 
   const filteredSessions = useMemo(() => {
     const now = new Date();
@@ -62,42 +136,49 @@ export function Progress({ sessions }: ProgressProps) {
   const totalPRs = filteredSessions.reduce((sum, s) => sum + s.personalRecords, 0);
   const workoutCount = filteredSessions.length;
 
-  // Generate chart data points
-  const chartPoints = useMemo(() => {
-    if (filteredSessions.length === 0) return [];
-    const dailyVolume: Record<string, number> = {};
-    for (const s of filteredSessions) {
-      const day = new Date(s.startedAt).toLocaleDateString();
-      dailyVolume[day] = (dailyVolume[day] || 0) + s.totalVolume;
+  // Generate chart bars based on time frame
+  const chartBars = useMemo(() => {
+    const now = new Date();
+
+    if (timeFrame === 'year') {
+      // 12 monthly bars
+      const bars: { label: string; volume: number }[] = [];
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const monthKey = `${d.getFullYear()}-${d.getMonth()}`;
+        const label = d.toLocaleDateString('en-US', { month: 'short' });
+        let volume = 0;
+        for (const s of filteredSessions) {
+          const sd = new Date(s.startedAt);
+          if (`${sd.getFullYear()}-${sd.getMonth()}` === monthKey) {
+            volume += s.totalVolume;
+          }
+        }
+        bars.push({ label, volume });
+      }
+      return bars;
     }
-    return Object.entries(dailyVolume).sort(([a], [b]) => a.localeCompare(b));
-  }, [filteredSessions]);
 
-  // Build SVG path
-  const svgPath = useMemo(() => {
-    if (chartPoints.length < 2) return '';
-    const maxVol = Math.max(...chartPoints.map(([, v]) => v), 1);
-    const w = 350;
-    const h = 120;
-    const step = w / (chartPoints.length - 1);
-
-    const points = chartPoints.map(([, v], i) => ({
-      x: i * step,
-      y: h - (v / maxVol) * h + 10,
-    }));
-
-    let d = `M${points[0].x},${points[0].y}`;
-    for (let i = 1; i < points.length; i++) {
-      const cp1x = points[i - 1].x + step * 0.4;
-      const cp1y = points[i - 1].y;
-      const cp2x = points[i].x - step * 0.4;
-      const cp2y = points[i].y;
-      d += ` C${cp1x},${cp1y} ${cp2x},${cp2y} ${points[i].x},${points[i].y}`;
+    // Week (7 days) or month (30 days)
+    const numDays = timeFrame === 'week' ? 7 : 30;
+    const bars: { label: string; volume: number }[] = [];
+    for (let i = numDays - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(now.getDate() - i);
+      const dateStr = d.toDateString();
+      const label = timeFrame === 'week'
+        ? d.toLocaleDateString('en-US', { weekday: 'short' })
+        : (i % 5 === 0 || i === 0) ? d.toLocaleDateString('en-US', { day: 'numeric' }) : '';
+      let volume = 0;
+      for (const s of filteredSessions) {
+        if (new Date(s.startedAt).toDateString() === dateStr) {
+          volume += s.totalVolume;
+        }
+      }
+      bars.push({ label, volume });
     }
-    return d;
-  }, [chartPoints]);
-
-  const svgFillPath = svgPath ? `${svgPath} V150 H0 Z` : '';
+    return bars;
+  }, [filteredSessions, timeFrame]);
 
   // Calendar strip - last 7 days
   const calendarDays = useMemo(() => {
@@ -186,27 +267,40 @@ export function Progress({ sessions }: ProgressProps) {
           </div>
 
           <div class="bg-surface-dark rounded-xl p-4 border border-white/5">
-            {chartPoints.length >= 2 ? (
-              <>
-                <div class="h-36 w-full relative">
-                  <svg class="w-full h-full overflow-visible" viewBox="0 0 350 150" preserveAspectRatio="none">
-                    <defs>
-                      <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stop-color="#2bee79" stop-opacity="0.2" />
-                        <stop offset="100%" stop-color="#2bee79" stop-opacity="0" />
-                      </linearGradient>
-                    </defs>
-                    {svgFillPath && <path d={svgFillPath} fill="url(#chartGrad)" />}
-                    {svgPath && <path d={svgPath} fill="none" stroke="#2bee79" stroke-width="3" stroke-linecap="round" />}
-                  </svg>
-                </div>
-                <div class="flex justify-between mt-3 text-xs font-medium text-slate-500">
-                  {chartPoints.slice(0, 7).map(([date], i) => (
-                    <span key={i}>{new Date(date).toLocaleDateString('en-US', { weekday: 'short' })}</span>
-                  ))}
-                </div>
-              </>
-            ) : (
+            {chartBars.some((b) => b.volume > 0) ? (() => {
+              const maxVol = Math.max(...chartBars.map((b) => b.volume), 1);
+              return (
+                <>
+                  <div class="h-36 w-full flex items-end gap-[2px]">
+                    {chartBars.map((bar, i) => (
+                      <div key={i} class="flex-1 flex flex-col items-center justify-end h-full">
+                        <div
+                          class="w-full rounded-t-sm bg-primary/80 min-w-[2px] transition-all"
+                          style={{
+                            height: bar.volume > 0 ? `${Math.max((bar.volume / maxVol) * 100, 4)}%` : '0%',
+                            opacity: bar.volume > 0 ? 1 : 0,
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div class="flex justify-between mt-3 text-xs font-medium text-slate-500">
+                    {timeFrame === 'year'
+                      ? chartBars.filter((_, i) => i % 2 === 0).map((bar, i) => (
+                          <span key={i}>{bar.label}</span>
+                        ))
+                      : timeFrame === 'week'
+                        ? chartBars.map((bar, i) => (
+                            <span key={i}>{bar.label}</span>
+                          ))
+                        : chartBars.filter((b) => b.label).map((bar, i) => (
+                            <span key={i}>{bar.label}</span>
+                          ))
+                    }
+                  </div>
+                </>
+              );
+            })() : (
               <div class="h-36 flex items-center justify-center text-slate-500 text-sm">
                 Complete workouts to see your progress chart
               </div>
@@ -272,7 +366,7 @@ export function Progress({ sessions }: ProgressProps) {
                   <span class="text-sm font-bold text-slate-400 uppercase tracking-wide">{group.label}</span>
                 </div>
                 {group.sessions.map((s) => (
-                  <div key={s.id} class="bg-surface-dark rounded-xl p-4 border border-white/5 mb-2 space-y-3">
+                  <div key={s.id} class="bg-surface-dark rounded-xl p-4 border border-white/5 mb-2 space-y-3 cursor-pointer active:scale-[0.98] transition-transform" onClick={() => setSelectedSession(s)}>
                     <div class="flex justify-between items-start">
                       <div class="flex gap-3">
                         <div class={`h-10 w-10 rounded-lg flex items-center justify-center ${getStyleColor(s.style)}`}>
@@ -313,6 +407,10 @@ export function Progress({ sessions }: ProgressProps) {
           )}
         </section>
       </div>
+
+      {selectedSession && (
+        <WorkoutDetail session={selectedSession} onClose={() => setSelectedSession(null)} />
+      )}
     </div>
   );
 }
