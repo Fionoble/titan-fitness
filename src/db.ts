@@ -1,8 +1,8 @@
 import { openDB, type IDBPDatabase } from 'idb';
-import type { Equipment, WorkoutPlan, WorkoutSession, PersonalRecord, UserProfile, ChatMessage, MealLog, FoodEntry, NutritionGoals } from './types';
+import type { Equipment, WorkoutPlan, WorkoutSession, PersonalRecord, UserProfile, ChatMessage, MealLog, FoodEntry, NutritionGoals, StarredFood } from './types';
 
 const DB_NAME = 'titan-fitness';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
@@ -42,6 +42,11 @@ function getDB() {
         }
         if (!db.objectStoreNames.contains('nutritionGoals')) {
           db.createObjectStore('nutritionGoals', { keyPath: 'date' });
+        }
+        // Starred foods (added in v3)
+        if (!db.objectStoreNames.contains('starredFoods')) {
+          const store = db.createObjectStore('starredFoods', { keyPath: 'id' });
+          store.createIndex('by-name', 'name');
         }
       },
     });
@@ -225,8 +230,32 @@ export async function getFoodByBarcode(barcode: string): Promise<FoodEntry | und
   return results[0];
 }
 
+// Starred Foods
+export async function getStarredFoods(): Promise<StarredFood[]> {
+  const db = await getDB();
+  return db.getAll('starredFoods');
+}
+
+export async function starFood(food: FoodEntry): Promise<StarredFood> {
+  const db = await getDB();
+  const starred: StarredFood = { ...food, starredAt: Date.now() };
+  await db.put('starredFoods', starred);
+  return starred;
+}
+
+export async function unstarFood(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('starredFoods', id);
+}
+
+// All meal logs (for recent foods)
+export async function getAllMealLogs(): Promise<MealLog[]> {
+  const db = await getDB();
+  return db.getAll('nutritionLogs');
+}
+
 // Export / Import
-const STORE_NAMES = ['equipment', 'workoutPlans', 'sessions', 'personalRecords', 'profile', 'chatMessages', 'nutritionLogs', 'foods', 'nutritionGoals'] as const;
+const STORE_NAMES = ['equipment', 'workoutPlans', 'sessions', 'personalRecords', 'profile', 'chatMessages', 'nutritionLogs', 'foods', 'nutritionGoals', 'starredFoods'] as const;
 
 export async function exportAllData(): Promise<string> {
   const db = await getDB();

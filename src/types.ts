@@ -147,6 +147,20 @@ export interface NutritionGoals {
   source: 'ai' | 'manual';
 }
 
+export interface StarredFood {
+  id: string;
+  name: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fats: number;
+  servingSize: number;
+  servingUnit: string;
+  barcode?: string;
+  source: 'scan' | 'ai' | 'manual';
+  starredAt: number;
+}
+
 export interface DailyNutrition {
   date: string;
   meals: MealLog[];

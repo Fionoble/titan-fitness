@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'preact/hooks';
 import * as db from './db';
-import type { Equipment, WorkoutPlan, WorkoutSession, ChatMessage, UserProfile, WorkoutCriteria, MealLog, FoodEntry, NutritionGoals } from './types';
+import type { Equipment, WorkoutPlan, WorkoutSession, ChatMessage, UserProfile, WorkoutCriteria, MealLog, FoodEntry, NutritionGoals, StarredFood } from './types';
 import { generateWorkout, getTodayStyle } from './workout-engine';
 import { generateWorkoutViaAI } from './ai-workout';
 import { isAIConfigured } from './ai';
@@ -273,4 +273,81 @@ export function useNutrition(date: string) {
   }, [date]);
 
   return { meals, goals, totals, loading, addFoodToMeal, removeFoodFromMeal, updateGoals };
+}
+
+export interface RecentFoodItem {
+  food: FoodEntry;
+  frequency: number;
+  lastUsed: number;
+  score: number;
+}
+
+export function useRecentFoods() {
+  const [recentFoods, setRecentFoods] = useState<RecentFoodItem[]>([]);
+  const [starredFoods, setStarredFoods] = useState<StarredFood[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const [allMeals, starred] = await Promise.all([
+      db.getAllMealLogs(),
+      db.getStarredFoods(),
+    ]);
+
+    // Deduplicate foods by normalized name
+    const foodMap = new Map<string, { food: FoodEntry; frequency: number; lastUsed: number }>();
+    for (const meal of allMeals) {
+      for (const entry of meal.entries) {
+        const key = entry.name.toLowerCase().trim();
+        const existing = foodMap.get(key);
+        if (existing) {
+          existing.frequency++;
+          existing.lastUsed = Math.max(existing.lastUsed, meal.timestamp);
+          // Keep the most recent entry's data
+          if (meal.timestamp > existing.lastUsed) {
+            existing.food = entry;
+          }
+        } else {
+          foodMap.set(key, { food: entry, frequency: 1, lastUsed: meal.timestamp });
+        }
+      }
+    }
+
+    // Score by combined frequency and recency
+    const now = Date.now();
+    const items: RecentFoodItem[] = [];
+    for (const { food, frequency, lastUsed } of foodMap.values()) {
+      const daysSince = (now - lastUsed) / (1000 * 60 * 60 * 24);
+      const recencyScore = Math.max(0, 1 - daysSince / 30); // decays over 30 days
+      const score = frequency * 0.6 + recencyScore * 10 * 0.4;
+      items.push({ food, frequency, lastUsed, score });
+    }
+    items.sort((a, b) => b.score - a.score);
+
+    setRecentFoods(items);
+    setStarredFoods(starred);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const toggleStar = useCallback(async (food: FoodEntry) => {
+    // Check if already starred by normalized name
+    const key = food.name.toLowerCase().trim();
+    const existing = starredFoods.find((s) => s.name.toLowerCase().trim() === key);
+    if (existing) {
+      await db.unstarFood(existing.id);
+      setStarredFoods((prev) => prev.filter((s) => s.id !== existing.id));
+    } else {
+      const starred = await db.starFood(food);
+      setStarredFoods((prev) => [...prev, starred]);
+    }
+  }, [starredFoods]);
+
+  const isStarred = useCallback((foodName: string) => {
+    const key = foodName.toLowerCase().trim();
+    return starredFoods.some((s) => s.name.toLowerCase().trim() === key);
+  }, [starredFoods]);
+
+  return { recentFoods, starredFoods, loading, toggleStar, isStarred, reload: load };
 }

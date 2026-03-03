@@ -1,10 +1,11 @@
 import { useState, useCallback, useRef, useEffect } from 'preact/hooks';
 import { Icon } from '../components/Icon';
-import { useNutrition } from '../hooks';
+import { useNutrition, useRecentFoods } from '../hooks';
+import type { RecentFoodItem } from '../hooks';
 import { isAIConfigured } from '../ai';
 import { estimateNutrition, suggestGoals, chatWithNutritionAI } from '../ai-nutrition';
 import { getFoodByBarcode, saveFoodCache } from '../db';
-import type { FoodEntry, MealLog, NutritionGoals, UserProfile } from '../types';
+import type { FoodEntry, MealLog, NutritionGoals, UserProfile, StarredFood } from '../types';
 
 interface NutritionProps {
   profile: UserProfile | null;
@@ -156,14 +157,62 @@ function BarcodeScanner({ onScan, onClose }: { onScan: (barcode: string) => void
   );
 }
 
+// Recent food row for the Recent tab
+function RecentFoodRow({ food, starred, frequency, onToggleStar, onAdd }: {
+  food: FoodEntry | StarredFood;
+  starred: boolean;
+  frequency?: number;
+  onToggleStar: () => void;
+  onAdd: () => void;
+}) {
+  return (
+    <div class="flex items-center gap-2 bg-surface-darker rounded-lg p-3">
+      <button
+        onClick={onToggleStar}
+        class="w-8 h-8 flex items-center justify-center rounded-full shrink-0 transition-colors hover:bg-white/5"
+      >
+        <Icon
+          name={starred ? 'star' : 'star_border'}
+          class={`text-lg ${starred ? 'text-amber-400' : 'text-slate-600'}`}
+        />
+      </button>
+      <div class="flex-1 min-w-0">
+        <span class="text-sm text-white truncate block">{food.name}</span>
+        <div class="flex gap-2 text-[10px] text-slate-400 mt-0.5">
+          <span>{food.calories} cal</span>
+          <span>P: {food.protein}g</span>
+          <span>C: {food.carbs}g</span>
+          <span>F: {food.fats}g</span>
+          {frequency && frequency > 1 && (
+            <span class="text-primary">{frequency}x</span>
+          )}
+        </div>
+      </div>
+      <button
+        onClick={onAdd}
+        class="w-8 h-8 flex items-center justify-center rounded-full bg-primary/15 text-primary shrink-0 hover:bg-primary/25 transition-colors"
+      >
+        <Icon name="add" class="text-lg" />
+      </button>
+    </div>
+  );
+}
+
 // Add Food Modal
-function AddFoodModal({ mealType, onAdd, onAddMultiple, onClose }: {
+function AddFoodModal({ mealType, onAdd, onAddMultiple, onClose, recentFoods, starredFoods, toggleStar, isStarred, reloadRecent }: {
   mealType: MealType;
   onAdd: (food: FoodEntry) => void;
   onAddMultiple: (foods: FoodEntry[]) => void;
   onClose: () => void;
+  recentFoods: RecentFoodItem[];
+  starredFoods: StarredFood[];
+  toggleStar: (food: FoodEntry) => Promise<void>;
+  isStarred: (name: string) => boolean;
+  reloadRecent: () => Promise<void>;
 }) {
-  const [tab, setTab] = useState<'manual' | 'scan' | 'ai'>(isAIConfigured() ? 'ai' : 'manual');
+  const hasHistory = recentFoods.length > 0 || starredFoods.length > 0;
+  const [tab, setTab] = useState<'recent' | 'manual' | 'scan' | 'ai'>(hasHistory ? 'recent' : (isAIConfigured() ? 'ai' : 'manual'));
+  const [recentSearch, setRecentSearch] = useState('');
   const [name, setName] = useState('');
   const [calories, setCalories] = useState('');
   const [protein, setProtein] = useState('');
@@ -274,16 +323,17 @@ function AddFoodModal({ mealType, onAdd, onAddMultiple, onClose }: {
         <h3 class="text-lg font-bold text-white mb-4">Add to {mealLabel}</h3>
 
         {/* Tabs */}
-        <div class="flex gap-2 mb-5">
+        <div class="flex gap-1.5 mb-5 overflow-x-auto no-scrollbar">
           {[
+            { id: 'recent' as const, label: 'Recent', icon: 'history' },
             { id: 'manual' as const, label: 'Manual', icon: 'edit' },
             { id: 'scan' as const, label: 'Scan', icon: 'qr_code_scanner' },
-            { id: 'ai' as const, label: 'AI Quick Log', icon: 'auto_awesome' },
+            { id: 'ai' as const, label: 'AI', icon: 'auto_awesome' },
           ].map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              class={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+              class={`flex-1 flex items-center justify-center gap-1 py-2.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap min-w-0 ${
                 tab === t.id
                   ? 'bg-primary/15 text-primary border border-primary/30'
                   : 'bg-surface-dark text-slate-400 border border-white/5'
@@ -294,6 +344,108 @@ function AddFoodModal({ mealType, onAdd, onAddMultiple, onClose }: {
             </button>
           ))}
         </div>
+
+        {/* Recent tab */}
+        {tab === 'recent' && (
+          <div class="space-y-3">
+            {/* Search */}
+            <div class="relative">
+              <Icon name="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-lg" />
+              <input
+                type="text"
+                value={recentSearch}
+                onInput={(e) => setRecentSearch((e.target as HTMLInputElement).value)}
+                placeholder="Search foods..."
+                class="w-full bg-surface-dark border border-white/10 rounded-lg pl-10 pr-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-primary/50 focus:ring-1 focus:ring-primary/50"
+              />
+            </div>
+
+            {(() => {
+              const query = recentSearch.toLowerCase().trim();
+              const filteredStarred = starredFoods
+                .filter((s) => !query || s.name.toLowerCase().includes(query))
+                .sort((a, b) => b.starredAt - a.starredAt);
+              const starredNames = new Set(starredFoods.map((s) => s.name.toLowerCase().trim()));
+              const filteredRecent = recentFoods
+                .filter((r) => !starredNames.has(r.food.name.toLowerCase().trim()))
+                .filter((r) => !query || r.food.name.toLowerCase().includes(query));
+
+              if (filteredStarred.length === 0 && filteredRecent.length === 0) {
+                return (
+                  <div class="text-center py-8">
+                    <Icon name={query ? 'search_off' : 'history'} class="text-4xl text-slate-600 mb-2" />
+                    <p class="text-slate-400 text-sm">
+                      {query ? 'No foods match your search' : 'No food history yet'}
+                    </p>
+                    <p class="text-slate-500 text-xs mt-1">
+                      {query ? 'Try a different search term' : 'Log some foods and they\'ll appear here for quick reuse'}
+                    </p>
+                  </div>
+                );
+              }
+
+              return (
+                <>
+                  {/* Favorites section */}
+                  {filteredStarred.length > 0 && (
+                    <div>
+                      <div class="flex items-center gap-1.5 mb-2">
+                        <Icon name="star" class="text-amber-400 text-sm" />
+                        <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Favorites</span>
+                      </div>
+                      <div class="space-y-1.5">
+                        {filteredStarred.map((starred) => (
+                          <RecentFoodRow
+                            key={starred.id}
+                            food={starred}
+                            starred={true}
+                            onToggleStar={() => toggleStar(starred)}
+                            onAdd={() => {
+                              const copy: FoodEntry = {
+                                ...starred,
+                                id: `recent-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                              };
+                              delete (copy as any).starredAt;
+                              onAdd(copy);
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Recent section */}
+                  {filteredRecent.length > 0 && (
+                    <div>
+                      <div class="flex items-center gap-1.5 mb-2">
+                        <Icon name="history" class="text-slate-400 text-sm" />
+                        <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Recent</span>
+                      </div>
+                      <div class="space-y-1.5">
+                        {filteredRecent.map((item) => (
+                          <RecentFoodRow
+                            key={item.food.id}
+                            food={item.food}
+                            starred={false}
+                            frequency={item.frequency}
+                            onToggleStar={() => toggleStar(item.food)}
+                            onAdd={() => {
+                              const copy: FoodEntry = {
+                                ...item.food,
+                                id: `recent-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                              };
+                              onAdd(copy);
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+        )}
 
         {/* Manual entry */}
         {tab === 'manual' && (
@@ -700,11 +852,13 @@ function GoalsModal({ goals, onSave, onClose, profile }: {
 }
 
 // Meal Section Component
-function MealSection({ config, entries, onAddFood, onRemoveFood }: {
+function MealSection({ config, entries, onAddFood, onRemoveFood, onToggleStar, isStarred }: {
   config: { type: MealType; label: string; icon: string };
   entries: FoodEntry[];
   onAddFood: () => void;
   onRemoveFood: (foodId: string) => void;
+  onToggleStar: (food: FoodEntry) => void;
+  isStarred: (name: string) => boolean;
 }) {
   const [expanded, setExpanded] = useState(entries.length > 0);
   const totalCals = entries.reduce((sum, e) => sum + e.calories, 0);
@@ -736,6 +890,15 @@ function MealSection({ config, entries, onAddFood, onRemoveFood }: {
         <div class="px-4 pb-4 space-y-2">
           {entries.map((entry) => (
             <div key={entry.id} class="flex items-center justify-between bg-surface-darker rounded-lg p-3">
+              <button
+                onClick={() => onToggleStar(entry)}
+                class="w-7 h-7 flex items-center justify-center rounded-full shrink-0 mr-2 hover:bg-white/5 transition-colors"
+              >
+                <Icon
+                  name={isStarred(entry.name) ? 'star' : 'star_border'}
+                  class={`text-base ${isStarred(entry.name) ? 'text-amber-400' : 'text-slate-600'}`}
+                />
+              </button>
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
                   <span class="text-sm text-white truncate">{entry.name}</span>
@@ -971,6 +1134,7 @@ function formatDisplayDate(dateStr: string): string {
 export function Nutrition({ profile }: NutritionProps) {
   const [date, setDate] = useState(getLocalDate());
   const { meals, goals, totals, loading, addFoodToMeal, removeFoodFromMeal, updateGoals } = useNutrition(date);
+  const { recentFoods, starredFoods, toggleStar, isStarred, reload: reloadRecent } = useRecentFoods();
   const [addingMeal, setAddingMeal] = useState<MealType | null>(null);
   const [showGoals, setShowGoals] = useState(false);
   const isToday = date === getLocalDate();
@@ -983,13 +1147,15 @@ export function Nutrition({ profile }: NutritionProps) {
   const handleAddFoodAndClose = useCallback((food: FoodEntry) => {
     handleAddFood(food);
     setAddingMeal(null);
-  }, [handleAddFood]);
+    reloadRecent();
+  }, [handleAddFood, reloadRecent]);
 
   const handleAddMultipleFoods = useCallback((foods: FoodEntry[]) => {
     if (!addingMeal) return;
     foods.forEach((f) => addFoodToMeal(addingMeal, f));
     setAddingMeal(null);
-  }, [addingMeal, addFoodToMeal]);
+    reloadRecent();
+  }, [addingMeal, addFoodToMeal, reloadRecent]);
 
   const getMealEntries = useCallback((mealType: MealType): FoodEntry[] => {
     const meal = meals.find((m) => m.meal === mealType);
@@ -1076,6 +1242,8 @@ export function Nutrition({ profile }: NutritionProps) {
             entries={getMealEntries(config.type)}
             onAddFood={() => setAddingMeal(config.type)}
             onRemoveFood={(foodId) => removeFoodFromMeal(config.type, foodId)}
+            onToggleStar={toggleStar}
+            isStarred={isStarred}
           />
         ))}
       </div>
@@ -1093,6 +1261,11 @@ export function Nutrition({ profile }: NutritionProps) {
           onAdd={handleAddFoodAndClose}
           onAddMultiple={handleAddMultipleFoods}
           onClose={() => setAddingMeal(null)}
+          recentFoods={recentFoods}
+          starredFoods={starredFoods}
+          toggleStar={toggleStar}
+          isStarred={isStarred}
+          reloadRecent={reloadRecent}
         />
       )}
 
