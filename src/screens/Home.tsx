@@ -30,6 +30,19 @@ const WORKOUT_IMAGES: Record<string, string> = {
   'Shoulders & Triceps': '/images/workouts/shoulders-triceps.jpg',
   'Quads & Glutes': '/images/workouts/quads-glutes.jpg',
   'Full Body': '/images/workouts/full-body.jpg',
+  'Core': '/images/workouts/core.jpg',
+  'Legs': '/images/workouts/legs.jpg',
+  'Back': '/images/workouts/back.jpg',
+  'Chest': '/images/workouts/chest.jpg',
+  'Arms': '/images/workouts/arms.jpg',
+  'Biceps & Triceps': '/images/workouts/arms.jpg',
+  'Glutes': '/images/workouts/glutes.jpg',
+  'Glutes & Hamstrings': '/images/workouts/glutes.jpg',
+  'Upper Body': '/images/workouts/upper-body.jpg',
+  'Lower Body': '/images/workouts/lower-body.jpg',
+  'Shoulders': '/images/workouts/shoulders.jpg',
+  'Conditioning': '/images/workouts/conditioning.jpg',
+  'Cardio': '/images/workouts/conditioning.jpg',
 };
 
 const STYLE_FALLBACK_IMAGES: Record<string, string> = {
