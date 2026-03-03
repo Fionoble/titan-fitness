@@ -3,6 +3,7 @@ import { Router, Route, useLocation } from 'preact-iso';
 import { BottomNav } from './components/BottomNav';
 import { Home } from './screens/Home';
 import { ActiveWorkout } from './screens/ActiveWorkout';
+import { WorkoutComplete } from './screens/WorkoutComplete';
 import { Progress } from './screens/Progress';
 import { EquipmentScreen } from './screens/Equipment';
 import { Coach } from './screens/Coach';
@@ -16,6 +17,7 @@ import type { WorkoutSession, WorkoutPlan, WorkoutCriteria } from './types';
 export function App() {
   const { route } = useLocation();
   const [activeWorkoutPlan, setActiveWorkoutPlan] = useState<WorkoutPlan | null>(null);
+  const [completedSession, setCompletedSession] = useState<WorkoutSession | null>(null);
   const [pendingAdjustPlan, setPendingAdjustPlan] = useState<WorkoutPlan | null>(null);
 
   const { equipment, loading: equipLoading, toggle: toggleEquipment } = useEquipment();
@@ -35,8 +37,13 @@ export function App() {
   const handleCompleteWorkout = useCallback(async (session: WorkoutSession) => {
     await saveSession(session);
     setActiveWorkoutPlan(null);
+    setCompletedSession(session);
+  }, [saveSession]);
+
+  const handleDismissComplete = useCallback(() => {
+    setCompletedSession(null);
     nav('/progress');
-  }, [saveSession, nav]);
+  }, [nav]);
 
   const handleCancelWorkout = useCallback(() => {
     setActiveWorkoutPlan(null);
@@ -62,6 +69,16 @@ export function App() {
   const handleRegenerate = useCallback(async (style?: string, criteria?: WorkoutCriteria) => {
     await regenerate(style, criteria);
   }, [regenerate]);
+
+  // Workout completion celebration screen
+  if (completedSession) {
+    return (
+      <WorkoutComplete
+        session={completedSession}
+        onDismiss={handleDismissComplete}
+      />
+    );
+  }
 
   // Active workout takes over the whole screen
   if (activeWorkoutPlan) {
