@@ -19,8 +19,8 @@ const MEAL_CONFIG: { type: MealType; label: string; icon: string }[] = [
   { type: 'snack', label: 'Snacks', icon: 'cookie' },
 ];
 
-function getTodayDate(): string {
-  return new Date().toISOString().split('T')[0];
+function getLocalDate(d: Date = new Date()): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 // Calorie ring SVG component
@@ -157,9 +157,10 @@ function BarcodeScanner({ onScan, onClose }: { onScan: (barcode: string) => void
 }
 
 // Add Food Modal
-function AddFoodModal({ mealType, onAdd, onClose }: {
+function AddFoodModal({ mealType, onAdd, onAddMultiple, onClose }: {
   mealType: MealType;
   onAdd: (food: FoodEntry) => void;
+  onAddMultiple: (foods: FoodEntry[]) => void;
   onClose: () => void;
 }) {
   const [tab, setTab] = useState<'manual' | 'scan' | 'ai'>(isAIConfigured() ? 'ai' : 'manual');
@@ -547,9 +548,8 @@ function AddFoodModal({ mealType, onAdd, onClose }: {
                     {aiSelected.size > 0 && (
                       <button
                         onClick={() => {
-                          aiResults
-                            .filter(f => aiSelected.has(f.id))
-                            .forEach(f => onAdd(f));
+                          const selected = aiResults.filter(f => aiSelected.has(f.id));
+                          onAddMultiple(selected);
                         }}
                         class="w-full py-3 rounded-xl bg-primary text-bg-dark font-semibold text-sm"
                       >
@@ -953,15 +953,41 @@ function NutritionChat({ totals, goals }: {
   );
 }
 
+function shiftDate(dateStr: string, days: number): string {
+  const d = new Date(dateStr + 'T12:00:00'); // noon to avoid DST issues
+  d.setDate(d.getDate() + days);
+  return getLocalDate(d);
+}
+
+function formatDisplayDate(dateStr: string): string {
+  const today = getLocalDate();
+  const yesterday = shiftDate(today, -1);
+  if (dateStr === today) return 'Today';
+  if (dateStr === yesterday) return 'Yesterday';
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
 export function Nutrition({ profile }: NutritionProps) {
-  const date = getTodayDate();
+  const [date, setDate] = useState(getLocalDate());
   const { meals, goals, totals, loading, addFoodToMeal, removeFoodFromMeal, updateGoals } = useNutrition(date);
   const [addingMeal, setAddingMeal] = useState<MealType | null>(null);
   const [showGoals, setShowGoals] = useState(false);
+  const isToday = date === getLocalDate();
 
   const handleAddFood = useCallback((food: FoodEntry) => {
     if (!addingMeal) return;
     addFoodToMeal(addingMeal, food);
+  }, [addingMeal, addFoodToMeal]);
+
+  const handleAddFoodAndClose = useCallback((food: FoodEntry) => {
+    handleAddFood(food);
+    setAddingMeal(null);
+  }, [handleAddFood]);
+
+  const handleAddMultipleFoods = useCallback((foods: FoodEntry[]) => {
+    if (!addingMeal) return;
+    foods.forEach((f) => addFoodToMeal(addingMeal, f));
     setAddingMeal(null);
   }, [addingMeal, addFoodToMeal]);
 
@@ -998,9 +1024,29 @@ export function Nutrition({ profile }: NutritionProps) {
             <Icon name="tune" />
           </button>
         </div>
-        <p class="text-xs text-slate-400">
-          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
-        </p>
+        {/* Date navigation */}
+        <div class="flex items-center justify-between bg-surface-dark rounded-xl px-3 py-2 border border-white/5">
+          <button
+            onClick={() => setDate(shiftDate(date, -1))}
+            class="w-9 h-9 flex items-center justify-center rounded-lg text-slate-300 hover:text-primary hover:bg-white/5 transition-colors"
+          >
+            <Icon name="chevron_left" class="text-xl" />
+          </button>
+          <button
+            onClick={() => setDate(getLocalDate())}
+            class="flex items-center gap-2 px-3 py-1 rounded-lg hover:bg-white/5 transition-colors"
+          >
+            <Icon name="calendar_today" class="text-primary text-sm" />
+            <span class="text-sm font-semibold text-white">{formatDisplayDate(date)}</span>
+          </button>
+          <button
+            onClick={() => setDate(shiftDate(date, 1))}
+            disabled={isToday}
+            class="w-9 h-9 flex items-center justify-center rounded-lg text-slate-300 hover:text-primary hover:bg-white/5 transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
+          >
+            <Icon name="chevron_right" class="text-xl" />
+          </button>
+        </div>
       </div>
 
       {/* Calorie Ring */}
@@ -1044,7 +1090,8 @@ export function Nutrition({ profile }: NutritionProps) {
       {addingMeal && (
         <AddFoodModal
           mealType={addingMeal}
-          onAdd={handleAddFood}
+          onAdd={handleAddFoodAndClose}
+          onAddMultiple={handleAddMultipleFoods}
           onClose={() => setAddingMeal(null)}
         />
       )}

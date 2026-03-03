@@ -225,38 +225,47 @@ export function useNutrition(date: string) {
   }, [meals]);
 
   const addFoodToMeal = useCallback(async (mealType: MealLog['meal'], food: FoodEntry) => {
-    // Find existing meal log for this type today, or create new
-    const existing = meals.find((m) => m.meal === mealType);
-    if (existing) {
-      const updated: MealLog = { ...existing, entries: [...existing.entries, food] };
-      await db.saveMealLog(updated);
-      setMeals((prev) => prev.map((m) => m.id === updated.id ? updated : m));
-    } else {
-      const newMeal: MealLog = {
-        id: `${date}-${mealType}-${Date.now()}`,
-        date,
-        meal: mealType,
-        entries: [food],
-        timestamp: Date.now(),
-      };
-      await db.saveMealLog(newMeal);
-      setMeals((prev) => [...prev, newMeal]);
-    }
-  }, [meals, date]);
+    let mealToSave: MealLog | null = null;
+    setMeals((prev) => {
+      const existing = prev.find((m) => m.meal === mealType);
+      if (existing) {
+        const updated: MealLog = { ...existing, entries: [...existing.entries, food] };
+        mealToSave = updated;
+        return prev.map((m) => m.id === updated.id ? updated : m);
+      } else {
+        const newMeal: MealLog = {
+          id: `${date}-${mealType}`,
+          date,
+          meal: mealType,
+          entries: [food],
+          timestamp: Date.now(),
+        };
+        mealToSave = newMeal;
+        return [...prev, newMeal];
+      }
+    });
+    if (mealToSave) await db.saveMealLog(mealToSave);
+  }, [date]);
 
   const removeFoodFromMeal = useCallback(async (mealType: MealLog['meal'], foodId: string) => {
-    const existing = meals.find((m) => m.meal === mealType);
-    if (!existing) return;
-    const updatedEntries = existing.entries.filter((e) => e.id !== foodId);
-    if (updatedEntries.length === 0) {
-      await db.deleteMealLog(existing.id);
-      setMeals((prev) => prev.filter((m) => m.id !== existing.id));
-    } else {
-      const updated: MealLog = { ...existing, entries: updatedEntries };
-      await db.saveMealLog(updated);
-      setMeals((prev) => prev.map((m) => m.id === updated.id ? updated : m));
-    }
-  }, [meals]);
+    let mealToSave: MealLog | null = null;
+    let mealToDelete: string | null = null;
+    setMeals((prev) => {
+      const existing = prev.find((m) => m.meal === mealType);
+      if (!existing) return prev;
+      const updatedEntries = existing.entries.filter((e) => e.id !== foodId);
+      if (updatedEntries.length === 0) {
+        mealToDelete = existing.id;
+        return prev.filter((m) => m.id !== existing.id);
+      } else {
+        const updated: MealLog = { ...existing, entries: updatedEntries };
+        mealToSave = updated;
+        return prev.map((m) => m.id === updated.id ? updated : m);
+      }
+    });
+    if (mealToDelete) await db.deleteMealLog(mealToDelete);
+    if (mealToSave) await db.saveMealLog(mealToSave);
+  }, []);
 
   const updateGoals = useCallback(async (newGoals: NutritionGoals) => {
     await db.saveNutritionGoals(date, newGoals);
