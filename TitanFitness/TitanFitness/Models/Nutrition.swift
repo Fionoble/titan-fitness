@@ -112,6 +112,45 @@ final class NutritionGoals {
     }
 }
 
+// MARK: - Starred Food
+@Model
+final class StarredFood {
+    @Attribute(.unique) var id: String
+    var name: String
+    var calories: Double
+    var protein: Double
+    var carbs: Double
+    var fat: Double
+    var servingSize: String?
+    var servings: Double
+    var barcode: String?
+    var starredAt: Date
+
+    init(
+        id: String = UUID().uuidString,
+        name: String,
+        calories: Double,
+        protein: Double,
+        carbs: Double,
+        fat: Double,
+        servingSize: String? = nil,
+        servings: Double = 1.0,
+        barcode: String? = nil,
+        starredAt: Date = Date()
+    ) {
+        self.id = id
+        self.name = name
+        self.calories = calories
+        self.protein = protein
+        self.carbs = carbs
+        self.fat = fat
+        self.servingSize = servingSize
+        self.servings = servings
+        self.barcode = barcode
+        self.starredAt = starredAt
+    }
+}
+
 // MARK: - Daily Summary (computed, not persisted)
 struct DailyNutritionSummary {
     var calories: Double = 0

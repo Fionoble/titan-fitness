@@ -14,6 +14,10 @@ final class WorkoutViewModel {
     var workoutStartTime: Date?
     var elapsedSeconds = 0
 
+    // Completed workout state
+    var todayCompletedSession: WorkoutSession?
+    var showCompletedDetail = false
+
     private var restTimer: Timer?
     private var elapsedTimer: Timer?
 
@@ -63,6 +67,32 @@ final class WorkoutViewModel {
         if currentPlan == nil || !Calendar.current.isDateInToday(currentPlan?.generatedAt ?? .distantPast) {
             generateTodayWorkout(store: store)
         }
+        loadTodaySession(store: store)
+    }
+
+    @MainActor
+    func loadTodaySession(store: DataStore) {
+        let today = Calendar.current.startOfDay(for: Date())
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today)!
+        let todaySessions = store.getSessionsByDateRange(start: today, end: tomorrow)
+        todayCompletedSession = todaySessions.first { $0.completedAt != nil }
+    }
+
+    // MARK: - Completed Workout Display Logic
+
+    var planIsNewerThanSession: Bool {
+        guard let session = todayCompletedSession,
+              let completedAt = session.completedAt,
+              let plan = currentPlan else { return false }
+        return plan.generatedAt > completedAt
+    }
+
+    var showInlineCompletion: Bool {
+        todayCompletedSession != nil && !planIsNewerThanSession
+    }
+
+    var showCompletedCard: Bool {
+        todayCompletedSession != nil && planIsNewerThanSession
     }
 
     // MARK: - Start Workout
@@ -190,6 +220,7 @@ final class WorkoutViewModel {
         )
 
         store.saveSession(session)
+        todayCompletedSession = session
         isWorkoutActive = false
         currentExerciseIndex = 0
         exerciseLogs = []

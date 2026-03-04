@@ -42,6 +42,7 @@
 		7B8C0010CAE14DA585F51554 /* RestTimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD0022932F0144A4BB2A6EFC /* RestTimerView.swift */; };
 		E9573B7170C848B0BE29456B /* BottomNavBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 781EFCD44580486F87ABF674 /* BottomNavBar.swift */; };
 		F8E2D99DFD2F46DA980E9C79 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3A403D84190241319911D8F7 /* Assets.xcassets */; };
+		D4E7B2A1F93E4C01A2C8D5F3 /* WorkoutCompleteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1C3E8B24D74F6E9B5A0D12 /* WorkoutCompleteView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -81,6 +82,7 @@
 		781EFCD44580486F87ABF674 /* BottomNavBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottomNavBar.swift; sourceTree = "<group>"; };
 		3A403D84190241319911D8F7 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		706445C8BBFE470C8D58C497 /* TitanFitness.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TitanFitness.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7A1C3E8B24D74F6E9B5A0D12 /* WorkoutCompleteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCompleteView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -151,6 +153,7 @@
 				F1F3915ADB10483085978248 /* EquipmentView.swift */,
 				97D59EC357F049C1A5E1A90D /* ProfileView.swift */,
 				79260B39DE2E4508BEF5DD8C /* DiscoverView.swift */,
+				7A1C3E8B24D74F6E9B5A0D12 /* WorkoutCompleteView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -285,6 +288,7 @@
 				392E07CA3F9D43C8A543CE7E /* SetGridView.swift in Sources */,
 				7B8C0010CAE14DA585F51554 /* RestTimerView.swift in Sources */,
 				E9573B7170C848B0BE29456B /* BottomNavBar.swift in Sources */,
+				D4E7B2A1F93E4C01A2C8D5F3 /* WorkoutCompleteView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

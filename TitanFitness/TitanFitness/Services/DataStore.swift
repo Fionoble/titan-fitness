@@ -20,6 +20,7 @@ final class DataStore {
             ChatMessage.self,
             FoodEntry.self,
             NutritionGoals.self,
+            StarredFood.self,
         ])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
@@ -239,6 +240,56 @@ final class DataStore {
             fat: entries.reduce(0) { $0 + $1.totalFat },
             entries: entries
         )
+    }
+
+    // MARK: - Starred Foods
+
+    @MainActor
+    func getStarredFoods() -> [StarredFood] {
+        let descriptor = FetchDescriptor<StarredFood>(sortBy: [SortDescriptor(\.starredAt, order: .reverse)])
+        return (try? context.fetch(descriptor)) ?? []
+    }
+
+    @MainActor
+    func starFood(_ entry: FoodEntry) -> StarredFood {
+        let starred = StarredFood(
+            name: entry.name,
+            calories: entry.calories,
+            protein: entry.protein,
+            carbs: entry.carbs,
+            fat: entry.fat,
+            servingSize: entry.servingSize,
+            servings: entry.servings,
+            barcode: entry.barcode
+        )
+        context.insert(starred)
+        try? context.save()
+        return starred
+    }
+
+    @MainActor
+    func unstarFood(_ starred: StarredFood) {
+        context.delete(starred)
+        try? context.save()
+    }
+
+    @MainActor
+    func getAllFoodEntries() -> [FoodEntry] {
+        let descriptor = FetchDescriptor<FoodEntry>(sortBy: [SortDescriptor(\.createdAt, order: .reverse)])
+        return (try? context.fetch(descriptor)) ?? []
+    }
+
+    @MainActor
+    func isStarred(foodName: String) -> Bool {
+        let normalizedName = foodName.lowercased().trimmingCharacters(in: .whitespaces)
+        let starred = getStarredFoods()
+        return starred.contains { $0.name.lowercased().trimmingCharacters(in: .whitespaces) == normalizedName }
+    }
+
+    @MainActor
+    func findStarredFood(byName name: String) -> StarredFood? {
+        let normalizedName = name.lowercased().trimmingCharacters(in: .whitespaces)
+        return getStarredFoods().first { $0.name.lowercased().trimmingCharacters(in: .whitespaces) == normalizedName }
     }
 
     // MARK: - Previous Weights (for auto-fill)

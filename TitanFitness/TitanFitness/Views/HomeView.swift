@@ -16,8 +16,17 @@ struct HomeView: View {
                     // Header
                     headerSection
 
-                    // Today's Workout Card
-                    if let plan = workoutVM.currentPlan {
+                    // Completed Today card (collapsed, when plan is newer)
+                    if workoutVM.showCompletedCard, let session = workoutVM.todayCompletedSession {
+                        completedTodayCard(session)
+                    }
+
+                    // Main content: inline completion or workout plan
+                    if workoutVM.showInlineCompletion, let session = workoutVM.todayCompletedSession {
+                        WorkoutCompleteView(session: session, onGenerateNew: {
+                            workoutVM.generateTodayWorkout(store: store)
+                        })
+                    } else if let plan = workoutVM.currentPlan {
                         workoutCard(plan)
                     } else {
                         loadingCard
@@ -47,6 +56,13 @@ struct HomeView: View {
             .sheet(isPresented: $showDiscover) {
                 DiscoverView(store: store, workoutVM: workoutVM)
             }
+            .sheet(isPresented: $workoutVM.showCompletedDetail) {
+                if let session = workoutVM.todayCompletedSession {
+                    WorkoutCompleteView(session: session, showCloseButton: true) {
+                        workoutVM.showCompletedDetail = false
+                    }
+                }
+            }
         }
     }
 
@@ -58,12 +74,12 @@ struct HomeView: View {
                 Text(greetingText)
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(Theme.textSecondary)
-                Text("Today's Plan")
+                Text(workoutVM.showInlineCompletion ? "Workout Done" : "Today's Plan")
                     .font(.system(size: 28, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
             }
             Spacer()
-            Image(systemName: "bolt.fill")
+            Image(systemName: workoutVM.showInlineCompletion ? "trophy.fill" : "bolt.fill")
                 .font(.system(size: 24))
                 .foregroundStyle(Theme.primary)
         }
@@ -75,6 +91,63 @@ struct HomeView: View {
         if hour < 12 { return "Good Morning" }
         if hour < 17 { return "Good Afternoon" }
         return "Good Evening"
+    }
+
+    // MARK: - Completed Today Card (Collapsed)
+
+    private func completedTodayCard(_ session: WorkoutSession) -> some View {
+        Button {
+            workoutVM.showCompletedDetail = true
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "trophy.fill")
+                    .font(.system(size: 24))
+                    .foregroundStyle(Theme.primary)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Completed Today")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                    Text(session.name)
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+
+                Spacer()
+
+                HStack(spacing: 12) {
+                    completedStatPill(value: formatDuration(session.durationSeconds), icon: "clock")
+                    completedStatPill(value: "\(session.totalSets)", icon: "checkmark.circle.fill")
+                }
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.textMuted)
+            }
+            .padding(Theme.paddingMedium)
+            .background(Theme.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.cornerRadius)
+                    .stroke(Theme.primary.opacity(0.15), lineWidth: 1.5)
+            )
+        }
+    }
+
+    private func completedStatPill(value: String, icon: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 11))
+            Text(value)
+                .font(.system(size: 12, weight: .medium))
+        }
+        .foregroundStyle(Theme.textSecondary)
+    }
+
+    private func formatDuration(_ seconds: Int) -> String {
+        let minutes = seconds / 60
+        let secs = seconds % 60
+        return String(format: "%d:%02d", minutes, secs)
     }
 
     // MARK: - Workout Card

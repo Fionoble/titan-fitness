@@ -206,7 +206,16 @@ struct NutritionView: View {
     }
 
     private func foodEntryRow(_ entry: FoodEntry) -> some View {
-        HStack {
+        HStack(spacing: 8) {
+            Button {
+                vm.toggleStar(entry, store: store)
+            } label: {
+                Image(systemName: vm.isStarred(foodName: entry.name) ? "star.fill" : "star")
+                    .font(.system(size: 14))
+                    .foregroundStyle(vm.isStarred(foodName: entry.name) ? Color.yellow : Theme.textMuted)
+            }
+            .buttonStyle(.plain)
+
             VStack(alignment: .leading, spacing: 2) {
                 Text(entry.name)
                     .font(.system(size: 14, weight: .medium))
@@ -296,77 +305,41 @@ struct NutritionView: View {
             ZStack {
                 Theme.background.ignoresSafeArea()
 
-                ScrollView {
-                    VStack(spacing: 20) {
-                        // Meal picker
-                        Picker("Meal", selection: $vm.selectedMealType) {
-                            ForEach(MealType.allCases) { meal in
-                                Text(meal.label).tag(meal)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-
-                        if vm.showingAIQuickLog {
-                            // AI Quick Log
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Describe your food")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(Theme.textPrimary)
-
-                                TextField("e.g., grilled chicken breast with rice", text: $vm.aiQuickLogText)
-                                    .textFieldStyle(.roundedBorder)
-                                    .tint(Theme.primary)
-
-                                Button {
-                                    Task {
-                                        await vm.aiQuickLog(store: store)
-                                        vm.showingAddFood = false
-                                    }
-                                } label: {
-                                    HStack {
-                                        if vm.isAILoading {
-                                            ProgressView()
-                                                .tint(.black)
-                                        } else {
-                                            Image(systemName: "sparkles")
-                                            Text("Estimate & Add")
-                                        }
-                                    }
-                                }
-                                .buttonStyle(PrimaryButtonStyle())
-                                .disabled(vm.aiQuickLogText.isEmpty || vm.isAILoading)
-                            }
-                        } else {
-                            // Manual entry
-                            VStack(spacing: 12) {
-                                formField("Food Name", text: $vm.foodName, keyboard: .default)
-                                formField("Calories", text: $vm.foodCalories, keyboard: .decimalPad)
-                                formField("Protein (g)", text: $vm.foodProtein, keyboard: .decimalPad)
-                                formField("Carbs (g)", text: $vm.foodCarbs, keyboard: .decimalPad)
-                                formField("Fat (g)", text: $vm.foodFat, keyboard: .decimalPad)
-                                formField("Servings", text: $vm.foodServings, keyboard: .decimalPad)
-                            }
-
-                            Button {
-                                vm.addManualEntry(store: store)
-                                vm.showingAddFood = false
-                            } label: {
-                                Text("Add Food")
-                            }
-                            .buttonStyle(PrimaryButtonStyle())
-                            .disabled(vm.foodName.isEmpty)
-                        }
-
-                        // Toggle between manual and AI
-                        Button {
-                            vm.showingAIQuickLog.toggle()
-                        } label: {
-                            Text(vm.showingAIQuickLog ? "Switch to Manual Entry" : "Use AI Quick Log")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(Theme.primary)
+                VStack(spacing: 0) {
+                    // Meal picker
+                    Picker("Meal", selection: $vm.selectedMealType) {
+                        ForEach(MealType.allCases) { meal in
+                            Text(meal.label).tag(meal)
                         }
                     }
-                    .padding(Theme.paddingMedium)
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal, Theme.paddingMedium)
+                    .padding(.top, 12)
+
+                    // Tab bar: Recent | Manual | AI
+                    HStack(spacing: 0) {
+                        addFoodTabButton("Recent", tab: 0, icon: "clock.arrow.circlepath")
+                        addFoodTabButton("Manual", tab: 1, icon: "pencil")
+                        addFoodTabButton("AI", tab: 2, icon: "sparkles")
+                    }
+                    .padding(.horizontal, Theme.paddingMedium)
+                    .padding(.top, 12)
+
+                    ScrollView {
+                        VStack(spacing: 20) {
+                            switch vm.addFoodTab {
+                            case 0:
+                                recentFoodsTab
+                            case 1:
+                                manualEntryTab
+                            case 2:
+                                aiQuickLogTab
+                            default:
+                                EmptyView()
+                            }
+                        }
+                        .padding(Theme.paddingMedium)
+                    }
                 }
             }
             .navigationTitle("Add Food")
@@ -376,11 +349,273 @@ struct NutritionView: View {
                     Button("Cancel") {
                         vm.showingAddFood = false
                         vm.showingAIQuickLog = false
+                        vm.recentSearchText = ""
+                    }
+                }
+            }
+            .onAppear {
+                vm.addFoodTab = vm.showingAIQuickLog ? 2 : (vm.showingRecentTab ? 0 : 1)
+            }
+        }
+        .presentationDetents([.large])
+    }
+
+    private func addFoodTabButton(_ title: String, tab: Int, icon: String) -> some View {
+        Button {
+            vm.addFoodTab = tab
+        } label: {
+            VStack(spacing: 4) {
+                HStack(spacing: 4) {
+                    Image(systemName: icon)
+                        .font(.system(size: 12))
+                    Text(title)
+                        .font(.system(size: 13, weight: .medium))
+                }
+                .foregroundStyle(vm.addFoodTab == tab ? Theme.primary : Theme.textMuted)
+                .padding(.vertical, 8)
+
+                Rectangle()
+                    .fill(vm.addFoodTab == tab ? Theme.primary : Color.clear)
+                    .frame(height: 2)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Recent Foods Tab
+
+    private var recentFoodsTab: some View {
+        VStack(spacing: 16) {
+            // Search field
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(Theme.textMuted)
+                TextField("Search foods...", text: $vm.recentSearchText)
+                    .font(.system(size: 15))
+                    .foregroundStyle(Theme.textPrimary)
+                    .tint(Theme.primary)
+                if !vm.recentSearchText.isEmpty {
+                    Button {
+                        vm.recentSearchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(Theme.textMuted)
+                    }
+                }
+            }
+            .padding(10)
+            .background(Theme.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+
+            let query = vm.recentSearchText.lowercased().trimmingCharacters(in: .whitespaces)
+            let filteredStarred = vm.starredFoods.filter { query.isEmpty || $0.name.lowercased().contains(query) }
+            let starredNames = Set(vm.starredFoods.map { $0.name.lowercased().trimmingCharacters(in: .whitespaces) })
+            let filteredRecent = vm.recentFoods.filter { !starredNames.contains($0.food.name.lowercased().trimmingCharacters(in: .whitespaces)) }
+                .filter { query.isEmpty || $0.food.name.lowercased().contains(query) }
+
+            if filteredStarred.isEmpty && filteredRecent.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "star.slash")
+                        .font(.system(size: 32))
+                        .foregroundStyle(Theme.textMuted)
+                    Text("No foods found")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(Theme.textSecondary)
+                    Text("Log some foods and star your favorites for quick access")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.textMuted)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.vertical, 40)
+            } else {
+                // Favorites section
+                if !filteredStarred.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "star.fill")
+                                .font(.system(size: 12))
+                                .foregroundStyle(Color.yellow)
+                            Text("Favorites")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+
+                        VStack(spacing: 0) {
+                            ForEach(filteredStarred, id: \.id) { starred in
+                                starredFoodRow(starred)
+                                if starred.id != filteredStarred.last?.id {
+                                    Divider().overlay(Theme.textMuted.opacity(0.2))
+                                }
+                            }
+                        }
+                        .background(Theme.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                }
+
+                // Recent section
+                if !filteredRecent.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "clock")
+                                .font(.system(size: 12))
+                                .foregroundStyle(Theme.textSecondary)
+                            Text("Recent")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+
+                        VStack(spacing: 0) {
+                            ForEach(Array(filteredRecent.prefix(20).enumerated()), id: \.element.food.id) { index, item in
+                                recentFoodRow(item.food, frequency: item.frequency)
+                                if index < min(filteredRecent.count, 20) - 1 {
+                                    Divider().overlay(Theme.textMuted.opacity(0.2))
+                                }
+                            }
+                        }
+                        .background(Theme.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
                 }
             }
         }
-        .presentationDetents([.large])
+    }
+
+    private func starredFoodRow(_ starred: StarredFood) -> some View {
+        HStack(spacing: 8) {
+            Button {
+                vm.toggleStarForStarred(starred, store: store)
+            } label: {
+                Image(systemName: "star.fill")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Color.yellow)
+            }
+            .buttonStyle(.plain)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(starred.name)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Theme.textPrimary)
+                Text("\(Int(starred.calories)) cal · P:\(Int(starred.protein))g · C:\(Int(starred.carbs))g · F:\(Int(starred.fat))g")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.textMuted)
+            }
+
+            Spacer()
+
+            Button {
+                vm.addFromStarred(starred, store: store)
+                vm.showingAddFood = false
+                vm.recentSearchText = ""
+            } label: {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 22))
+                    .foregroundStyle(Theme.primary)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+    }
+
+    private func recentFoodRow(_ entry: FoodEntry, frequency: Int) -> some View {
+        HStack(spacing: 8) {
+            Button {
+                vm.toggleStar(entry, store: store)
+            } label: {
+                Image(systemName: vm.isStarred(foodName: entry.name) ? "star.fill" : "star")
+                    .font(.system(size: 14))
+                    .foregroundStyle(vm.isStarred(foodName: entry.name) ? Color.yellow : Theme.textMuted)
+            }
+            .buttonStyle(.plain)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(entry.name)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Theme.textPrimary)
+                HStack(spacing: 4) {
+                    Text("\(Int(entry.calories)) cal · P:\(Int(entry.protein))g · C:\(Int(entry.carbs))g · F:\(Int(entry.fat))g")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.textMuted)
+                    if frequency > 1 {
+                        Text("· \(frequency)x")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+                }
+            }
+
+            Spacer()
+
+            Button {
+                vm.addFromRecent(entry, store: store)
+                vm.showingAddFood = false
+                vm.recentSearchText = ""
+            } label: {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 22))
+                    .foregroundStyle(Theme.primary)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+    }
+
+    // MARK: - Manual Entry Tab
+
+    private var manualEntryTab: some View {
+        VStack(spacing: 12) {
+            formField("Food Name", text: $vm.foodName, keyboard: .default)
+            formField("Calories", text: $vm.foodCalories, keyboard: .decimalPad)
+            formField("Protein (g)", text: $vm.foodProtein, keyboard: .decimalPad)
+            formField("Carbs (g)", text: $vm.foodCarbs, keyboard: .decimalPad)
+            formField("Fat (g)", text: $vm.foodFat, keyboard: .decimalPad)
+            formField("Servings", text: $vm.foodServings, keyboard: .decimalPad)
+
+            Button {
+                vm.addManualEntry(store: store)
+                vm.showingAddFood = false
+            } label: {
+                Text("Add Food")
+            }
+            .buttonStyle(PrimaryButtonStyle())
+            .disabled(vm.foodName.isEmpty)
+        }
+    }
+
+    // MARK: - AI Quick Log Tab
+
+    private var aiQuickLogTab: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Describe your food")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+
+            TextField("e.g., grilled chicken breast with rice", text: $vm.aiQuickLogText)
+                .textFieldStyle(.roundedBorder)
+                .tint(Theme.primary)
+
+            Button {
+                Task {
+                    await vm.aiQuickLog(store: store)
+                    vm.showingAddFood = false
+                }
+            } label: {
+                HStack {
+                    if vm.isAILoading {
+                        ProgressView()
+                            .tint(.black)
+                    } else {
+                        Image(systemName: "sparkles")
+                        Text("Estimate & Add")
+                    }
+                }
+            }
+            .buttonStyle(PrimaryButtonStyle())
+            .disabled(vm.aiQuickLogText.isEmpty || vm.isAILoading)
+        }
     }
 
     private func formField(_ label: String, text: Binding<String>, keyboard: UIKeyboardType) -> some View {
