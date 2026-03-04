@@ -42,7 +42,7 @@ export function App() {
 
   const handleDismissComplete = useCallback(() => {
     setCompletedSession(null);
-    nav('/progress');
+    nav('/');
   }, [nav]);
 
   const handleCancelWorkout = useCallback(() => {
@@ -100,6 +100,7 @@ export function App() {
           plan={plan}
           loading={planLoading || equipLoading}
           userName={profile?.name || 'User'}
+          sessions={sessions}
           onStartWorkout={startWorkout}
           onRegenerate={handleRegenerate}
           onAdjustWithAI={handleAdjustWithAI}
@@ -155,6 +156,7 @@ export function App() {
           plan={plan}
           loading={planLoading || equipLoading}
           userName={profile?.name || 'User'}
+          sessions={sessions}
           onStartWorkout={startWorkout}
           onRegenerate={handleRegenerate}
           onAdjustWithAI={handleAdjustWithAI}

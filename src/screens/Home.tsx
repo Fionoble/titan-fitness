@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { Icon } from '../components/Icon';
-import type { WorkoutPlan, WorkoutCriteria, WorkoutStyle, Exercise } from '../types';
+import type { WorkoutPlan, WorkoutCriteria, WorkoutStyle, Exercise, WorkoutSession } from '../types';
 import { groupExercises, groupLabel } from '../group-utils';
 import { withBase } from '../base';
 
@@ -9,6 +9,7 @@ interface HomeProps {
   plan: WorkoutPlan | null;
   loading: boolean;
   userName: string;
+  sessions: WorkoutSession[];
   onStartWorkout: () => void;
   onRegenerate: (style?: string, criteria?: WorkoutCriteria) => void;
   onAdjustWithAI?: () => void;
@@ -281,12 +282,301 @@ function DiscoverCard() {
   );
 }
 
-export function Home({ plan, loading, userName, onStartWorkout, onRegenerate, onAdjustWithAI, onUpdatePlan }: HomeProps) {
+function formatDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+// Collapsed card shown when a new plan was generated after today's completed session
+function CompletedWorkoutCard({ session, onClick }: { session: WorkoutSession; onClick: () => void }) {
+  const totalReps = session.exercises.reduce((sum, ex) =>
+    sum + ex.sets.filter(s => s.completed).reduce((r, s) => r + (s.reps || 0), 0), 0);
+
+  return (
+    <div class="px-4 mb-4">
+      <button
+        onClick={onClick}
+        class="w-full bg-surface-dark rounded-xl p-4 border border-primary/20 flex items-center gap-4 hover:border-primary/40 transition-colors text-left active:scale-[0.98]"
+      >
+        <div class="w-12 h-12 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+          <Icon name="emoji_events" class="text-primary text-2xl" />
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-0.5">
+            <span class="text-xs font-bold text-primary uppercase tracking-wider">Completed Today</span>
+          </div>
+          <h4 class="text-white font-semibold text-sm truncate">{session.name}</h4>
+          <div class="flex gap-3 text-xs text-slate-400 mt-0.5">
+            <span>{formatDuration(session.durationSeconds)}</span>
+            <span>{session.totalSets} sets</span>
+            <span>{totalReps} reps</span>
+            {session.totalVolume > 0 && <span>{session.totalVolume.toLocaleString()} lbs</span>}
+          </div>
+        </div>
+        <Icon name="chevron_right" class="text-slate-500 text-xl shrink-0" />
+      </button>
+    </div>
+  );
+}
+
+// Inline completion view — shows workout summary on home screen
+function CompletedWorkoutInline({ session, onRegenerate }: { session: WorkoutSession; onRegenerate: () => void }) {
+  const duration = formatDuration(session.durationSeconds);
+  const exerciseCount = session.exercises.length;
+  const completedSets = session.totalSets;
+  const totalReps = session.exercises.reduce((sum, ex) =>
+    sum + ex.sets.filter(s => s.completed).reduce((r, s) => r + (s.reps || 0), 0), 0);
+  const volume = session.totalVolume;
+  const muscleGroups = [...new Set(session.exercises.map(e => e.muscleGroup))];
+
+  return (
+    <div class="px-5 pb-40">
+      {/* Trophy header */}
+      <div class="flex flex-col items-center py-6">
+        <div class="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center mb-4 border-2 border-primary/40">
+          <Icon name="emoji_events" class="text-primary text-4xl" />
+        </div>
+        <h2 class="text-2xl font-bold text-white mb-1">Workout Complete!</h2>
+        <p class="text-slate-400 text-sm">{session.name}</p>
+      </div>
+
+      {/* Stats grid */}
+      <div class="grid grid-cols-2 gap-3 mb-4">
+        <div class="bg-surface-dark rounded-xl p-4 border border-white/5 text-center">
+          <Icon name="schedule" class="text-2xl mb-2 text-primary" />
+          <p class="text-2xl font-bold text-white mb-1">{duration}</p>
+          <p class="text-xs text-slate-400 uppercase tracking-wider">Duration</p>
+        </div>
+        <div class="bg-surface-dark rounded-xl p-4 border border-white/5 text-center">
+          <Icon name="fitness_center" class="text-2xl mb-2 text-blue-400" />
+          <p class="text-2xl font-bold text-white mb-1">{exerciseCount}</p>
+          <p class="text-xs text-slate-400 uppercase tracking-wider">Exercises</p>
+        </div>
+        <div class="bg-surface-dark rounded-xl p-4 border border-white/5 text-center">
+          <Icon name="repeat" class="text-2xl mb-2 text-amber-400" />
+          <p class="text-2xl font-bold text-white mb-1">{completedSets}</p>
+          <p class="text-xs text-slate-400 uppercase tracking-wider">Sets</p>
+        </div>
+        <div class="bg-surface-dark rounded-xl p-4 border border-white/5 text-center">
+          <Icon name="tag" class="text-2xl mb-2 text-rose-400" />
+          <p class="text-2xl font-bold text-white mb-1">{totalReps}</p>
+          <p class="text-xs text-slate-400 uppercase tracking-wider">Total Reps</p>
+        </div>
+      </div>
+
+      {/* Volume */}
+      {volume > 0 && (
+        <div class="bg-surface-dark rounded-xl p-4 border border-primary/20 mb-4 text-center">
+          <div class="flex items-center justify-center gap-2 mb-1">
+            <Icon name="monitoring" class="text-primary text-xl" />
+            <span class="text-xs text-slate-400 uppercase tracking-wider">Total Volume</span>
+          </div>
+          <p class="text-3xl font-bold text-primary">{volume.toLocaleString()}<span class="text-lg text-slate-400 ml-1">lbs</span></p>
+        </div>
+      )}
+
+      {/* Muscles worked */}
+      <div class="bg-surface-dark rounded-xl p-4 border border-white/5 mb-4">
+        <p class="text-xs text-slate-400 uppercase tracking-wider mb-3 text-center">Muscles Worked</p>
+        <div class="flex flex-wrap justify-center gap-2">
+          {muscleGroups.map((mg) => (
+            <span key={mg} class="text-xs text-slate-200 bg-white/10 px-3 py-1.5 rounded-full border border-white/5">
+              {mg}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Exercise breakdown */}
+      <div class="bg-surface-dark rounded-xl border border-white/5 overflow-hidden mb-6">
+        <div class="p-3 border-b border-white/5">
+          <p class="text-xs text-slate-400 uppercase tracking-wider font-medium">Exercise Breakdown</p>
+        </div>
+        <div class="divide-y divide-white/5">
+          {session.exercises.map((ex) => {
+            const completed = ex.sets.filter(s => s.completed);
+            const bestSet = completed.reduce((best, s) =>
+              (s.weight || 0) > (best.weight || 0) ? s : best, completed[0]);
+            return (
+              <div key={ex.exerciseId} class="flex items-center justify-between px-4 py-3">
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm text-white truncate">{ex.exerciseName}</p>
+                  <p class="text-xs text-slate-500">{ex.muscleGroup}</p>
+                </div>
+                <div class="text-right shrink-0 ml-3">
+                  <p class="text-sm text-slate-300">{completed.length}/{ex.sets.length} sets</p>
+                  {bestSet?.weight && (
+                    <p class="text-xs text-primary">{bestSet.weight} lbs x {bestSet.reps}</p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Generate new workout button */}
+      <button
+        onClick={onRegenerate}
+        class="w-full py-3 rounded-xl bg-surface-dark border border-white/10 text-slate-300 font-semibold text-sm flex items-center justify-center gap-2 hover:border-primary/30 hover:text-primary transition-colors"
+      >
+        <Icon name="refresh" class="text-lg" />
+        Generate Another Workout
+      </button>
+    </div>
+  );
+}
+
+// Full-screen completion modal (reused from WorkoutComplete, without confetti)
+function CompletedWorkoutModal({ session, onClose }: { session: WorkoutSession; onClose: () => void }) {
+  const duration = formatDuration(session.durationSeconds);
+  const exerciseCount = session.exercises.length;
+  const completedSets = session.totalSets;
+  const totalReps = session.exercises.reduce((sum, ex) =>
+    sum + ex.sets.filter(s => s.completed).reduce((r, s) => r + (s.reps || 0), 0), 0);
+  const volume = session.totalVolume;
+  const muscleGroups = [...new Set(session.exercises.map(e => e.muscleGroup))];
+
+  return (
+    <div class="fixed inset-0 z-[150] bg-bg-dark/95 backdrop-blur-sm flex flex-col">
+      <div class="flex-1 overflow-y-auto no-scrollbar flex flex-col items-center px-6 py-10">
+        {/* Close button */}
+        <div class="w-full max-w-[430px] flex justify-end mb-4">
+          <button
+            onClick={onClose}
+            class="w-10 h-10 flex items-center justify-center rounded-full bg-surface-dark text-slate-300 hover:text-white transition-colors"
+          >
+            <Icon name="close" class="text-xl" />
+          </button>
+        </div>
+
+        {/* Trophy */}
+        <div class="w-24 h-24 rounded-full bg-primary/20 flex items-center justify-center mb-6 border-2 border-primary/40">
+          <Icon name="emoji_events" class="text-primary text-5xl" />
+        </div>
+
+        <div class="text-center mb-8">
+          <h1 class="text-3xl font-bold text-white mb-2">Workout Complete!</h1>
+          <p class="text-slate-400 text-sm mt-2">{session.name}</p>
+        </div>
+
+        {/* Stats grid */}
+        <div class="w-full max-w-[400px]">
+          <div class="grid grid-cols-2 gap-3 mb-4">
+            <div class="bg-surface-dark rounded-xl p-4 border border-white/5 text-center">
+              <Icon name="schedule" class="text-2xl mb-2 text-primary" />
+              <p class="text-2xl font-bold text-white mb-1">{duration}</p>
+              <p class="text-xs text-slate-400 uppercase tracking-wider">Duration</p>
+            </div>
+            <div class="bg-surface-dark rounded-xl p-4 border border-white/5 text-center">
+              <Icon name="fitness_center" class="text-2xl mb-2 text-blue-400" />
+              <p class="text-2xl font-bold text-white mb-1">{exerciseCount}</p>
+              <p class="text-xs text-slate-400 uppercase tracking-wider">Exercises</p>
+            </div>
+            <div class="bg-surface-dark rounded-xl p-4 border border-white/5 text-center">
+              <Icon name="repeat" class="text-2xl mb-2 text-amber-400" />
+              <p class="text-2xl font-bold text-white mb-1">{completedSets}</p>
+              <p class="text-xs text-slate-400 uppercase tracking-wider">Sets</p>
+            </div>
+            <div class="bg-surface-dark rounded-xl p-4 border border-white/5 text-center">
+              <Icon name="tag" class="text-2xl mb-2 text-rose-400" />
+              <p class="text-2xl font-bold text-white mb-1">{totalReps}</p>
+              <p class="text-xs text-slate-400 uppercase tracking-wider">Total Reps</p>
+            </div>
+          </div>
+
+          {volume > 0 && (
+            <div class="bg-surface-dark rounded-xl p-4 border border-primary/20 mb-4 text-center">
+              <div class="flex items-center justify-center gap-2 mb-1">
+                <Icon name="monitoring" class="text-primary text-xl" />
+                <span class="text-xs text-slate-400 uppercase tracking-wider">Total Volume</span>
+              </div>
+              <p class="text-3xl font-bold text-primary">{volume.toLocaleString()}<span class="text-lg text-slate-400 ml-1">lbs</span></p>
+            </div>
+          )}
+
+          {/* Muscles worked */}
+          <div class="bg-surface-dark rounded-xl p-4 border border-white/5 mb-6">
+            <p class="text-xs text-slate-400 uppercase tracking-wider mb-3 text-center">Muscles Worked</p>
+            <div class="flex flex-wrap justify-center gap-2">
+              {muscleGroups.map((mg) => (
+                <span key={mg} class="text-xs text-slate-200 bg-white/10 px-3 py-1.5 rounded-full border border-white/5">
+                  {mg}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Exercise breakdown */}
+          <div class="bg-surface-dark rounded-xl border border-white/5 overflow-hidden mb-6">
+            <div class="p-3 border-b border-white/5">
+              <p class="text-xs text-slate-400 uppercase tracking-wider font-medium">Exercise Breakdown</p>
+            </div>
+            <div class="divide-y divide-white/5">
+              {session.exercises.map((ex) => {
+                const completed = ex.sets.filter(s => s.completed);
+                const bestSet = completed.reduce((best, s) =>
+                  (s.weight || 0) > (best.weight || 0) ? s : best, completed[0]);
+                return (
+                  <div key={ex.exerciseId} class="flex items-center justify-between px-4 py-3">
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm text-white truncate">{ex.exerciseName}</p>
+                      <p class="text-xs text-slate-500">{ex.muscleGroup}</p>
+                    </div>
+                    <div class="text-right shrink-0 ml-3">
+                      <p class="text-sm text-slate-300">{completed.length}/{ex.sets.length} sets</p>
+                      {bestSet?.weight && (
+                        <p class="text-xs text-primary">{bestSet.weight} lbs x {bestSet.reps}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom close button */}
+      <div class="px-6 pb-8 pt-2">
+        <button
+          onClick={onClose}
+          class="w-full h-14 rounded-xl bg-primary text-bg-dark font-bold text-lg flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-lg shadow-primary/20"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function Home({ plan, loading, userName, sessions, onStartWorkout, onRegenerate, onAdjustWithAI, onUpdatePlan }: HomeProps) {
   const [showRegenModal, setShowRegenModal] = useState(false);
   const [regenStyle, setRegenStyle] = useState<WorkoutStyle | ''>('');
   const [regenMood, setRegenMood] = useState('');
   const [regenLimitations, setRegenLimitations] = useState('');
   const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
+  const [showCompletedModal, setShowCompletedModal] = useState(false);
+
+  // Find today's completed session
+  const todaySession = useMemo(() => {
+    const today = new Date().toDateString();
+    return sessions.find((s) =>
+      s.completedAt && new Date(s.startedAt).toDateString() === today
+    ) || null;
+  }, [sessions]);
+
+  // Determine if the plan was generated AFTER the completed session
+  const planIsNewer = useMemo(() => {
+    if (!todaySession?.completedAt || !plan?.generatedAt) return false;
+    return plan.generatedAt > todaySession.completedAt;
+  }, [todaySession, plan]);
+
+  // Show inline completion when there's a completed session and NO newer plan
+  const showInlineCompletion = todaySession && !planIsNewer && !loading;
+  // Show collapsed card when there IS a newer plan
+  const showCompletedCard = todaySession && planIsNewer;
 
   const handleSaveExercise = (updated: Exercise) => {
     if (!plan || !onUpdatePlan) return;
@@ -330,7 +620,7 @@ export function Home({ plan, loading, userName, onStartWorkout, onRegenerate, on
               <div class="absolute bottom-0 right-0 w-3 h-3 bg-primary rounded-full border-2 border-bg-dark"></div>
             </div>
             <div>
-              <p class="text-xs text-primary font-medium tracking-wide uppercase">AI Plan Ready</p>
+              <p class="text-xs text-primary font-medium tracking-wide uppercase">{showInlineCompletion ? 'Workout Done' : 'AI Plan Ready'}</p>
               <h1 class="text-lg font-bold leading-tight">{getGreeting()}, {userName}</h1>
             </div>
           </div>
@@ -354,13 +644,35 @@ export function Home({ plan, loading, userName, onStartWorkout, onRegenerate, on
           </div>
         </div>
         <div class="mb-2">
-          <h2 class="text-3xl font-bold tracking-tight text-white mb-1">{getMotivation()}</h2>
+          <h2 class="text-3xl font-bold tracking-tight text-white mb-1">
+            {showInlineCompletion ? 'Crushed it today!' : getMotivation()}
+          </h2>
           <p class="text-slate-400 text-sm">{formatDate()}</p>
         </div>
       </div>
 
-      {/* Hero Card: AI Daily Mix */}
-      {loading ? (
+      {/* Inline completion view — replaces the plan when no newer plan exists */}
+      {showInlineCompletion && todaySession && (
+        <>
+          <CompletedWorkoutInline
+            session={todaySession}
+            onRegenerate={() => setShowRegenModal(true)}
+          />
+          {/* Discover Card still visible */}
+          <DiscoverCard />
+        </>
+      )}
+
+      {/* Completed workout card — shown when a newer plan takes priority */}
+      {showCompletedCard && todaySession && (
+        <CompletedWorkoutCard
+          session={todaySession}
+          onClick={() => setShowCompletedModal(true)}
+        />
+      )}
+
+      {/* Hero Card: AI Daily Mix — only shown if no inline completion */}
+      {!showInlineCompletion && (loading ? (
         <div class="px-4 mb-8">
           <div class="rounded-2xl bg-surface-dark h-[320px] animate-pulse flex items-center justify-center">
             <Icon name="fitness_center" class="text-4xl text-primary/30" />
@@ -440,10 +752,10 @@ export function Home({ plan, loading, userName, onStartWorkout, onRegenerate, on
             </div>
           </div>
         </div>
-      ) : null}
+      ) : null)}
 
-      {/* Exercise List */}
-      {plan && (
+      {/* Exercise List — only when not showing inline completion */}
+      {!showInlineCompletion && plan && (
         <div class="px-5 pb-40">
           <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-bold text-white">Exercises</h3>
@@ -453,8 +765,8 @@ export function Home({ plan, loading, userName, onStartWorkout, onRegenerate, on
         </div>
       )}
 
-      {/* Discover Workouts Card */}
-      <DiscoverCard />
+      {/* Discover Workouts Card — only when not showing inline completion (it's included in CompletedWorkoutInline) */}
+      {!showInlineCompletion && <DiscoverCard />}
 
       {/* Exercise Edit Modal */}
       {editingExercise && (
@@ -466,8 +778,8 @@ export function Home({ plan, loading, userName, onStartWorkout, onRegenerate, on
         />
       )}
 
-      {/* Start Workout FAB */}
-      {plan && (
+      {/* Start Workout FAB — hidden when showing inline completion */}
+      {!showInlineCompletion && plan && (
         <div class="fixed bottom-nav-offset left-0 w-full px-6 pb-2 z-20 pointer-events-none max-w-[430px] mx-auto" style="left: 50%; transform: translateX(-50%);">
           <button
             onClick={onStartWorkout}
@@ -477,6 +789,14 @@ export function Home({ plan, loading, userName, onStartWorkout, onRegenerate, on
             START WORKOUT
           </button>
         </div>
+      )}
+
+      {/* Completed workout detail modal — opens from collapsed card */}
+      {showCompletedModal && todaySession && (
+        <CompletedWorkoutModal
+          session={todaySession}
+          onClose={() => setShowCompletedModal(false)}
+        />
       )}
 
       {/* Regeneration Modal */}
