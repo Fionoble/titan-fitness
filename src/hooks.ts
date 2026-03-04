@@ -71,6 +71,9 @@ export function useTodayWorkout(equipment: Equipment[]) {
     const sessions = await db.getRecentSessions(5);
     const prevWeights = buildPrevWeights(sessions);
 
+    // Prune old plans in the background
+    db.pruneOldPlans(7).catch(() => {});
+
     // Try AI generation first if configured
     if (isAIConfigured()) {
       try {
@@ -125,20 +128,28 @@ export function useTodayWorkout(equipment: Equipment[]) {
 export function useSessions() {
   const [sessions, setSessions] = useState<WorkoutSession[]>([]);
   const [loading, setLoading] = useState(true);
+  const [allLoaded, setAllLoaded] = useState(false);
 
   useEffect(() => {
-    db.getAllSessions().then((s) => {
+    db.getRecentSessions(50).then((s) => {
       setSessions(s);
       setLoading(false);
     });
   }, []);
+
+  const loadAll = useCallback(async () => {
+    if (allLoaded) return;
+    const all = await db.getAllSessions();
+    setSessions(all);
+    setAllLoaded(true);
+  }, [allLoaded]);
 
   const saveSession = useCallback(async (session: WorkoutSession) => {
     await db.saveSession(session);
     setSessions((prev) => [session, ...prev.filter((s) => s.id !== session.id)]);
   }, []);
 
-  return { sessions, loading, saveSession };
+  return { sessions, loading, saveSession, loadAll, allLoaded };
 }
 
 export function useChat() {
@@ -290,7 +301,7 @@ export function useRecentFoods() {
   const load = useCallback(async () => {
     setLoading(true);
     const [allMeals, starred] = await Promise.all([
-      db.getAllMealLogs(),
+      db.getRecentMealLogs(90),
       db.getStarredFoods(),
     ]);
 

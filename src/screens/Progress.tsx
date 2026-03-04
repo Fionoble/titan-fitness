@@ -1,9 +1,10 @@
-import { useState, useMemo } from 'preact/hooks';
+import { useState, useMemo, useEffect } from 'preact/hooks';
 import { Icon } from '../components/Icon';
 import type { WorkoutSession } from '../types';
 
 interface ProgressProps {
   sessions: WorkoutSession[];
+  onLoadAll?: () => void;
 }
 
 type TimeFrame = 'week' | 'month' | 'year';
@@ -117,7 +118,8 @@ function WorkoutDetail({ session, onClose }: { session: WorkoutSession; onClose:
   );
 }
 
-export function Progress({ sessions }: ProgressProps) {
+export function Progress({ sessions, onLoadAll }: ProgressProps) {
+  useEffect(() => { onLoadAll?.(); }, [onLoadAll]);
   const [timeFrame, setTimeFrame] = useState<TimeFrame>('week');
   const [selectedSession, setSelectedSession] = useState<WorkoutSession | null>(null);
 

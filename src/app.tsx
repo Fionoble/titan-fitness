@@ -22,7 +22,7 @@ export function App() {
 
   const { equipment, loading: equipLoading, toggle: toggleEquipment } = useEquipment();
   const { plan, loading: planLoading, regenerate, applyPlan } = useTodayWorkout(equipment);
-  const { sessions, saveSession } = useSessions();
+  const { sessions, saveSession, loadAll: loadAllSessions } = useSessions();
   const { messages, addMessage, clear: clearChat } = useChat();
   const { profile, updateProfile } = useProfile();
 
@@ -121,6 +121,7 @@ export function App() {
           path={withBase('/progress')}
           component={Progress}
           sessions={sessions}
+          onLoadAll={loadAllSessions}
         />
         <Route
           path={withBase('/coach')}

@@ -114,6 +114,25 @@ export async function getLatestPlan(): Promise<WorkoutPlan | undefined> {
   return all.sort((a, b) => b.generatedAt.localeCompare(a.generatedAt))[0];
 }
 
+/** Delete workout plans older than `days` days (keeps the most recent one regardless) */
+export async function pruneOldPlans(days = 7): Promise<void> {
+  const db = await getDB();
+  const all = await db.getAll('workoutPlans');
+  if (all.length <= 1) return;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  const cutoffStr = cutoff.toISOString();
+  // Always keep the newest plan
+  const sorted = all.sort((a: WorkoutPlan, b: WorkoutPlan) => b.generatedAt.localeCompare(a.generatedAt));
+  const toDelete = sorted.slice(1).filter((p: WorkoutPlan) => p.generatedAt < cutoffStr);
+  if (toDelete.length === 0) return;
+  const tx = db.transaction('workoutPlans', 'readwrite');
+  for (const p of toDelete) {
+    tx.store.delete(p.id);
+  }
+  await tx.done;
+}
+
 export async function getPlan(id: string): Promise<WorkoutPlan | undefined> {
   const db = await getDB();
   return db.get('workoutPlans', id);
@@ -132,8 +151,9 @@ export async function getAllSessions(): Promise<WorkoutSession[]> {
 }
 
 export async function getRecentSessions(limit: number): Promise<WorkoutSession[]> {
-  const all = await getAllSessions();
-  return all.slice(0, limit);
+  const db = await getDB();
+  const all = await db.getAll('sessions');
+  return all.sort((a, b) => b.startedAt.localeCompare(a.startedAt)).slice(0, limit);
 }
 
 export async function getSessionsByDateRange(start: string, end: string): Promise<WorkoutSession[]> {
@@ -248,10 +268,14 @@ export async function unstarFood(id: string): Promise<void> {
   await db.delete('starredFoods', id);
 }
 
-// All meal logs (for recent foods)
-export async function getAllMealLogs(): Promise<MealLog[]> {
+// Recent meal logs (for recent foods, capped to limit data loaded)
+export async function getRecentMealLogs(days = 90): Promise<MealLog[]> {
   const db = await getDB();
-  return db.getAll('nutritionLogs');
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  const cutoffDate = cutoff.toISOString().slice(0, 10); // YYYY-MM-DD
+  const all = await db.getAll('nutritionLogs');
+  return all.filter((m: MealLog) => m.date >= cutoffDate);
 }
 
 // Export / Import
