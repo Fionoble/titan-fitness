@@ -780,7 +780,7 @@ export function Home({ plan, loading, userName, sessions, onStartWorkout, onRege
 
       {/* Start Workout FAB — hidden when showing inline completion */}
       {!showInlineCompletion && plan && (
-        <div class="fixed bottom-nav-offset left-0 w-full px-6 pb-2 z-20 pointer-events-none max-w-[430px] mx-auto" style="left: 50%; transform: translateX(-50%);">
+        <div class="fixed bottom-nav-offset left-0 w-full px-6 pb-3 z-20 pointer-events-none max-w-[430px] mx-auto" style="left: 50%; transform: translateX(-50%);">
           <button
             onClick={onStartWorkout}
             class="w-full bg-primary text-bg-dark h-14 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-primary/20 pointer-events-auto active:scale-[0.98] transition-all font-bold text-lg tracking-wide"

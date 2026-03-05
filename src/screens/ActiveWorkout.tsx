@@ -15,11 +15,20 @@ function isTimeBased(reps: string): boolean {
   return /\d+\s*s($|\s|\/)/i.test(reps) || /\d+\s*min/i.test(reps) || /\d+\s*sec/i.test(reps);
 }
 
+const TIMED_NAME_PATTERN = /plank|hold|pose|stretch|foam roll|mountain climber|jump rope|wall sit/i;
+
+function isTimedExercise(reps: string, name: string): boolean {
+  return isTimeBased(reps) || TIMED_NAME_PATTERN.test(name);
+}
+
 function parseTimeSeconds(reps: string): number {
   const minMatch = reps.match(/(\d+)\s*min/i);
   if (minMatch) return parseInt(minMatch[1]) * 60;
   const secMatch = reps.match(/(\d+)\s*s/i);
   if (secMatch) return parseInt(secMatch[1]);
+  // Plain number — treat as seconds (AI may omit the suffix)
+  const numMatch = reps.match(/^(\d+)$/);
+  if (numMatch) return parseInt(numMatch[1]);
   return 60;
 }
 
@@ -79,6 +88,7 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
   const restRef = useRef<ReturnType<typeof setInterval>>();
   const exTimerRef = useRef<ReturnType<typeof setInterval>>();
   const startTimeRef = useRef(new Date().toISOString());
+  const exerciseElRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // Main timer
   useEffect(() => {
@@ -181,6 +191,15 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
   groupsRef.current = currentGroup;
   const activeExInGroupRef = useRef(activeExInGroup);
   activeExInGroupRef.current = activeExInGroup;
+
+  // Auto-scroll to active exercise in superset/circuit
+  useEffect(() => {
+    if (isMultiExGroup && exerciseElRefs.current[activeExInGroup]) {
+      setTimeout(() => {
+        exerciseElRefs.current[activeExInGroup]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+  }, [activeExInGroup, isMultiExGroup, currentGroupIdx]);
 
   const completedGroups = groups.filter((g) =>
     g.exercises.every((ex) => {
@@ -328,7 +347,7 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
   // Render set grid for a single exercise
   const renderSetGrid = (exercise: typeof plan.exercises[0], logIdx: number, isHighlighted: boolean) => {
     const log = exerciseLogs[logIdx];
-    const timed = isTimeBased(exercise.reps);
+    const timed = isTimedExercise(exercise.reps, exercise.name);
     const targetSeconds = timed ? parseTimeSeconds(exercise.reps) : 0;
 
     return (
@@ -618,7 +637,7 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
             {currentGroup.exercises.map((ex, i) => {
               const logIdx = exIdToLogIdx.get(ex.id)!;
               return (
-                <div key={ex.id}>
+                <div key={ex.id} ref={(el) => { exerciseElRefs.current[i] = el; }}>
                   {i > 0 && <div class="border-t border-white/10 my-2"></div>}
                   {renderSetGrid(ex, logIdx, i === activeExInGroup)}
                 </div>
