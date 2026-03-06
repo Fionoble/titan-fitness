@@ -3,7 +3,7 @@ import { Icon } from '../components/Icon';
 import { useNutrition, useRecentFoods } from '../hooks';
 import type { RecentFoodItem } from '../hooks';
 import { isAIConfigured } from '../ai';
-import { estimateNutrition, suggestGoals, chatWithNutritionAI } from '../ai-nutrition';
+import { estimateNutrition, estimateNutritionWithImage, isJSONResponse, suggestGoals, chatWithNutritionAI } from '../ai-nutrition';
 import { getFoodByBarcode, saveFoodCache } from '../db';
 import type { FoodEntry, MealLog, NutritionGoals, UserProfile, StarredFood } from '../types';
 
@@ -228,6 +228,17 @@ function AddFoodModal({ mealType, onAdd, onAddMultiple, onClose, recentFoods, st
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiSelected, setAiSelected] = useState<Set<string>>(new Set());
 
+  // Vision state
+  const [aiImage, setAiImage] = useState<string | null>(null);
+  const [aiImagePreview, setAiImagePreview] = useState<string | null>(null);
+  const [aiMediaType, setAiMediaType] = useState('image/jpeg');
+  const [aiConversation, setAiConversation] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
+  const [aiPhase, setAiPhase] = useState<'input' | 'clarifying' | 'done'>('input');
+  const [aiClarifyInput, setAiClarifyInput] = useState('');
+  const [aiClarifyRounds, setAiClarifyRounds] = useState(0);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+
   // Scanner state
   const [showScanner, setShowScanner] = useState(false);
   const [scanResult, setScanResult] = useState<FoodEntry | null>(null);
@@ -250,20 +261,121 @@ function AddFoodModal({ mealType, onAdd, onAddMultiple, onClose, recentFoods, st
     onAdd(food);
   };
 
+  const handleImageSelect = (e: Event) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    setAiMediaType(file.type || 'image/jpeg');
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      setAiImagePreview(dataUrl);
+      // Extract base64 data (strip data:...;base64, prefix)
+      const base64 = dataUrl.split(',')[1];
+      setAiImage(base64);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeImage = () => {
+    setAiImage(null);
+    setAiImagePreview(null);
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
+    if (galleryInputRef.current) galleryInputRef.current.value = '';
+  };
+
+  const parseAIResults = (response: string) => {
+    let jsonStr = response.trim();
+    const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) jsonStr = jsonMatch[1].trim();
+    const parsed = JSON.parse(jsonStr);
+    const items: FoodEntry[] = (Array.isArray(parsed) ? parsed : [parsed]).map((item: any) => ({
+      id: `ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: item.name || 'Unknown Food',
+      calories: Math.round(item.calories || 0),
+      protein: Math.round(item.protein || 0),
+      carbs: Math.round(item.carbs || 0),
+      fats: Math.round(item.fats || 0),
+      servingSize: item.servingSize || 1,
+      servingUnit: item.servingUnit || 'serving',
+      source: 'ai' as const,
+    }));
+    return items;
+  };
+
   const handleAIEstimate = async () => {
-    if (!aiInput.trim()) return;
+    if (!aiInput.trim() && !aiImage) return;
     setAiLoading(true);
     setAiError(null);
     setAiResults([]);
     setAiSelected(new Set());
+    setAiConversation([]);
+    setAiClarifyRounds(0);
+
     try {
-      const results = await estimateNutrition(aiInput);
-      setAiResults(results);
-      setAiSelected(new Set(results.map(r => r.id)));
+      if (aiImage) {
+        // Vision path
+        const response = await estimateNutritionWithImage(aiImage, aiMediaType, aiInput.trim() || undefined);
+        if (isJSONResponse(response)) {
+          const items = parseAIResults(response);
+          setAiResults(items);
+          setAiSelected(new Set(items.map(r => r.id)));
+          setAiPhase('done');
+        } else {
+          // AI is asking clarifying questions
+          setAiConversation([{ role: 'assistant', content: response }]);
+          setAiPhase('clarifying');
+          setAiClarifyRounds(1);
+        }
+      } else {
+        // Text-only path (existing)
+        const results = await estimateNutrition(aiInput);
+        setAiResults(results);
+        setAiSelected(new Set(results.map(r => r.id)));
+        setAiPhase('done');
+      }
     } catch (err: any) {
       setAiError(err.message || 'Failed to estimate nutrition');
     }
     setAiLoading(false);
+  };
+
+  const handleClarifySend = async () => {
+    if (!aiClarifyInput.trim() || !aiImage) return;
+    setAiLoading(true);
+    setAiError(null);
+
+    const updatedConversation = [...aiConversation, { role: 'user' as const, content: aiClarifyInput.trim() }];
+    setAiConversation(updatedConversation);
+    setAiClarifyInput('');
+
+    try {
+      const forceEstimate = aiClarifyRounds >= 2;
+      const response = await estimateNutritionWithImage(
+        aiImage, aiMediaType, aiInput.trim() || undefined, updatedConversation, forceEstimate,
+      );
+
+      if (isJSONResponse(response)) {
+        const items = parseAIResults(response);
+        setAiResults(items);
+        setAiSelected(new Set(items.map(r => r.id)));
+        setAiPhase('done');
+      } else {
+        setAiConversation([...updatedConversation, { role: 'assistant', content: response }]);
+        setAiClarifyRounds((r) => r + 1);
+      }
+    } catch (err: any) {
+      setAiError(err.message || 'Failed to estimate nutrition');
+    }
+    setAiLoading(false);
+  };
+
+  const resetAIVision = () => {
+    setAiPhase('input');
+    setAiConversation([]);
+    setAiClarifyRounds(0);
+    setAiResults([]);
+    setAiSelected(new Set());
+    setAiError(null);
   };
 
   const handleBarcodeScan = async (barcode: string) => {
@@ -610,32 +722,70 @@ function AddFoodModal({ mealType, onAdd, onAddMultiple, onClose, recentFoods, st
                 <p class="text-slate-300 text-sm mb-1">AI not configured</p>
                 <p class="text-slate-500 text-xs">Set up your API key in Profile to use AI Quick Log. You can still use manual entry.</p>
               </div>
-            ) : (
+            ) : aiPhase === 'input' ? (
               <>
+                {/* Photo attachment */}
                 <div>
-                  <label class="block text-xs font-medium text-slate-400 mb-1 uppercase tracking-wider">Describe your food</label>
+                  <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Photo (optional)</label>
+                  {aiImagePreview ? (
+                    <div class="relative inline-block">
+                      <img src={aiImagePreview} alt="Food photo" class="w-24 h-24 object-cover rounded-xl border border-white/10" />
+                      <button
+                        onClick={removeImage}
+                        class="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg"
+                      >
+                        <Icon name="close" class="text-sm" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div class="flex gap-2">
+                      <button
+                        onClick={() => cameraInputRef.current?.click()}
+                        class="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-surface-dark border border-white/10 text-slate-300 text-sm hover:border-primary/30 hover:text-primary transition-colors"
+                      >
+                        <Icon name="photo_camera" class="text-lg" />
+                        Camera
+                      </button>
+                      <button
+                        onClick={() => galleryInputRef.current?.click()}
+                        class="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-surface-dark border border-white/10 text-slate-300 text-sm hover:border-primary/30 hover:text-primary transition-colors"
+                      >
+                        <Icon name="photo_library" class="text-lg" />
+                        Gallery
+                      </button>
+                      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" class="hidden" onChange={handleImageSelect} />
+                      <input ref={galleryInputRef} type="file" accept="image/*" class="hidden" onChange={handleImageSelect} />
+                    </div>
+                  )}
+                </div>
+
+                {/* Text description */}
+                <div>
+                  <label class="block text-xs font-medium text-slate-400 mb-1 uppercase tracking-wider">
+                    {aiImage ? 'Description (optional)' : 'Describe your food'}
+                  </label>
                   <textarea
                     value={aiInput}
                     onInput={(e) => setAiInput((e.target as HTMLTextAreaElement).value)}
-                    placeholder="e.g. 2 scrambled eggs with toast and a glass of orange juice"
+                    placeholder={aiImage ? 'e.g. this was a large portion, dressing on the side' : 'e.g. 2 scrambled eggs with toast and a glass of orange juice'}
                     rows={3}
                     class="w-full bg-surface-dark border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 resize-none"
                   />
                 </div>
                 <button
                   onClick={handleAIEstimate}
-                  disabled={aiLoading || !aiInput.trim()}
+                  disabled={aiLoading || (!aiInput.trim() && !aiImage)}
                   class="w-full py-3 rounded-xl bg-primary/15 text-primary font-bold text-sm border border-primary/30 flex items-center justify-center gap-2 disabled:opacity-40"
                 >
                   {aiLoading ? (
                     <>
                       <div class="w-4 h-4 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
-                      Estimating...
+                      Analyzing...
                     </>
                   ) : (
                     <>
                       <Icon name="auto_awesome" class="text-lg" />
-                      Estimate Nutrition
+                      {aiImage ? 'Analyze Photo' : 'Estimate Nutrition'}
                     </>
                   )}
                 </button>
@@ -644,6 +794,79 @@ function AddFoodModal({ mealType, onAdd, onAddMultiple, onClose, recentFoods, st
                     <p class="text-red-400 text-sm">{aiError}</p>
                   </div>
                 )}
+              </>
+            ) : aiPhase === 'clarifying' ? (
+              <>
+                {/* Image preview */}
+                {aiImagePreview && (
+                  <div class="flex justify-center">
+                    <img src={aiImagePreview} alt="Food photo" class="w-20 h-20 object-cover rounded-xl border border-white/10 opacity-70" />
+                  </div>
+                )}
+
+                {/* Conversation bubbles */}
+                <div class="space-y-2.5">
+                  {aiConversation.map((msg, i) => (
+                    <div key={i} class={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div class={`max-w-[85%] rounded-2xl px-4 py-2.5 ${
+                        msg.role === 'user'
+                          ? 'bg-primary text-bg-dark rounded-br-md'
+                          : 'bg-surface-dark text-slate-200 rounded-bl-md border border-white/5'
+                      }`}>
+                        <p class="text-sm whitespace-pre-wrap">{msg.content}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {aiLoading && (
+                    <div class="flex justify-start">
+                      <div class="bg-surface-dark rounded-2xl rounded-bl-md px-4 py-3 border border-white/5">
+                        <div class="flex gap-1.5">
+                          <div class="w-2 h-2 rounded-full bg-primary/60 animate-bounce" style="animation-delay: 0ms" />
+                          <div class="w-2 h-2 rounded-full bg-primary/60 animate-bounce" style="animation-delay: 150ms" />
+                          <div class="w-2 h-2 rounded-full bg-primary/60 animate-bounce" style="animation-delay: 300ms" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Clarification input */}
+                {!aiLoading && (
+                  <div class="flex items-end gap-2">
+                    <input
+                      type="text"
+                      value={aiClarifyInput}
+                      onInput={(e) => setAiClarifyInput((e.target as HTMLInputElement).value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleClarifySend(); }}
+                      placeholder="Answer the question..."
+                      class="flex-1 bg-surface-dark border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-primary/50 focus:ring-1 focus:ring-primary/50"
+                    />
+                    <button
+                      onClick={handleClarifySend}
+                      disabled={!aiClarifyInput.trim()}
+                      class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-bg-dark shrink-0 disabled:opacity-40 active:scale-95 transition-transform"
+                    >
+                      <Icon name="send" class="text-lg" />
+                    </button>
+                  </div>
+                )}
+
+                {aiError && (
+                  <div class="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                    <p class="text-red-400 text-sm">{aiError}</p>
+                  </div>
+                )}
+
+                <button
+                  onClick={resetAIVision}
+                  class="w-full py-2 rounded-lg text-slate-500 text-xs font-medium hover:text-slate-300 transition-colors"
+                >
+                  Start Over
+                </button>
+              </>
+            ) : (
+              /* aiPhase === 'done' — show results */
+              <>
                 {aiResults.length > 0 && (
                   <div class="space-y-2">
                     <div class="flex items-center justify-between">
@@ -708,6 +931,12 @@ function AddFoodModal({ mealType, onAdd, onAddMultiple, onClose, recentFoods, st
                         Add {aiSelected.size === aiResults.length ? 'All' : aiSelected.size} {aiSelected.size === 1 ? 'Item' : 'Items'} to {mealLabel}
                       </button>
                     )}
+                    <button
+                      onClick={resetAIVision}
+                      class="w-full py-2 rounded-lg text-slate-500 text-xs font-medium hover:text-slate-300 transition-colors"
+                    >
+                      Estimate Another
+                    </button>
                   </div>
                 )}
               </>

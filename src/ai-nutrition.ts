@@ -64,6 +64,139 @@ Guidelines:
 - You can suggest meals, snacks, recipes, and dietary adjustments
 - Discuss macro ratios, meal timing, hydration, and nutrition science`;
 
+const VISION_NUTRITION_PROMPT = `You are a nutrition analysis AI that can analyze food from images and descriptions.
+
+When given a food image (and optional text description), do one of these:
+
+1. If you need clarification about portion size, preparation method, or ingredients, ask 1-2 SHORT questions in plain text. Be conversational and specific (e.g. "That looks like about 2 cups of rice — does that seem right?" rather than "How much rice is there?").
+
+2. If you have enough information, respond with ONLY a JSON array: [{"name": "...", "calories": ..., "protein": ..., "carbs": ..., "fats": ..., "servingSize": ..., "servingUnit": "..."}]
+
+Rules:
+- Ask at MOST 2 rounds of questions before giving your estimate
+- If the user answers your questions, respond with the JSON estimate
+- All numbers should be reasonable estimates
+- Calories in kcal, protein/carbs/fats in grams
+- If multiple foods visible, return multiple items in the array`;
+
+export function isJSONResponse(text: string): boolean {
+  const trimmed = text.trim();
+  // Check for raw JSON array
+  if (trimmed.startsWith('[')) {
+    try { JSON.parse(trimmed); return true; } catch { return false; }
+  }
+  // Check for JSON in code fences
+  const match = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (match) {
+    try { JSON.parse(match[1].trim()); return true; } catch { return false; }
+  }
+  return false;
+}
+
+interface VisionMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  image?: string;
+  mediaType?: string;
+}
+
+export async function estimateNutritionWithImage(
+  imageBase64: string,
+  mediaType: string,
+  description?: string,
+  conversationHistory?: VisionMessage[],
+  forceEstimate?: boolean,
+): Promise<string> {
+  const config = getConfig();
+  if (!config) throw new Error('AI not configured');
+
+  const systemPrompt = forceEstimate
+    ? VISION_NUTRITION_PROMPT + '\n\nIMPORTANT: The user has already answered your questions. You MUST now respond with ONLY the JSON array estimate. Do not ask any more questions.'
+    : VISION_NUTRITION_PROMPT;
+
+  if (config.provider === 'anthropic') {
+    const messages: any[] = [];
+
+    // Build first user message with image
+    const firstUserContent: any[] = [
+      {
+        type: 'image',
+        source: { type: 'base64', media_type: mediaType, data: imageBase64 },
+      },
+    ];
+    if (description) {
+      firstUserContent.push({ type: 'text', text: description });
+    } else {
+      firstUserContent.push({ type: 'text', text: 'What food is this? Estimate the nutrition.' });
+    }
+    messages.push({ role: 'user', content: firstUserContent });
+
+    // Add conversation history (follow-up messages)
+    if (conversationHistory) {
+      for (const msg of conversationHistory) {
+        messages.push({ role: msg.role, content: msg.content });
+      }
+    }
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': config.apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages,
+      }),
+    });
+    if (!res.ok) throw new Error(`API error ${res.status}`);
+    const data = await res.json();
+    return data.content[0].text;
+  } else {
+    // OpenAI
+    const messages: any[] = [{ role: 'system', content: systemPrompt }];
+
+    const firstUserContent: any[] = [
+      {
+        type: 'image_url',
+        image_url: { url: `data:${mediaType};base64,${imageBase64}` },
+      },
+    ];
+    if (description) {
+      firstUserContent.push({ type: 'text', text: description });
+    } else {
+      firstUserContent.push({ type: 'text', text: 'What food is this? Estimate the nutrition.' });
+    }
+    messages.push({ role: 'user', content: firstUserContent });
+
+    if (conversationHistory) {
+      for (const msg of conversationHistory) {
+        messages.push({ role: msg.role, content: msg.content });
+      }
+    }
+
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${config.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-5-mini',
+        messages,
+        max_completion_tokens: 8192,
+      }),
+    });
+    if (!res.ok) throw new Error(`API error ${res.status}`);
+    const data = await res.json();
+    return data.choices[0].message.content;
+  }
+}
+
 async function callAI(systemPrompt: string, userMessage: string): Promise<string> {
   const config = getConfig();
   if (!config) throw new Error('AI not configured');
