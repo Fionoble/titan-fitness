@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'preact/hooks';
 import * as db from './db';
-import type { Equipment, WorkoutPlan, WorkoutSession, ChatMessage, UserProfile, WorkoutCriteria, MealLog, FoodEntry, NutritionGoals, StarredFood } from './types';
+import type { Equipment, WorkoutPlan, WorkoutSession, ChatMessage, UserProfile, WorkoutCriteria, MealLog, FoodEntry, NutritionGoals, StarredFood, WeightEntry } from './types';
 import { generateWorkout, getTodayStyle } from './workout-engine';
 import { generateWorkoutViaAI } from './ai-workout';
 import { isAIConfigured } from './ai';
@@ -171,6 +171,42 @@ export function useChat() {
   }, []);
 
   return { messages, loading, setLoading, addMessage, clear };
+}
+
+export function useWeightHistory() {
+  const [entries, setEntries] = useState<WeightEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    db.getWeightHistory().then((e) => {
+      setEntries(e);
+      setLoading(false);
+    });
+  }, []);
+
+  const addEntry = useCallback(async (weight: number) => {
+    const today = new Date().toISOString().slice(0, 10);
+    // Replace existing entry for today if one exists
+    const existingToday = entries.find((e) => e.date === today);
+    const entry: WeightEntry = {
+      id: existingToday?.id || `weight-${Date.now()}`,
+      date: today,
+      weight,
+      timestamp: new Date().toISOString(),
+    };
+    await db.saveWeightEntry(entry);
+    setEntries((prev) => {
+      const filtered = prev.filter((e) => e.date !== today);
+      return [entry, ...filtered].sort((a, b) => b.date.localeCompare(a.date));
+    });
+  }, [entries]);
+
+  const removeEntry = useCallback(async (id: string) => {
+    await db.deleteWeightEntry(id);
+    setEntries((prev) => prev.filter((e) => e.id !== id));
+  }, []);
+
+  return { entries, loading, addEntry, removeEntry };
 }
 
 export function useProfile() {

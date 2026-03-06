@@ -1,8 +1,8 @@
 import { openDB, type IDBPDatabase } from 'idb';
-import type { Equipment, WorkoutPlan, WorkoutSession, PersonalRecord, UserProfile, ChatMessage, MealLog, FoodEntry, NutritionGoals, StarredFood } from './types';
+import type { Equipment, WorkoutPlan, WorkoutSession, PersonalRecord, UserProfile, ChatMessage, MealLog, FoodEntry, NutritionGoals, StarredFood, WeightEntry } from './types';
 
 const DB_NAME = 'titan-fitness';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
@@ -47,6 +47,11 @@ function getDB() {
         if (!db.objectStoreNames.contains('starredFoods')) {
           const store = db.createObjectStore('starredFoods', { keyPath: 'id' });
           store.createIndex('by-name', 'name');
+        }
+        // Weight history (added in v4)
+        if (!db.objectStoreNames.contains('weightHistory')) {
+          const store = db.createObjectStore('weightHistory', { keyPath: 'id' });
+          store.createIndex('by-date', 'date');
         }
       },
     });
@@ -233,8 +238,15 @@ export async function saveNutritionGoals(date: string, goals: NutritionGoals): P
 export async function getNutritionGoals(date: string): Promise<NutritionGoals | undefined> {
   const db = await getDB();
   const result = await db.get('nutritionGoals', date);
-  if (!result) return undefined;
-  const { date: _, ...goals } = result;
+  if (result) {
+    const { date: _, ...goals } = result;
+    return goals as NutritionGoals;
+  }
+  // Fall back to the most recently saved goals (carry forward)
+  const all = await db.getAll('nutritionGoals');
+  if (all.length === 0) return undefined;
+  const sorted = all.sort((a, b) => b.date.localeCompare(a.date));
+  const { date: _, ...goals } = sorted[0];
   return goals as NutritionGoals;
 }
 
@@ -278,8 +290,25 @@ export async function getRecentMealLogs(days = 90): Promise<MealLog[]> {
   return all.filter((m: MealLog) => m.date >= cutoffDate);
 }
 
+// Weight History
+export async function saveWeightEntry(entry: WeightEntry): Promise<void> {
+  const db = await getDB();
+  await db.put('weightHistory', entry);
+}
+
+export async function getWeightHistory(): Promise<WeightEntry[]> {
+  const db = await getDB();
+  const all = await db.getAll('weightHistory');
+  return all.sort((a: WeightEntry, b: WeightEntry) => b.date.localeCompare(a.date));
+}
+
+export async function deleteWeightEntry(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('weightHistory', id);
+}
+
 // Export / Import
-const STORE_NAMES = ['equipment', 'workoutPlans', 'sessions', 'personalRecords', 'profile', 'chatMessages', 'nutritionLogs', 'foods', 'nutritionGoals', 'starredFoods'] as const;
+const STORE_NAMES = ['equipment', 'workoutPlans', 'sessions', 'personalRecords', 'profile', 'chatMessages', 'nutritionLogs', 'foods', 'nutritionGoals', 'starredFoods', 'weightHistory'] as const;
 
 export async function exportAllData(): Promise<string> {
   const db = await getDB();

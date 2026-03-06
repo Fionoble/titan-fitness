@@ -10,7 +10,7 @@ import { Coach } from './screens/Coach';
 import { Discover } from './screens/Discover';
 import { Nutrition } from './screens/Nutrition';
 import { Profile } from './screens/Profile';
-import { useEquipment, useTodayWorkout, useSessions, useChat, useProfile } from './hooks';
+import { useEquipment, useTodayWorkout, useSessions, useChat, useProfile, useWeightHistory } from './hooks';
 import { withBase } from './base';
 import type { WorkoutSession, WorkoutPlan, WorkoutCriteria } from './types';
 
@@ -25,6 +25,7 @@ export function App() {
   const { sessions, saveSession, loadAll: loadAllSessions } = useSessions();
   const { messages, addMessage, clear: clearChat } = useChat();
   const { profile, updateProfile } = useProfile();
+  const { entries: weightHistory, addEntry: addWeight, removeEntry: removeWeight } = useWeightHistory();
 
   const nav = useCallback((path: string) => route(withBase(path)), [route]);
 
@@ -144,6 +145,9 @@ export function App() {
           sessions={sessions}
           onUpdateProfile={updateProfile}
           onNavigateEquipment={() => nav('/equipment')}
+          weightHistory={weightHistory}
+          onAddWeight={addWeight}
+          onRemoveWeight={removeWeight}
         />
         <Route
           path={withBase('/equipment')}

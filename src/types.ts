@@ -89,7 +89,17 @@ export interface UserProfile {
   aiProvider?: 'anthropic' | 'openai';
   injuries?: string;
   additionalEquipment?: string;
+  weight?: number; // lbs
+  height?: number; // total inches
+  gender?: 'male' | 'female' | 'other';
   createdAt: string;
+}
+
+export interface WeightEntry {
+  id: string;
+  date: string; // YYYY-MM-DD
+  weight: number; // lbs
+  timestamp: string; // ISO string
 }
 
 export interface ChatMessage {
