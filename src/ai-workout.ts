@@ -14,6 +14,18 @@ function extractJson(text: string): string | null {
   return null;
 }
 
+/** Exercises whose reps are always time-based (used to fix AI omitting 's' suffix) */
+const ALWAYS_TIMED = /\bplank\b|dead hang|\bwall sit\b|foam roll/i;
+
+function normalizeReps(reps: any, name: string): string {
+  const r = String(reps || '10');
+  // If reps is a plain number and exercise is always time-based, add 's' suffix
+  if (/^\d+$/.test(r) && ALWAYS_TIMED.test(name)) {
+    return r + 's';
+  }
+  return r;
+}
+
 function buildPlanFromJson(parsed: any): WorkoutPlan | null {
   // Validate required fields
   if (!parsed.name || !parsed.style || !Array.isArray(parsed.exercises) || parsed.exercises.length === 0) {
@@ -30,7 +42,7 @@ function buildPlanFromJson(parsed: any): WorkoutPlan | null {
       muscleGroup: ex.muscleGroup || 'Full Body',
       equipment: ex.equipment || [],
       sets: ex.sets || 3,
-      reps: String(ex.reps || '10'),
+      reps: normalizeReps(ex.reps, ex.name || ''),
       weight: ex.weight || undefined,
       restSeconds: ex.restSeconds || 60,
       group: ex.group || undefined,

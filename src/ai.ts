@@ -57,7 +57,7 @@ When asked to generate, create, adjust, or modify a workout, you MUST ALWAYS inc
       "muscleGroup": "string - target muscle",
       "equipment": ["string - equipment id, e.g. 'dumbbells', 'barbell', or empty array for bodyweight"],
       "sets": 3,
-      "reps": "string - e.g. '10-12', '15', 'Failure', '30s'",
+      "reps": "string - e.g. '10-12', '15', 'Failure'. IMPORTANT: for time-based exercises (planks, holds, stretches, etc.) always include the time suffix: '30s', '45s each', '60s', '2 min'. Never use a plain number for timed exercises.",
       "weight": null,
       "restSeconds": 60,
       "group": "string or null - optional, e.g. 'A'. Exercises with same group form a superset/circuit and must be adjacent"

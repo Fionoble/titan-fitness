@@ -12,21 +12,18 @@ interface ActiveWorkoutProps {
 }
 
 function isTimeBased(reps: string): boolean {
-  return /\d+\s*s($|\s|\/)/i.test(reps) || /\d+\s*min/i.test(reps) || /\d+\s*sec/i.test(reps);
-}
-
-const TIMED_NAME_PATTERN = /plank|hold|pose|stretch|foam roll|mountain climber|jump rope|wall sit/i;
-
-function isTimedExercise(reps: string, name: string): boolean {
-  return isTimeBased(reps) || TIMED_NAME_PATTERN.test(name);
+  return /\d+\s*s($|\s|\/)/i.test(reps) || /\d+\s*min/i.test(reps) || /\d+\s*sec/i.test(reps) || /\d+:\d{2}/.test(reps);
 }
 
 function parseTimeSeconds(reps: string): number {
+  // MM:SS format
+  const colonMatch = reps.match(/(\d+):(\d{2})/);
+  if (colonMatch) return parseInt(colonMatch[1]) * 60 + parseInt(colonMatch[2]);
   const minMatch = reps.match(/(\d+)\s*min/i);
   if (minMatch) return parseInt(minMatch[1]) * 60;
   const secMatch = reps.match(/(\d+)\s*s/i);
   if (secMatch) return parseInt(secMatch[1]);
-  // Plain number — treat as seconds (AI may omit the suffix)
+  // Plain number — treat as seconds (normalized AI output)
   const numMatch = reps.match(/^(\d+)$/);
   if (numMatch) return parseInt(numMatch[1]);
   return 60;
@@ -88,7 +85,6 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
   const restRef = useRef<ReturnType<typeof setInterval>>();
   const exTimerRef = useRef<ReturnType<typeof setInterval>>();
   const startTimeRef = useRef(new Date().toISOString());
-  const exerciseElRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // Main timer
   useEffect(() => {
@@ -135,6 +131,16 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
     }
   }, [exTimer?.running, exTimer?.logIdx, exTimer?.setIdx]);
 
+  // Scroll to active exercise in superset/circuit
+  const scrollToGroupExercise = useCallback((index: number) => {
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`group-ex-${index}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    });
+  }, []);
+
   const completeTimedSet = useCallback((logIdx: number, setIdx: number, timeSeconds: number) => {
     const exercise = plan.exercises[logIdx];
     setExerciseLogs((prev) => {
@@ -155,13 +161,16 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
       if (isLastEx) {
         setRestTimer(90);
         setActiveExInGroup(0);
+        scrollToGroupExercise(0);
       } else {
-        setActiveExInGroup((i) => i + 1);
+        const next = activeExInGroupRef.current + 1;
+        setActiveExInGroup(next);
+        scrollToGroupExercise(next);
       }
     } else {
       setRestTimer(exercise.restSeconds || 60);
     }
-  }, [plan.exercises]);
+  }, [plan.exercises, scrollToGroupExercise]);
 
   const startExTimer = useCallback((logIdx: number, setIdx: number, mode: 'countdown' | 'countup') => {
     const exercise = plan.exercises[logIdx];
@@ -191,15 +200,6 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
   groupsRef.current = currentGroup;
   const activeExInGroupRef = useRef(activeExInGroup);
   activeExInGroupRef.current = activeExInGroup;
-
-  // Auto-scroll to active exercise in superset/circuit
-  useEffect(() => {
-    if (isMultiExGroup && exerciseElRefs.current[activeExInGroup]) {
-      setTimeout(() => {
-        exerciseElRefs.current[activeExInGroup]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 100);
-    }
-  }, [activeExInGroup, isMultiExGroup, currentGroupIdx]);
 
   const completedGroups = groups.filter((g) =>
     g.exercises.every((ex) => {
@@ -269,16 +269,19 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
       if (isLastExInGroup) {
         // Completed a round — start rest timer (90s for groups)
         setRestTimer(90);
-        setActiveExInGroup(0); // wrap back to first exercise for next round
+        setActiveExInGroup(0);
+        scrollToGroupExercise(0);
       } else {
         // Advance to next exercise in group (no rest)
-        setActiveExInGroup((i) => i + 1);
+        const next = activeExInGroup + 1;
+        setActiveExInGroup(next);
+        scrollToGroupExercise(next);
       }
     } else {
       const restSec = exercise.restSeconds || 60;
       setRestTimer(restSec);
     }
-  }, [isMultiExGroup, activeExInGroup, currentGroup, plan.exercises]);
+  }, [isMultiExGroup, activeExInGroup, currentGroup, plan.exercises, scrollToGroupExercise]);
 
   const addSet = useCallback((logIdx: number) => {
     setExerciseLogs((prev) => {
@@ -347,7 +350,7 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
   // Render set grid for a single exercise
   const renderSetGrid = (exercise: typeof plan.exercises[0], logIdx: number, isHighlighted: boolean) => {
     const log = exerciseLogs[logIdx];
-    const timed = isTimedExercise(exercise.reps, exercise.name);
+    const timed = isTimeBased(exercise.reps);
     const targetSeconds = timed ? parseTimeSeconds(exercise.reps) : 0;
 
     return (
@@ -637,7 +640,7 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
             {currentGroup.exercises.map((ex, i) => {
               const logIdx = exIdToLogIdx.get(ex.id)!;
               return (
-                <div key={ex.id} ref={(el) => { exerciseElRefs.current[i] = el; }}>
+                <div key={ex.id} id={`group-ex-${i}`}>
                   {i > 0 && <div class="border-t border-white/10 my-2"></div>}
                   {renderSetGrid(ex, logIdx, i === activeExInGroup)}
                 </div>
