@@ -4,6 +4,7 @@ import type { ChatMessage, Equipment, WorkoutSession, WorkoutPlan, UserProfile }
 import { sendMessage, isAIConfigured, setAIConfig } from '../ai';
 import { parseWorkoutFromResponse, stripJsonBlock, buildAdjustPrompt } from '../ai-workout';
 import { uuid } from '../utils';
+import { runTask, useAITaskByType } from '../ai-tasks';
 
 interface CoachProps {
   messages: ChatMessage[];
@@ -91,7 +92,8 @@ function WorkoutPlanCard({ plan, onApply }: { plan: WorkoutPlan; onApply?: (plan
 
 export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, sessions, onApplyPlan, onClearChat, pendingAdjustPlan, onClearPendingAdjust, profile }: CoachProps) {
   const [input, setInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
+  const coachTask = useAITaskByType('coach-chat');
+  const isTyping = coachTask?.status === 'running';
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [configured, setConfigured] = useState(isAIConfigured());
   const [setupKey, setSetupKey] = useState('');
@@ -125,11 +127,13 @@ export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, se
 
     await onSendMessage(userMsg);
     setInput('');
-    setIsTyping(true);
 
-    try {
+    const taskId = `coach-chat-${userMsg.id}`;
+    const allMessages = [...messages, userMsg];
+
+    runTask(taskId, 'coach-chat', async () => {
       const profileContext = profile ? { injuries: profile.injuries, additionalEquipment: profile.additionalEquipment } : undefined;
-      const response = await sendMessage(msg, [...messages, userMsg], equipment, sessions, profileContext);
+      const response = await sendMessage(msg, allMessages, equipment, sessions, profileContext);
 
       // Check if the response contains a workout plan
       const parsedPlan = parseWorkoutFromResponse(response);
@@ -143,7 +147,8 @@ export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, se
         richContent: parsedPlan ? { type: 'workoutPlan', plan: parsedPlan } : undefined,
       };
       await onReceiveMessage(aiMsg);
-    } catch {
+      return response;
+    }).catch(async () => {
       const errorMsg: ChatMessage = {
         id: uuid(),
         role: 'assistant',
@@ -151,8 +156,7 @@ export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, se
         timestamp: new Date().toISOString(),
       };
       await onReceiveMessage(errorMsg);
-    }
-    setIsTyping(false);
+    });
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {

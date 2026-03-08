@@ -5,6 +5,7 @@ import type { RecentFoodItem } from '../hooks';
 import { isAIConfigured } from '../ai';
 import { estimateNutrition, estimateNutritionWithImage, isJSONResponse, suggestGoals, chatWithNutritionAI } from '../ai-nutrition';
 import { getFoodByBarcode, saveFoodCache } from '../db';
+import { useStore, runTask, useAITask, clearStore } from '../ai-tasks';
 import type { FoodEntry, MealLog, NutritionGoals, UserProfile, StarredFood } from '../types';
 
 interface NutritionProps {
@@ -221,23 +222,31 @@ function AddFoodModal({ mealType, onAdd, onAddMultiple, onClose, recentFoods, st
   const [servingSize, setServingSize] = useState('1');
   const [servingUnit, setServingUnit] = useState('serving');
 
-  // AI state
+  // AI state — persisted across modal open/close via useStore
   const [aiInput, setAiInput] = useState('');
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiResults, setAiResults] = useState<FoodEntry[]>([]);
+  const [aiResults, setAiResults] = useStore<FoodEntry[]>('nutrition-ai-results', []);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiSelected, setAiSelected] = useState<Set<string>>(new Set());
+  const estimateTask = useAITask('nutrition-estimate');
+  const aiLoading = estimateTask?.status === 'running';
 
-  // Vision state
-  const [aiImage, setAiImage] = useState<string | null>(null);
-  const [aiImagePreview, setAiImagePreview] = useState<string | null>(null);
-  const [aiMediaType, setAiMediaType] = useState('image/jpeg');
-  const [aiConversation, setAiConversation] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
-  const [aiPhase, setAiPhase] = useState<'input' | 'clarifying' | 'done'>('input');
+  // Vision state — persisted across modal open/close
+  const [aiImage, setAiImage] = useStore<string | null>('nutrition-ai-image', null);
+  const [aiImagePreview, setAiImagePreview] = useStore<string | null>('nutrition-ai-preview', null);
+  const [aiMediaType, setAiMediaType] = useStore<string>('nutrition-ai-media-type', 'image/jpeg');
+  const [aiConversation, setAiConversation] = useStore<Array<{ role: 'user' | 'assistant'; content: string }>>('nutrition-ai-conversation', []);
+  const [aiPhase, setAiPhase] = useStore<'input' | 'clarifying' | 'done'>('nutrition-ai-phase', 'input');
   const [aiClarifyInput, setAiClarifyInput] = useState('');
-  const [aiClarifyRounds, setAiClarifyRounds] = useState(0);
+  const [aiClarifyRounds, setAiClarifyRounds] = useStore<number>('nutrition-ai-clarify-rounds', 0);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+
+  // Restore selection when results are already present on mount
+  useEffect(() => {
+    if (aiResults.length > 0 && aiSelected.size === 0) {
+      setAiSelected(new Set(aiResults.map(r => r.id)));
+    }
+  }, []);
 
   // Scanner state
   const [showScanner, setShowScanner] = useState(false);
@@ -304,17 +313,20 @@ function AddFoodModal({ mealType, onAdd, onAddMultiple, onClose, recentFoods, st
 
   const handleAIEstimate = async () => {
     if (!aiInput.trim() && !aiImage) return;
-    setAiLoading(true);
     setAiError(null);
     setAiResults([]);
     setAiSelected(new Set());
     setAiConversation([]);
     setAiClarifyRounds(0);
 
-    try {
-      if (aiImage) {
+    const inputText = aiInput;
+    const image = aiImage;
+    const mediaType = aiMediaType;
+
+    runTask('nutrition-estimate', 'nutrition-estimate', async () => {
+      if (image) {
         // Vision path
-        const response = await estimateNutritionWithImage(aiImage, aiMediaType, aiInput.trim() || undefined);
+        const response = await estimateNutritionWithImage(image, mediaType, inputText.trim() || undefined);
         if (isJSONResponse(response)) {
           const items = parseAIResults(response);
           setAiResults(items);
@@ -328,30 +340,33 @@ function AddFoodModal({ mealType, onAdd, onAddMultiple, onClose, recentFoods, st
         }
       } else {
         // Text-only path (existing)
-        const results = await estimateNutrition(aiInput);
+        const results = await estimateNutrition(inputText);
         setAiResults(results);
         setAiSelected(new Set(results.map(r => r.id)));
         setAiPhase('done');
       }
-    } catch (err: any) {
+    }).catch((err: any) => {
       setAiError(err.message || 'Failed to estimate nutrition');
-    }
-    setAiLoading(false);
+    });
   };
 
   const handleClarifySend = async () => {
     if (!aiClarifyInput.trim() || !aiImage) return;
-    setAiLoading(true);
     setAiError(null);
 
     const updatedConversation = [...aiConversation, { role: 'user' as const, content: aiClarifyInput.trim() }];
     setAiConversation(updatedConversation);
     setAiClarifyInput('');
 
-    try {
-      const forceEstimate = aiClarifyRounds >= 2;
+    const image = aiImage;
+    const mediaType = aiMediaType;
+    const inputText = aiInput;
+    const rounds = aiClarifyRounds;
+
+    runTask('nutrition-estimate', 'nutrition-estimate', async () => {
+      const forceEstimate = rounds >= 2;
       const response = await estimateNutritionWithImage(
-        aiImage, aiMediaType, aiInput.trim() || undefined, updatedConversation, forceEstimate,
+        image, mediaType, inputText.trim() || undefined, updatedConversation, forceEstimate,
       );
 
       if (isJSONResponse(response)) {
@@ -363,10 +378,9 @@ function AddFoodModal({ mealType, onAdd, onAddMultiple, onClose, recentFoods, st
         setAiConversation([...updatedConversation, { role: 'assistant', content: response }]);
         setAiClarifyRounds((r) => r + 1);
       }
-    } catch (err: any) {
+    }).catch((err: any) => {
       setAiError(err.message || 'Failed to estimate nutrition');
-    }
-    setAiLoading(false);
+    });
   };
 
   const resetAIVision = () => {
@@ -376,6 +390,8 @@ function AddFoodModal({ mealType, onAdd, onAddMultiple, onClose, recentFoods, st
     setAiResults([]);
     setAiSelected(new Set());
     setAiError(null);
+    setAiImage(null);
+    setAiImagePreview(null);
   };
 
   const handleBarcodeScan = async (barcode: string) => {
@@ -1183,9 +1199,10 @@ function NutritionChat({ totals, goals }: {
   totals: { calories: number; protein: number; carbs: number; fats: number };
   goals: NutritionGoals;
 }) {
-  const [messages, setMessages] = useState<NutritionChatMessage[]>([]);
+  const [messages, setMessages] = useStore<NutritionChatMessage[]>('nutrition-chat', []);
   const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
+  const chatTask = useAITask('nutrition-chat');
+  const loading = chatTask?.status === 'running';
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -1204,10 +1221,10 @@ function NutritionChat({ totals, goals }: {
     };
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
-    setLoading(true);
 
-    try {
-      const chatHistory = messages.map((m) => ({
+    const currentMessages = messages;
+    runTask('nutrition-chat', 'nutrition-chat', async () => {
+      const chatHistory = currentMessages.map((m) => ({
         id: m.id,
         role: m.role,
         content: m.content,
@@ -1221,7 +1238,8 @@ function NutritionChat({ totals, goals }: {
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, aiMsg]);
-    } catch (err: any) {
+      return response;
+    }).catch((err: any) => {
       const errMsg: NutritionChatMessage = {
         id: `err-${Date.now()}`,
         role: 'assistant',
@@ -1229,8 +1247,7 @@ function NutritionChat({ totals, goals }: {
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, errMsg]);
-    }
-    setLoading(false);
+    });
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
@@ -1263,7 +1280,7 @@ function NutritionChat({ totals, goals }: {
         </div>
         {messages.length > 0 && (
           <button
-            onClick={() => setMessages([])}
+            onClick={() => clearStore('nutrition-chat')}
             class="w-8 h-8 flex items-center justify-center rounded-full bg-surface-darker text-slate-400 hover:text-red-400 transition-colors"
             title="Clear chat"
           >

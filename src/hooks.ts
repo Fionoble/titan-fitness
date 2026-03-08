@@ -5,6 +5,7 @@ import { generateWorkout, getTodayStyle } from './workout-engine';
 import { generateWorkoutViaAI } from './ai-workout';
 import { isAIConfigured } from './ai';
 import { normalizeExerciseName } from './utils';
+import { runTask } from './ai-tasks';
 
 /** Apply previous weights to a plan's exercises (for AI-generated plans that may lack them) */
 function applyPrevWeights(plan: WorkoutPlan, prevWeights: Record<string, number>): WorkoutPlan {
@@ -67,37 +68,44 @@ export function useTodayWorkout(equipment: Equipment[]) {
   }, [equipment, buildPrevWeights]);
 
   const generate = useCallback(async (style?: string, criteria?: WorkoutCriteria) => {
-    setLoading(true);
-    const sessions = await db.getRecentSessions(5);
-    const prevWeights = buildPrevWeights(sessions);
+    const taskId = `workout-gen-${Date.now()}`;
+    const result = await runTask(taskId, 'workout-gen', async () => {
+      setLoading(true);
+      const sessions = await db.getRecentSessions(5);
+      const prevWeights = buildPrevWeights(sessions);
 
-    // Prune old plans in the background
-    db.pruneOldPlans(7).catch(() => {});
+      // Prune old plans in the background
+      db.pruneOldPlans(7).catch(() => {});
 
-    // Try AI generation first if configured
-    if (isAIConfigured()) {
-      try {
-        const chatHistory = await db.getChatMessages();
-        const effectiveCriteria = criteria || (style ? { style: style as any } : undefined);
-        const result = await generateWorkoutViaAI(equipment, sessions, chatHistory, effectiveCriteria);
-        if (result) {
-          const planWithWeights = applyPrevWeights(result.plan, prevWeights);
-          await db.savePlan(planWithWeights);
-          setPlan(planWithWeights);
-          setLoading(false);
-          return planWithWeights;
+      // Try AI generation first if configured
+      if (isAIConfigured()) {
+        try {
+          const chatHistory = await db.getChatMessages();
+          const effectiveCriteria = criteria || (style ? { style: style as any } : undefined);
+          const aiResult = await generateWorkoutViaAI(equipment, sessions, chatHistory, effectiveCriteria);
+          if (aiResult) {
+            const planWithWeights = applyPrevWeights(aiResult.plan, prevWeights);
+            await db.savePlan(planWithWeights);
+            setPlan(planWithWeights);
+            setLoading(false);
+            return planWithWeights;
+          }
+        } catch {
+          // Fall through to local generation
         }
-      } catch {
-        // Fall through to local generation
       }
-    }
 
-    // Local fallback
-    const newPlan = generateLocal(sessions, style, prevWeights);
-    await db.savePlan(newPlan);
-    setPlan(newPlan);
-    setLoading(false);
-    return newPlan;
+      // Local fallback
+      const newPlan = generateLocal(sessions, style, prevWeights);
+      await db.savePlan(newPlan);
+      setPlan(newPlan);
+      setLoading(false);
+      return newPlan;
+    }, 'workout-gen');
+
+    // If blocked by lock, result is null
+    if (!result) return null;
+    return result;
   }, [equipment, generateLocal]);
 
   const applyPlan = useCallback(async (newPlan: WorkoutPlan) => {
