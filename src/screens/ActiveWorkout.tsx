@@ -99,34 +99,50 @@ function WorkoutChat({ open, onClose, currentExercise, planSummary }: WorkoutCha
   if (!open) return null;
 
   return (
-    <div class="fixed inset-0 z-[60] flex flex-col justify-end max-w-[430px] mx-auto" style="left: 50%; transform: translateX(-50%)">
-      <div class="absolute inset-0 bg-black/50" onClick={onClose}></div>
-      <div class="relative bg-bg-dark rounded-t-2xl border-t border-white/10 flex flex-col" style="max-height: 70vh">
+    <div class="fixed inset-0 z-[60] flex flex-col justify-end">
+      {/* Backdrop */}
+      <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
+
+      {/* Sheet */}
+      <div class="relative bg-bg-dark rounded-t-2xl border-t border-primary/20 flex flex-col shadow-2xl shadow-black/50" style="height: 65vh">
+        {/* Drag handle */}
+        <div class="flex justify-center pt-2 pb-1 shrink-0">
+          <div class="w-10 h-1 rounded-full bg-white/20"></div>
+        </div>
+
         {/* Header */}
-        <div class="flex items-center justify-between px-4 py-3 border-b border-white/5 shrink-0">
-          <div class="flex items-center gap-2">
-            <Icon name="auto_awesome" class="text-primary" />
+        <div class="flex items-center justify-between px-4 py-2 border-b border-white/5 shrink-0">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center">
+              <Icon name="auto_awesome" class="text-primary text-lg" />
+            </div>
             <div>
-              <p class="text-sm font-bold text-white">Ask Titan</p>
-              <p class="text-[11px] text-slate-400 truncate max-w-[200px]">{currentExercise.name}</p>
+              <p class="text-sm font-bold text-white leading-tight">Ask Titan</p>
+              <p class="text-[11px] text-slate-400 truncate max-w-[220px]">{currentExercise.name}</p>
             </div>
           </div>
-          <button onClick={onClose} class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-surface-dark transition-colors">
-            <Icon name="close" class="text-slate-400" />
+          <button onClick={onClose} class="w-8 h-8 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/10 transition-colors">
+            <Icon name="close" class="text-slate-400 text-lg" />
           </button>
         </div>
 
         {/* Messages */}
-        <div ref={scrollRef} class="flex-1 overflow-y-auto p-4 space-y-3">
+        <div ref={scrollRef} class="flex-1 overflow-y-auto px-4 py-3 space-y-3">
           {messages.length === 0 && !isLoading && (
-            <p class="text-center text-xs text-slate-500 py-4">Ask about form, alternatives, or weight for the current exercise.</p>
+            <div class="flex flex-col items-center justify-center py-8 text-center">
+              <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                <Icon name="chat" class="text-primary text-2xl" />
+              </div>
+              <p class="text-sm text-slate-400 font-medium">Need help with this exercise?</p>
+              <p class="text-xs text-slate-500 mt-1">Tap a suggestion below or type your question.</p>
+            </div>
           )}
           {messages.map((msg, i) => (
             <div key={i} class={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div class={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${
+              <div class={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
                 msg.role === 'user'
-                  ? 'bg-primary/20 text-white'
-                  : 'bg-surface-dark text-slate-200'
+                  ? 'bg-primary text-bg-dark font-medium'
+                  : 'bg-surface-dark text-slate-200 border border-white/5'
               }`}>
                 {msg.content}
               </div>
@@ -134,8 +150,8 @@ function WorkoutChat({ open, onClose, currentExercise, planSummary }: WorkoutCha
           ))}
           {isLoading && (
             <div class="flex justify-start">
-              <div class="bg-surface-dark rounded-xl px-3 py-2 text-sm text-slate-400">
-                <span class="inline-flex gap-1">
+              <div class="bg-surface-dark rounded-2xl px-4 py-3 text-sm text-slate-400 border border-white/5">
+                <span class="inline-flex gap-0.5 text-lg leading-none">
                   <span class="animate-bounce" style="animation-delay: 0ms">.</span>
                   <span class="animate-bounce" style="animation-delay: 150ms">.</span>
                   <span class="animate-bounce" style="animation-delay: 300ms">.</span>
@@ -147,12 +163,12 @@ function WorkoutChat({ open, onClose, currentExercise, planSummary }: WorkoutCha
 
         {/* Quick action chips */}
         {messages.length === 0 && (
-          <div class="px-4 pb-2 flex flex-wrap gap-2 shrink-0">
+          <div class="px-4 pb-3 flex flex-wrap gap-2 shrink-0">
             {chips.map((chip) => (
               <button
                 key={chip}
                 onClick={() => send(chip)}
-                class="text-xs px-3 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors"
+                class="text-xs px-3 py-2 rounded-full bg-surface-dark text-slate-200 border border-white/10 hover:border-primary/30 hover:text-primary transition-colors"
               >
                 {chip}
               </button>
@@ -161,7 +177,7 @@ function WorkoutChat({ open, onClose, currentExercise, planSummary }: WorkoutCha
         )}
 
         {/* Input */}
-        <div class="p-3 border-t border-white/5 shrink-0 pb-safe">
+        <div class="px-4 pt-3 pb-4 border-t border-white/5 shrink-0 pb-safe">
           <div class="flex gap-2">
             <input
               type="text"
@@ -169,12 +185,12 @@ function WorkoutChat({ open, onClose, currentExercise, planSummary }: WorkoutCha
               onInput={(e) => setInput((e.target as HTMLInputElement).value)}
               onKeyDown={(e) => e.key === 'Enter' && send(input)}
               placeholder="Ask about this exercise..."
-              class="flex-1 bg-surface-dark rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 border border-white/5 focus:border-primary/50 focus:outline-none"
+              class="flex-1 bg-surface-dark rounded-full px-4 py-2.5 text-sm text-white placeholder-slate-500 border border-white/10 focus:border-primary/40 focus:outline-none"
             />
             <button
               onClick={() => send(input)}
               disabled={!input.trim() || isLoading}
-              class="w-10 h-10 rounded-xl bg-primary text-bg-dark flex items-center justify-center disabled:opacity-30 transition-opacity"
+              class="w-10 h-10 rounded-full bg-primary text-bg-dark flex items-center justify-center disabled:opacity-30 transition-opacity shrink-0"
             >
               <Icon name="send" class="text-lg" />
             </button>
