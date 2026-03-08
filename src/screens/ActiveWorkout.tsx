@@ -4,6 +4,8 @@ import type { WorkoutPlan, WorkoutSession, ExerciseLog, Exercise } from '../type
 import { uuid } from '../utils';
 import { groupExercises, groupLabel } from '../group-utils';
 import type { ExerciseGroup } from '../group-utils';
+import { sendWorkoutChat, isAIConfigured } from '../ai';
+import { useStore, runTask, useAITaskByType, clearStore } from '../ai-tasks';
 
 interface ActiveWorkoutProps {
   plan: WorkoutPlan;
@@ -53,6 +55,136 @@ const AI_TIPS: Record<string, string> = {
   'Hips': 'Move slowly into the stretch and breathe deeply through it.',
 };
 
+interface WorkoutChatProps {
+  open: boolean;
+  onClose: () => void;
+  currentExercise: { name: string; muscleGroup: string; reps: string; sets: number };
+  planSummary: string;
+}
+
+function WorkoutChat({ open, onClose, currentExercise, planSummary }: WorkoutChatProps) {
+  const [messages, setMessages] = useStore<{ role: 'user' | 'assistant'; content: string }[]>('workout-chat', []);
+  const [input, setInput] = useState('');
+  const task = useAITaskByType('workout-chat');
+  const isLoading = task?.status === 'running';
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (open && scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [open, messages]);
+
+  const send = useCallback((text: string) => {
+    if (!text.trim() || isLoading) return;
+    const userMsg = text.trim();
+    setInput('');
+    setMessages((prev) => [...prev, { role: 'user', content: userMsg }]);
+
+    const taskId = `workout-chat-${Date.now()}`;
+    runTask(taskId, 'workout-chat', async () => {
+      const currentMessages = [...(messages || []), { role: 'user' as const, content: userMsg }];
+      const reply = await sendWorkoutChat(userMsg, currentMessages, currentExercise, planSummary);
+      setMessages((prev) => [...prev, { role: 'assistant', content: reply }]);
+      return reply;
+    });
+  }, [isLoading, messages, currentExercise, planSummary, setMessages]);
+
+  const chips = [
+    `Form tips for ${currentExercise.name}`,
+    'Suggest an alternative',
+    'How much weight?',
+  ];
+
+  if (!open) return null;
+
+  return (
+    <div class="fixed inset-0 z-[60] flex flex-col justify-end max-w-[430px] mx-auto" style="left: 50%; transform: translateX(-50%)">
+      <div class="absolute inset-0 bg-black/50" onClick={onClose}></div>
+      <div class="relative bg-bg-dark rounded-t-2xl border-t border-white/10 flex flex-col" style="max-height: 70vh">
+        {/* Header */}
+        <div class="flex items-center justify-between px-4 py-3 border-b border-white/5 shrink-0">
+          <div class="flex items-center gap-2">
+            <Icon name="auto_awesome" class="text-primary" />
+            <div>
+              <p class="text-sm font-bold text-white">Ask Titan</p>
+              <p class="text-[11px] text-slate-400 truncate max-w-[200px]">{currentExercise.name}</p>
+            </div>
+          </div>
+          <button onClick={onClose} class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-surface-dark transition-colors">
+            <Icon name="close" class="text-slate-400" />
+          </button>
+        </div>
+
+        {/* Messages */}
+        <div ref={scrollRef} class="flex-1 overflow-y-auto p-4 space-y-3">
+          {messages.length === 0 && !isLoading && (
+            <p class="text-center text-xs text-slate-500 py-4">Ask about form, alternatives, or weight for the current exercise.</p>
+          )}
+          {messages.map((msg, i) => (
+            <div key={i} class={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div class={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${
+                msg.role === 'user'
+                  ? 'bg-primary/20 text-white'
+                  : 'bg-surface-dark text-slate-200'
+              }`}>
+                {msg.content}
+              </div>
+            </div>
+          ))}
+          {isLoading && (
+            <div class="flex justify-start">
+              <div class="bg-surface-dark rounded-xl px-3 py-2 text-sm text-slate-400">
+                <span class="inline-flex gap-1">
+                  <span class="animate-bounce" style="animation-delay: 0ms">.</span>
+                  <span class="animate-bounce" style="animation-delay: 150ms">.</span>
+                  <span class="animate-bounce" style="animation-delay: 300ms">.</span>
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Quick action chips */}
+        {messages.length === 0 && (
+          <div class="px-4 pb-2 flex flex-wrap gap-2 shrink-0">
+            {chips.map((chip) => (
+              <button
+                key={chip}
+                onClick={() => send(chip)}
+                class="text-xs px-3 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors"
+              >
+                {chip}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Input */}
+        <div class="p-3 border-t border-white/5 shrink-0 pb-safe">
+          <div class="flex gap-2">
+            <input
+              type="text"
+              value={input}
+              onInput={(e) => setInput((e.target as HTMLInputElement).value)}
+              onKeyDown={(e) => e.key === 'Enter' && send(input)}
+              placeholder="Ask about this exercise..."
+              class="flex-1 bg-surface-dark rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 border border-white/5 focus:border-primary/50 focus:outline-none"
+            />
+            <button
+              onClick={() => send(input)}
+              disabled={!input.trim() || isLoading}
+              class="w-10 h-10 rounded-xl bg-primary text-bg-dark flex items-center justify-center disabled:opacity-30 transition-opacity"
+            >
+              <Icon name="send" class="text-lg" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps) {
   const groups = useMemo(() => groupExercises(plan.exercises), [plan.exercises]);
 
@@ -85,6 +217,7 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
   const restRef = useRef<ReturnType<typeof setInterval>>();
   const exTimerRef = useRef<ReturnType<typeof setInterval>>();
   const startTimeRef = useRef(new Date().toISOString());
+  const [chatOpen, setChatOpen] = useState(false);
 
   // Main timer
   useEffect(() => {
@@ -342,6 +475,7 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
       personalRecords: prs,
     };
 
+    clearStore('workout-chat');
     onComplete(session);
   };
 
@@ -544,6 +678,11 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
   const primaryExercise = currentGroup.exercises[isMultiExGroup ? activeExInGroup : 0];
   const tip = AI_TIPS[primaryExercise.muscleGroup] || AI_TIPS['Full Body'];
 
+  const planSummary = useMemo(() =>
+    `${plan.name} (${plan.style}) — ${plan.exercises.map((e) => e.name).join(', ')}`,
+    [plan]
+  );
+
   return (
     <div class="flex flex-col h-full bg-bg-dark">
       {/* Header */}
@@ -666,6 +805,14 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
         </div>
       )}
 
+      {/* Workout AI Chat */}
+      <WorkoutChat
+        open={chatOpen}
+        onClose={() => setChatOpen(false)}
+        currentExercise={primaryExercise}
+        planSummary={planSummary}
+      />
+
       {/* Bottom actions */}
       <div class="fixed bottom-0 left-0 w-full bg-bg-dark border-t border-white/5 p-4 pb-safe z-40 max-w-[430px] mx-auto" style="left: 50%; transform: translateX(-50%)">
         <div class="flex gap-3">
@@ -679,11 +826,20 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
           )}
           <button
             onClick={() => setRestTimer(isMultiExGroup ? 90 : (currentGroup.exercises[0].restSeconds || 60))}
-            class="flex flex-col items-center justify-center h-14 w-20 rounded-xl bg-surface-dark text-slate-200 font-bold hover:bg-slate-800 transition-colors"
+            class="flex flex-col items-center justify-center h-14 w-14 rounded-xl bg-surface-dark text-slate-200 font-bold hover:bg-slate-800 transition-colors"
           >
             <Icon name="timer" class="text-xl" />
             <span class="text-[10px] uppercase font-bold tracking-wide mt-0.5">Rest</span>
           </button>
+          {isAIConfigured() && (
+            <button
+              onClick={() => setChatOpen(true)}
+              class="flex flex-col items-center justify-center h-14 w-14 rounded-xl bg-primary/15 text-primary font-bold hover:bg-primary/25 transition-colors border border-primary/20"
+            >
+              <Icon name="auto_awesome" class="text-xl" />
+              <span class="text-[10px] uppercase font-bold tracking-wide mt-0.5">AI</span>
+            </button>
+          )}
           <button
             onClick={isLastGroup ? finishWorkout : nextGroup}
             class="flex-1 h-14 rounded-xl bg-primary text-bg-dark text-lg font-bold flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"

@@ -11,7 +11,9 @@ import { Discover } from './screens/Discover';
 import { Nutrition } from './screens/Nutrition';
 import { Profile } from './screens/Profile';
 import { useEquipment, useTodayWorkout, useSessions, useChat, useProfile, useWeightHistory } from './hooks';
+import { useAITaskByType } from './ai-tasks';
 import { withBase } from './base';
+import { Icon } from './components/Icon';
 import type { WorkoutSession, WorkoutPlan, WorkoutCriteria } from './types';
 
 export function App() {
@@ -92,6 +94,9 @@ export function App() {
     );
   }
 
+  const workoutGenTask = useAITaskByType('workout-gen');
+  const isGeneratingWorkout = workoutGenTask?.status === 'running';
+
   return (
     <div class="h-full flex flex-col relative">
       <Router>
@@ -168,6 +173,21 @@ export function App() {
           onUpdatePlan={applyPlan}
         />
       </Router>
+
+      {/* Global AI workout generation indicator */}
+      {isGeneratingWorkout && (
+        <div class="fixed bottom-[calc(70px+var(--pwa-bottom-nudge,0px))] left-0 right-0 z-50 flex justify-center pointer-events-none">
+          <div class="max-w-[430px] w-full px-4">
+            <div class="bg-surface-dark/95 backdrop-blur-sm border border-primary/20 rounded-xl px-4 py-2.5 flex items-center gap-3 shadow-lg shadow-black/30 pointer-events-auto">
+              <div class="w-5 h-5 rounded-full border-2 border-primary/30 border-t-primary animate-spin shrink-0" />
+              <div class="flex-1 min-w-0">
+                <span class="text-sm font-medium text-white">Generating workout...</span>
+              </div>
+              <Icon name="fitness_center" class="text-primary text-lg shrink-0" />
+            </div>
+          </div>
+        </div>
+      )}
 
       <BottomNav />
     </div>

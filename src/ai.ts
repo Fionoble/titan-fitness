@@ -135,6 +135,47 @@ async function callAnthropic(apiKey: string, system: string, history: ChatMessag
   return data.content[0].text;
 }
 
+export async function sendWorkoutChat(
+  userMessage: string,
+  chatHistory: { role: 'user' | 'assistant'; content: string }[],
+  currentExercise: { name: string; muscleGroup: string; reps: string; sets: number },
+  planSummary: string
+): Promise<string> {
+  const config = getConfig();
+  if (!config) {
+    return "Set up your AI API key in Profile settings to use in-workout chat.";
+  }
+
+  const systemPrompt = `You are Titan, a concise in-workout AI coach. The user is mid-workout and needs quick, actionable advice.
+
+CURRENT EXERCISE: ${currentExercise.name} (${currentExercise.muscleGroup}) — ${currentExercise.sets} sets × ${currentExercise.reps}
+
+WORKOUT CONTEXT:
+${planSummary}
+
+GUIDELINES:
+- Keep responses SHORT (2-4 sentences max) — the user is actively working out
+- Focus on: form cues, exercise alternatives, weight/rep advice, breathing, common mistakes
+- If suggesting an alternative, name 1-2 options with the same muscle group
+- Be encouraging but concise — no lengthy explanations`;
+
+  const messages = chatHistory.slice(-10).map((m) => ({
+    role: m.role as 'user' | 'assistant',
+    content: m.content,
+  }));
+  messages.push({ role: 'user', content: userMessage });
+
+  try {
+    if (config.provider === 'anthropic') {
+      return await callAnthropic(config.apiKey, systemPrompt, messages as ChatMessage[], userMessage);
+    } else {
+      return await callOpenAI(config.apiKey, systemPrompt, messages as ChatMessage[], userMessage);
+    }
+  } catch (err: any) {
+    return `Sorry, couldn't connect. ${err.message}`;
+  }
+}
+
 async function callOpenAI(apiKey: string, system: string, history: ChatMessage[], userMsg: string): Promise<string> {
   const messages: { role: string; content: string }[] = [{ role: 'system', content: system }];
   for (const m of history.slice(-20)) {
