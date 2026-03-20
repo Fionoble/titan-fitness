@@ -19,12 +19,6 @@ interface CoachProps {
   profile?: UserProfile | null;
 }
 
-const QUICK_ACTIONS = [
-  { label: 'Generate workout', icon: 'fitness_center', color: 'text-primary' },
-  { label: 'Modify for injury', icon: 'healing', color: 'text-primary' },
-  { label: 'Generate recovery', icon: 'spa', color: 'text-blue-400' },
-  { label: 'Explain exercise', icon: 'help', color: 'text-amber-400' },
-];
 
 function WorkoutPlanCard({ plan, onApply }: { plan: WorkoutPlan; onApply?: (plan: WorkoutPlan) => void }) {
   const [expanded, setExpanded] = useState(false);
@@ -342,22 +336,6 @@ export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, se
       {/* Bottom input area - sits above BottomNav (~70px) */}
       <div class="fixed bottom-nav-offset left-0 w-full bg-bg-dark border-t border-white/5 z-40 pb-2 pt-2 max-w-[430px] mx-auto" style="left: 50%; transform: translateX(-50%);">
         <div class="absolute top-[-20px] left-0 w-full h-20 bg-gradient-to-t from-bg-dark to-transparent pointer-events-none -z-10"></div>
-
-        {/* Quick action chips */}
-        <div class="flex overflow-x-auto gap-2 px-4 pb-3 no-scrollbar">
-          {QUICK_ACTIONS.map((action) => (
-            <button
-              key={action.label}
-              onTouchEnd={(e) => { e.preventDefault(); handleSend(action.label); }}
-              onClick={() => handleSend(action.label)}
-              disabled={isTyping}
-              class="shrink-0 h-9 px-4 rounded-lg bg-surface-dark border border-transparent hover:border-primary/50 text-slate-300 text-sm font-medium transition-all active:scale-95 whitespace-nowrap flex items-center gap-2 disabled:opacity-50"
-            >
-              <Icon name={action.icon} class={`text-[18px] ${action.color}`} />
-              {action.label}
-            </button>
-          ))}
-        </div>
 
         {/* Input */}
         <div class="px-4 flex items-end gap-2">
