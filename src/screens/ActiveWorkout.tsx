@@ -201,6 +201,149 @@ function WorkoutChat({ open, onClose, currentExercise, planSummary }: WorkoutCha
   );
 }
 
+interface ProgressModalProps {
+  open: boolean;
+  onClose: () => void;
+  groups: ExerciseGroup[];
+  exerciseLogs: ExerciseLog[];
+  exIdToLogIdx: Map<string, number>;
+  currentGroupIdx: number;
+  onJumpToGroup: (idx: number) => void;
+  elapsedSeconds: number;
+  formatTime: (sec: number) => string;
+}
+
+function ProgressModal({ open, onClose, groups, exerciseLogs, exIdToLogIdx, currentGroupIdx, onJumpToGroup, elapsedSeconds, formatTime }: ProgressModalProps) {
+  if (!open) return null;
+
+  const totalSets = exerciseLogs.reduce((sum, log) => sum + log.sets.length, 0);
+  const completedSets = exerciseLogs.reduce((sum, log) => sum + log.sets.filter(s => s.completed).length, 0);
+  const totalVolume = exerciseLogs.reduce((sum, log) => {
+    return sum + log.sets.filter(s => s.completed).reduce((v, s) => v + (s.weight && s.reps ? s.weight * s.reps : 0), 0);
+  }, 0);
+
+  return (
+    <div class="fixed inset-0 z-[60] flex flex-col justify-end">
+      <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
+      <div class="relative bg-bg-dark rounded-t-2xl border-t border-primary/20 flex flex-col shadow-2xl shadow-black/50" style="max-height: 80vh">
+        {/* Drag handle */}
+        <div class="flex justify-center pt-2 pb-1 shrink-0">
+          <div class="w-10 h-1 rounded-full bg-white/20"></div>
+        </div>
+
+        {/* Header */}
+        <div class="flex items-center justify-between px-4 py-2 border-b border-white/5 shrink-0">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center">
+              <Icon name="format_list_bulleted" class="text-primary text-lg" />
+            </div>
+            <div>
+              <p class="text-sm font-bold text-white leading-tight">Workout Overview</p>
+              <p class="text-[11px] text-slate-400">{completedSets}/{totalSets} sets &middot; {formatTime(elapsedSeconds)}</p>
+            </div>
+          </div>
+          <button onClick={onClose} class="w-8 h-8 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/10 transition-colors">
+            <Icon name="close" class="text-slate-400 text-lg" />
+          </button>
+        </div>
+
+        {/* Stats row */}
+        <div class="grid grid-cols-3 gap-3 px-4 py-3 border-b border-white/5 shrink-0">
+          <div class="text-center">
+            <p class="text-lg font-bold text-white">{completedSets}<span class="text-slate-500 text-sm">/{totalSets}</span></p>
+            <p class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Sets</p>
+          </div>
+          <div class="text-center">
+            <p class="text-lg font-bold text-white">{totalVolume > 0 ? totalVolume.toLocaleString() : '—'}</p>
+            <p class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Volume (lbs)</p>
+          </div>
+          <div class="text-center">
+            <p class="text-lg font-bold text-white">{formatTime(elapsedSeconds)}</p>
+            <p class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Time</p>
+          </div>
+        </div>
+
+        {/* Exercise list */}
+        <div class="flex-1 overflow-y-auto px-4 py-3 space-y-2 pb-safe">
+          {groups.map((group, gIdx) => {
+            const isCurrentGroup = gIdx === currentGroupIdx;
+            const groupDone = group.exercises.every(ex => {
+              const logIdx = exIdToLogIdx.get(ex.id)!;
+              return exerciseLogs[logIdx].sets.every(s => s.completed);
+            });
+            const isUpcoming = gIdx > currentGroupIdx && !groupDone;
+
+            return (
+              <button
+                key={group.groupId}
+                onClick={() => { onJumpToGroup(gIdx); onClose(); }}
+                class={`w-full text-left rounded-xl p-3 transition-all ${
+                  isCurrentGroup
+                    ? 'bg-primary/15 border border-primary/30'
+                    : groupDone
+                    ? 'bg-surface-dark border border-white/5 opacity-70'
+                    : 'bg-surface-dark border border-white/5 hover:border-white/15'
+                }`}
+              >
+                {group.exercises.map((ex, eIdx) => {
+                  const logIdx = exIdToLogIdx.get(ex.id)!;
+                  const log = exerciseLogs[logIdx];
+                  const done = log.sets.filter(s => s.completed).length;
+                  const total = log.sets.length;
+                  const exDone = done === total;
+                  const bestSet = log.sets
+                    .filter(s => s.completed && s.weight && s.reps)
+                    .sort((a, b) => (b.weight! * b.reps!) - (a.weight! * a.reps!))[0];
+
+                  return (
+                    <div key={ex.id}>
+                      {eIdx > 0 && <div class="border-t border-white/5 my-2"></div>}
+                      <div class="flex items-center gap-3">
+                        <div class={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                          exDone ? 'bg-primary/20' : isCurrentGroup ? 'bg-primary/10' : 'bg-surface-darker'
+                        }`}>
+                          {exDone ? (
+                            <Icon name="check" class="text-primary text-lg" />
+                          ) : (
+                            <span class="text-xs font-bold text-slate-400">{gIdx + 1}{group.exercises.length > 1 ? String.fromCharCode(65 + eIdx) : ''}</span>
+                          )}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                          <div class="flex items-center gap-2">
+                            <h4 class={`text-sm font-semibold truncate ${exDone ? 'text-slate-400 line-through' : isUpcoming ? 'text-slate-300' : 'text-white'}`}>
+                              {ex.name}
+                            </h4>
+                            {isCurrentGroup && !exDone && (
+                              <span class="text-[9px] font-bold text-primary bg-primary/15 px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0">Now</span>
+                            )}
+                          </div>
+                          <div class="flex items-center gap-2 mt-0.5">
+                            <span class="text-[11px] text-slate-500">{ex.muscleGroup}</span>
+                            <span class="text-[11px] text-slate-600">&middot;</span>
+                            <span class={`text-[11px] font-medium ${exDone ? 'text-primary' : 'text-slate-400'}`}>
+                              {done}/{total} sets
+                            </span>
+                            {bestSet && (
+                              <>
+                                <span class="text-[11px] text-slate-600">&middot;</span>
+                                <span class="text-[11px] text-slate-400">{bestSet.weight} × {bestSet.reps}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps) {
   const groups = useMemo(() => groupExercises(plan.exercises), [plan.exercises]);
 
@@ -234,6 +377,7 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
   const exTimerRef = useRef<ReturnType<typeof setInterval>>();
   const startTimeRef = useRef(new Date().toISOString());
   const [chatOpen, setChatOpen] = useState(false);
+  const [progressOpen, setProgressOpen] = useState(false);
 
   // Main timer
   useEffect(() => {
@@ -444,6 +588,14 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
       return updated;
     });
   }, []);
+
+  const jumpToGroup = (idx: number) => {
+    if (idx >= 0 && idx < groups.length) {
+      setCurrentGroupIdx(idx);
+      setActiveExInGroup(0);
+      setRestTimer(null);
+    }
+  };
 
   const nextGroup = () => {
     if (currentGroupIdx < groups.length - 1) {
@@ -721,14 +873,16 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
             Finish
           </button>
         </div>
-        {/* Progress bar */}
-        <div class="w-full h-1 bg-surface-dark">
-          <div class="h-full bg-primary transition-all duration-500" style={{ width: `${progress}%` }}></div>
-        </div>
-        <div class="px-4 py-1 flex justify-between text-[10px] uppercase font-bold tracking-wider text-slate-500">
-          <span>Progress</span>
-          <span>{completedGroups}/{groups.length} {isMultiExGroup ? 'Groups' : 'Exercises'}</span>
-        </div>
+        {/* Progress bar — tap to open overview */}
+        <button onClick={() => setProgressOpen(true)} class="w-full text-left">
+          <div class="w-full h-1 bg-surface-dark">
+            <div class="h-full bg-primary transition-all duration-500" style={{ width: `${progress}%` }}></div>
+          </div>
+          <div class="px-4 py-1 flex justify-between text-[10px] uppercase font-bold tracking-wider text-slate-500">
+            <span class="flex items-center gap-1">Progress <Icon name="expand_more" class="text-[12px]" /></span>
+            <span>{completedGroups}/{groups.length} {isMultiExGroup ? 'Groups' : 'Exercises'}</span>
+          </div>
+        </button>
       </header>
 
       {/* Main scrollable */}
@@ -820,6 +974,19 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
           </button>
         </div>
       )}
+
+      {/* Progress overview modal */}
+      <ProgressModal
+        open={progressOpen}
+        onClose={() => setProgressOpen(false)}
+        groups={groups}
+        exerciseLogs={exerciseLogs}
+        exIdToLogIdx={exIdToLogIdx}
+        currentGroupIdx={currentGroupIdx}
+        onJumpToGroup={jumpToGroup}
+        elapsedSeconds={elapsedSeconds}
+        formatTime={formatTime}
+      />
 
       {/* Workout AI Chat */}
       <WorkoutChat
