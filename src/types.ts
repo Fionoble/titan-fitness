@@ -92,6 +92,7 @@ export interface UserProfile {
   weight?: number; // lbs
   height?: number; // total inches
   gender?: 'male' | 'female' | 'other';
+  restTimerSound?: boolean;
   createdAt: string;
 }
 

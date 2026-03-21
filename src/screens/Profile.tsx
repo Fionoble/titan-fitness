@@ -30,6 +30,10 @@ export function Profile({ profile, sessions, onUpdateProfile, onNavigateEquipmen
   const [gender, setGender] = useState<'male' | 'female' | 'other' | undefined>(profile?.gender);
   const [showLogWeight, setShowLogWeight] = useState(false);
   const [logWeightInput, setLogWeightInput] = useState(profile?.weight?.toString() || '');
+  const [restTimerSound, setRestTimerSound] = useState(() => {
+    const stored = localStorage.getItem('titan_rest_sound');
+    return stored !== 'false'; // default ON
+  });
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -348,6 +352,31 @@ export function Profile({ profile, sessions, onUpdateProfile, onNavigateEquipmen
             </div>
             <Icon name="chevron_right" class="text-slate-500" />
           </button>
+
+          <div
+            class="w-full flex items-center justify-between p-4 bg-surface-dark rounded-xl border border-white/5"
+          >
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-400">
+                <Icon name="volume_up" />
+              </div>
+              <div class="text-left">
+                <p class="font-semibold text-white">Rest Timer Sound</p>
+                <p class="text-xs text-slate-400">Beep when rest period ends</p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                const next = !restTimerSound;
+                setRestTimerSound(next);
+                localStorage.setItem('titan_rest_sound', String(next));
+                onUpdateProfile({ restTimerSound: next });
+              }}
+              class={`relative w-12 h-7 rounded-full transition-colors ${restTimerSound ? 'bg-primary' : 'bg-white/10'}`}
+            >
+              <div class={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${restTimerSound ? 'translate-x-[22px]' : 'translate-x-0.5'}`}></div>
+            </button>
+          </div>
 
           <button
             onClick={() => setShowBodyMetrics(!showBodyMetrics)}

@@ -222,8 +222,13 @@ export function useProfile() {
 
   useEffect(() => {
     db.getProfile().then((p) => {
-      if (p) setProfile(p);
-      else {
+      if (p) {
+        setProfile(p);
+        // Sync rest timer sound setting to localStorage for fast access in timer callbacks
+        if (p.restTimerSound !== undefined) {
+          localStorage.setItem('titan_rest_sound', String(p.restTimerSound));
+        }
+      } else {
         const defaultProfile: UserProfile = { name: 'User', createdAt: new Date().toISOString() };
         db.saveProfile(defaultProfile);
         setProfile(defaultProfile);

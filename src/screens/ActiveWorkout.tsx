@@ -7,6 +7,40 @@ import type { ExerciseGroup } from '../group-utils';
 import { sendWorkoutChat, isAIConfigured } from '../ai';
 import { useStore, runTask, useAITaskByType, clearStore } from '../ai-tasks';
 
+// Shared AudioContext — must be unlocked from a user gesture before it can play
+let _audioCtx: AudioContext | null = null;
+function getAudioCtx(): AudioContext | null {
+  try {
+    if (!_audioCtx) _audioCtx = new AudioContext();
+    return _audioCtx;
+  } catch { return null; }
+}
+
+/** Call once from any touchstart/click handler to unlock audio on iOS */
+function unlockAudio() {
+  const ctx = getAudioCtx();
+  if (ctx && ctx.state === 'suspended') ctx.resume();
+}
+
+function playRestBeep() {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') ctx.resume();
+  // Double beep: two short tones
+  for (const offset of [0, 0.18]) {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    osc.type = 'sine';
+    gain.gain.value = 0.4;
+    gain.gain.setTargetAtTime(0, ctx.currentTime + offset + 0.12, 0.02);
+    osc.start(ctx.currentTime + offset);
+    osc.stop(ctx.currentTime + offset + 0.18);
+  }
+}
+
 interface ActiveWorkoutProps {
   plan: WorkoutPlan;
   onComplete: (session: WorkoutSession) => void;
@@ -385,6 +419,14 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
     return () => clearInterval(timerRef.current);
   }, []);
 
+  // Flag to distinguish manual dismissal from natural timer expiry
+  const restSkippedRef = useRef(false);
+
+  const skipRest = useCallback(() => {
+    restSkippedRef.current = true;
+    setRestTimer(null);
+  }, []);
+
   // Rest timer
   useEffect(() => {
     if (restTimer !== null && restTimer > 0) {
@@ -399,6 +441,19 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
       }, 1000);
       return () => clearInterval(restRef.current);
     }
+  }, [restTimer]);
+
+  // Play beep when rest timer expires naturally (not skipped)
+  const prevRestRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (prevRestRef.current !== null && prevRestRef.current > 0 && restTimer === null) {
+      if (!restSkippedRef.current) {
+        const soundOff = localStorage.getItem('titan_rest_sound') === 'false';
+        if (!soundOff) playRestBeep();
+      }
+      restSkippedRef.current = false;
+    }
+    prevRestRef.current = restTimer;
   }, [restTimer]);
 
   // Exercise timer (for time-based exercises)
@@ -593,7 +648,7 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
     if (idx >= 0 && idx < groups.length) {
       setCurrentGroupIdx(idx);
       setActiveExInGroup(0);
-      setRestTimer(null);
+      skipRest();
     }
   };
 
@@ -601,7 +656,7 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
     if (currentGroupIdx < groups.length - 1) {
       setCurrentGroupIdx((i) => i + 1);
       setActiveExInGroup(0);
-      setRestTimer(null);
+      skipRest();
     }
   };
 
@@ -609,7 +664,7 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
     if (currentGroupIdx > 0) {
       setCurrentGroupIdx((i) => i - 1);
       setActiveExInGroup(0);
-      setRestTimer(null);
+      skipRest();
     }
   };
 
@@ -852,7 +907,7 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
   );
 
   return (
-    <div class="flex flex-col h-full bg-bg-dark">
+    <div class="flex flex-col h-full bg-bg-dark" onTouchStart={unlockAudio} onClick={unlockAudio}>
       {/* Header */}
       <header class="sticky top-0 z-50 bg-bg-dark/95 backdrop-blur-md border-b border-white/5 pt-safe">
         <div class="flex items-center justify-between px-4 py-3">
@@ -967,7 +1022,7 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
           <p class="text-slate-400 text-sm uppercase tracking-wider mb-2">Rest Timer</p>
           <p class="text-5xl font-bold text-primary mb-4">{formatTime(restTimer)}</p>
           <button
-            onClick={() => setRestTimer(null)}
+            onClick={skipRest}
             class="text-sm text-slate-400 hover:text-white transition-colors"
           >
             Skip Rest
