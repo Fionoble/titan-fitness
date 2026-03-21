@@ -48,6 +48,7 @@ export interface SetLog {
   weight: number | null;
   reps: number | null;
   completed: boolean;
+  isPersonalRecord?: boolean;
 }
 
 export interface ExerciseLog {
@@ -69,8 +70,26 @@ export interface WorkoutSession {
   totalVolume: number; // total lbs lifted
   totalSets: number;
   personalRecords: number;
+  notes?: string;
 }
 
+export interface ActiveWorkoutState {
+  id: string;              // always 'current'
+  planId: string;
+  plan: WorkoutPlan;
+  exerciseLogs: ExerciseLog[];
+  startedAt: string;       // ISO timestamp
+  currentGroupIdx: number;
+  activeExInGroup: number;
+}
+
+export interface PersonalRecord {
+  id: string;
+  exerciseName: string;
+  weight: number;
+  reps: number;
+  date: string;
+}
 
 export interface UserProfile {
   name: string;

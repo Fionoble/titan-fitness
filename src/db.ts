@@ -1,8 +1,8 @@
 import { openDB, type IDBPDatabase } from 'idb';
-import type { Equipment, WorkoutPlan, WorkoutSession, UserProfile, ChatMessage, MealLog, FoodEntry, NutritionGoals, StarredFood, WeightEntry, WorkoutProgram } from './types';
+import type { Equipment, WorkoutPlan, WorkoutSession, PersonalRecord, UserProfile, ChatMessage, MealLog, FoodEntry, NutritionGoals, StarredFood, WeightEntry, WorkoutProgram, ActiveWorkoutState } from './types';
 
 const DB_NAME = 'titan-fitness';
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
@@ -56,6 +56,9 @@ function getDB() {
         // Workout programs (added in v6)
         if (!db.objectStoreNames.contains('programs')) {
           db.createObjectStore('programs', { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains('activeWorkout')) {
+          db.createObjectStore('activeWorkout', { keyPath: 'id' });
         }
       },
     });
@@ -150,6 +153,55 @@ export async function getRecentSessions(limit: number): Promise<WorkoutSession[]
   const db = await getDB();
   const all = await db.getAll('sessions');
   return all.sort((a, b) => b.startedAt.localeCompare(a.startedAt)).slice(0, limit);
+}
+
+export async function getSessionsByDateRange(start: string, end: string): Promise<WorkoutSession[]> {
+  const all = await getAllSessions();
+  return all.filter((s) => s.startedAt >= start && s.startedAt <= end);
+}
+
+export async function deleteSession(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('sessions', id);
+}
+
+export async function updateSession(session: WorkoutSession): Promise<void> {
+  const db = await getDB();
+  await db.put('sessions', session);
+}
+
+// Active Workout State
+export async function saveActiveWorkout(state: ActiveWorkoutState): Promise<void> {
+  const db = await getDB();
+  await db.put('activeWorkout', state);
+}
+
+export async function getActiveWorkout(): Promise<ActiveWorkoutState | null> {
+  const db = await getDB();
+  const result = await db.get('activeWorkout', 'current');
+  return result || null;
+}
+
+export async function clearActiveWorkout(): Promise<void> {
+  const db = await getDB();
+  await db.clear('activeWorkout');
+}
+
+// Personal Records
+export async function savePersonalRecord(pr: PersonalRecord): Promise<void> {
+  const db = await getDB();
+  await db.put('personalRecords', pr);
+}
+
+export async function getPersonalRecords(): Promise<PersonalRecord[]> {
+  const db = await getDB();
+  return db.getAll('personalRecords');
+}
+
+export async function getRecordForExercise(exerciseName: string): Promise<PersonalRecord | undefined> {
+  const db = await getDB();
+  const all = await db.getAllFromIndex('personalRecords', 'by-exercise', exerciseName);
+  return all.sort((a, b) => b.weight - a.weight)[0];
 }
 
 // Profile
@@ -299,7 +351,7 @@ export async function deleteProgram(id: string): Promise<void> {
 }
 
 // Export / Import
-const STORE_NAMES = ['equipment', 'workoutPlans', 'sessions', 'personalRecords', 'profile', 'chatMessages', 'nutritionLogs', 'foods', 'nutritionGoals', 'starredFoods', 'weightHistory', 'programs'] as const;
+const STORE_NAMES = ['equipment', 'workoutPlans', 'sessions', 'personalRecords', 'profile', 'chatMessages', 'nutritionLogs', 'foods', 'nutritionGoals', 'starredFoods', 'weightHistory', 'programs', 'activeWorkout'] as const;
 
 export async function exportAllData(): Promise<string> {
   const db = await getDB();

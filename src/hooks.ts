@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from 'preact/hooks';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'preact/hooks';
 import * as db from './db';
-import type { Equipment, WorkoutPlan, WorkoutSession, ChatMessage, UserProfile, WorkoutCriteria, MealLog, FoodEntry, NutritionGoals, StarredFood, WeightEntry, WorkoutProgram, ProgramDay } from './types';
+import type { Equipment, WorkoutPlan, WorkoutSession, ChatMessage, UserProfile, WorkoutCriteria, MealLog, FoodEntry, NutritionGoals, StarredFood, WeightEntry, WorkoutProgram, ProgramDay, ActiveWorkoutState, ExerciseLog, Exercise } from './types';
 import { generateWorkout, getTodayStyle } from './workout-engine';
 import { generateWorkoutViaAI } from './ai-workout';
 import { generateProgramViaAI } from './ai-program';
@@ -233,7 +233,157 @@ export function useSessions() {
     setSessions((prev) => [session, ...prev.filter((s) => s.id !== session.id)]);
   }, []);
 
-  return { sessions, loading, saveSession, loadAll };
+  const updateSession = useCallback(async (session: WorkoutSession) => {
+    await db.updateSession(session);
+    setSessions((prev) => prev.map((s) => s.id === session.id ? session : s));
+  }, []);
+
+  const deleteSession = useCallback(async (id: string) => {
+    await db.deleteSession(id);
+    setSessions((prev) => prev.filter((s) => s.id !== id));
+  }, []);
+
+  const startWorkoutFromSession = useCallback((session: WorkoutSession): WorkoutPlan => {
+    const exercises: Exercise[] = session.exercises.map((ex) => {
+      const bestSet = ex.sets
+        .filter((s) => s.completed && s.weight)
+        .sort((a, b) => (b.weight || 0) - (a.weight || 0))[0];
+      return {
+        id: `${ex.exerciseId}-${Date.now()}`,
+        name: ex.exerciseName,
+        muscleGroup: ex.muscleGroup,
+        equipment: [],
+        sets: ex.sets.length,
+        reps: bestSet?.reps?.toString() || '10',
+        weight: bestSet?.weight || undefined,
+        restSeconds: 60,
+      };
+    });
+    return {
+      id: `repeat-${Date.now()}`,
+      name: session.name,
+      style: session.style,
+      exercises,
+      durationMin: Math.round(session.durationSeconds / 60),
+      estimatedCalories: 300,
+      focus: [...new Set(session.exercises.map((e) => e.muscleGroup))].slice(0, 2).join(' & ') || 'Full Body',
+      equipmentUsed: [],
+      generatedAt: new Date().toISOString(),
+      intensity: 2,
+    };
+  }, []);
+
+  return { sessions, loading, saveSession, updateSession, deleteSession, startWorkoutFromSession, loadAll, allLoaded };
+}
+
+export function useActiveWorkout() {
+  const [activeWorkout, setActiveWorkout] = useState<ActiveWorkoutState | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showResume, setShowResume] = useState(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const pendingStateRef = useRef<ActiveWorkoutState | null>(null);
+
+  // Load persisted active workout on mount
+  useEffect(() => {
+    db.getActiveWorkout().then((state) => {
+      if (state) {
+        setShowResume(true);
+        setActiveWorkout(state);
+      }
+      setLoading(false);
+    });
+  }, []);
+
+  const resumeWorkout = useCallback(() => {
+    setShowResume(false);
+  }, []);
+
+  const dismissResume = useCallback(async () => {
+    setShowResume(false);
+    await db.clearActiveWorkout();
+    setActiveWorkout(null);
+  }, []);
+
+  // Debounced save to IndexedDB
+  const persistState = useCallback((state: ActiveWorkoutState) => {
+    pendingStateRef.current = state;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      if (pendingStateRef.current) {
+        db.saveActiveWorkout(pendingStateRef.current);
+      }
+    }, 2000);
+  }, []);
+
+  const startWorkout = useCallback(async (plan: WorkoutPlan) => {
+    const initialLogs: ExerciseLog[] = plan.exercises.map((ex) => ({
+      exerciseId: ex.id,
+      exerciseName: ex.name,
+      muscleGroup: ex.muscleGroup,
+      sets: Array.from({ length: ex.sets }, (_, i) => ({
+        setNumber: i + 1,
+        weight: ex.weight || null,
+        reps: null,
+        completed: false,
+      })),
+    }));
+
+    const state: ActiveWorkoutState = {
+      id: 'current',
+      planId: plan.id,
+      plan,
+      exerciseLogs: initialLogs,
+      startedAt: new Date().toISOString(),
+      currentGroupIdx: 0,
+      activeExInGroup: 0,
+    };
+
+    await db.saveActiveWorkout(state);
+    setActiveWorkout(state);
+    setShowResume(false);
+  }, []);
+
+  const updateWorkoutState = useCallback((updates: Partial<ActiveWorkoutState>) => {
+    setActiveWorkout((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, ...updates };
+      persistState(updated);
+      return updated;
+    });
+  }, [persistState]);
+
+  // Immediate save (for critical moments like set completion)
+  const saveNow = useCallback(async (state: ActiveWorkoutState) => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    pendingStateRef.current = null;
+    await db.saveActiveWorkout(state);
+  }, []);
+
+  const completeWorkout = useCallback(async () => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    await db.clearActiveWorkout();
+    setActiveWorkout(null);
+  }, []);
+
+  const cancelWorkout = useCallback(async () => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    await db.clearActiveWorkout();
+    setActiveWorkout(null);
+  }, []);
+
+  return {
+    activeWorkout,
+    isActive: activeWorkout !== null && !showResume,
+    loading,
+    showResume,
+    resumeWorkout,
+    dismissResume,
+    startWorkout,
+    updateWorkoutState,
+    saveNow,
+    completeWorkout,
+    cancelWorkout,
+  };
 }
 
 export function useChat() {

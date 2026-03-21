@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { Icon } from '../components/Icon';
-import type { WorkoutPlan, WorkoutCriteria, WorkoutStyle, Exercise, WorkoutSession, WorkoutProgram, ProgramDay } from '../types';
+import type { WorkoutPlan, WorkoutCriteria, WorkoutStyle, Exercise, WorkoutSession, WorkoutProgram, ProgramDay, ActiveWorkoutState } from '../types';
 import { groupExercises, groupLabel } from '../group-utils';
 import { withBase } from '../base';
 
@@ -22,6 +22,9 @@ interface HomeProps {
   onGenerateProgram?: () => Promise<WorkoutProgram | null>;
   onClearProgram?: () => void;
   onStartProgramWorkout?: (plan: WorkoutPlan) => void;
+  activeWorkout?: ActiveWorkoutState | null;
+  workoutIsActive?: boolean;
+  onResumeWorkout?: () => void;
 }
 
 function getGreeting(): string {
