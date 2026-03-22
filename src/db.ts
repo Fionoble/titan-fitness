@@ -95,6 +95,8 @@ export async function initDefaultEquipment(): Promise<void> {
     { id: 'bench', name: 'Bench', category: 'weights', description: 'Flat or adjustable', icon: 'chair_alt', enabled: false },
     { id: 'pull-up-bar', name: 'Pull-Up Bar', category: 'weights', description: 'Doorway or mounted', icon: 'expand', enabled: false },
     { id: 'resistance-bands', name: 'Resistance Bands', category: 'weights', description: 'Light to heavy', icon: 'lasso', enabled: false },
+    { id: 'rings', name: 'Rings', category: 'weights', description: 'Gymnastic rings', icon: 'sports_gymnastics', enabled: false },
+    { id: 'trx', name: 'TRX', category: 'weights', description: 'Suspension trainer', icon: 'cable', enabled: false },
     { id: 'stationary-bike', name: 'Stationary Bike', category: 'cardio', description: 'Spin or upright', icon: 'directions_bike', enabled: false },
     { id: 'rowing-machine', name: 'Rowing Machine', category: 'cardio', description: 'Air or water', icon: 'rowing', enabled: false },
     { id: 'jump-rope', name: 'Jump Rope', category: 'cardio', description: 'Speed or weighted', icon: 'steps', enabled: false },
