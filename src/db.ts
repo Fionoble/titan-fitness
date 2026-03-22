@@ -1,5 +1,5 @@
 import { openDB, type IDBPDatabase } from 'idb';
-import type { Equipment, WorkoutPlan, WorkoutSession, PersonalRecord, UserProfile, ChatMessage, MealLog, FoodEntry, NutritionGoals, StarredFood, WeightEntry } from './types';
+import type { Equipment, WorkoutPlan, WorkoutSession, UserProfile, ChatMessage, MealLog, FoodEntry, NutritionGoals, StarredFood, WeightEntry } from './types';
 
 const DB_NAME = 'titan-fitness';
 const DB_VERSION = 4;
@@ -65,16 +65,6 @@ export async function getAllEquipment(): Promise<Equipment[]> {
   return db.getAll('equipment');
 }
 
-export async function getEnabledEquipment(): Promise<Equipment[]> {
-  const all = await getAllEquipment();
-  return all.filter((e) => e.enabled);
-}
-
-export async function saveEquipment(item: Equipment): Promise<void> {
-  const db = await getDB();
-  await db.put('equipment', item);
-}
-
 export async function saveAllEquipment(items: Equipment[]): Promise<void> {
   const db = await getDB();
   const tx = db.transaction('equipment', 'readwrite');
@@ -138,11 +128,6 @@ export async function pruneOldPlans(days = 7): Promise<void> {
   await tx.done;
 }
 
-export async function getPlan(id: string): Promise<WorkoutPlan | undefined> {
-  const db = await getDB();
-  return db.get('workoutPlans', id);
-}
-
 // Workout Sessions
 export async function saveSession(session: WorkoutSession): Promise<void> {
   const db = await getDB();
@@ -159,28 +144,6 @@ export async function getRecentSessions(limit: number): Promise<WorkoutSession[]
   const db = await getDB();
   const all = await db.getAll('sessions');
   return all.sort((a, b) => b.startedAt.localeCompare(a.startedAt)).slice(0, limit);
-}
-
-export async function getSessionsByDateRange(start: string, end: string): Promise<WorkoutSession[]> {
-  const all = await getAllSessions();
-  return all.filter((s) => s.startedAt >= start && s.startedAt <= end);
-}
-
-// Personal Records
-export async function savePersonalRecord(pr: PersonalRecord): Promise<void> {
-  const db = await getDB();
-  await db.put('personalRecords', pr);
-}
-
-export async function getPersonalRecords(): Promise<PersonalRecord[]> {
-  const db = await getDB();
-  return db.getAll('personalRecords');
-}
-
-export async function getRecordForExercise(exerciseName: string): Promise<PersonalRecord | undefined> {
-  const db = await getDB();
-  const all = await db.getAllFromIndex('personalRecords', 'by-exercise', exerciseName);
-  return all.sort((a, b) => b.weight - a.weight)[0];
 }
 
 // Profile

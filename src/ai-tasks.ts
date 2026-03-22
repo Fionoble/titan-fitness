@@ -73,10 +73,6 @@ export function runTask<T>(
   );
 }
 
-export function getTask(id: string): AITask | undefined {
-  return tasks.get(id);
-}
-
 export function useAITask(id: string): AITask | undefined {
   const [, setTick] = useState(0);
   useEffect(() => {
