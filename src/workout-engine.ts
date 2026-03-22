@@ -94,6 +94,22 @@ const EXERCISE_DB: Record<string, { name: string; muscleGroup: string; equipment
     { name: 'Ab Wheel Rollout', muscleGroup: 'Core', equipment: ['ab-wheel'], defaultSets: 3, defaultReps: '10' },
     { name: 'Kneeling Ab Rollout', muscleGroup: 'Core', equipment: ['ab-wheel'], defaultSets: 3, defaultReps: '12' },
   ],
+  rings: [
+    { name: 'Ring Push-Ups', muscleGroup: 'Chest', equipment: ['rings'], defaultSets: 3, defaultReps: 'Failure' },
+    { name: 'Ring Dips', muscleGroup: 'Triceps', equipment: ['rings'], defaultSets: 3, defaultReps: 'Failure' },
+    { name: 'Ring Rows', muscleGroup: 'Back', equipment: ['rings'], defaultSets: 3, defaultReps: '10' },
+    { name: 'Ring Pull-Ups', muscleGroup: 'Back', equipment: ['rings'], defaultSets: 4, defaultReps: 'Failure' },
+    { name: 'Ring Muscle-Up', muscleGroup: 'Full Body', equipment: ['rings'], defaultSets: 3, defaultReps: '5' },
+    { name: 'Ring Support Hold', muscleGroup: 'Core', equipment: ['rings'], defaultSets: 3, defaultReps: '20s' },
+  ],
+  trx: [
+    { name: 'TRX Row', muscleGroup: 'Back', equipment: ['trx'], defaultSets: 3, defaultReps: '12' },
+    { name: 'TRX Push-Up', muscleGroup: 'Chest', equipment: ['trx'], defaultSets: 3, defaultReps: 'Failure' },
+    { name: 'TRX Squat', muscleGroup: 'Quads', equipment: ['trx'], defaultSets: 3, defaultReps: '15' },
+    { name: 'TRX Lunge', muscleGroup: 'Legs', equipment: ['trx'], defaultSets: 3, defaultReps: '10 each' },
+    { name: 'TRX Plank', muscleGroup: 'Core', equipment: ['trx'], defaultSets: 3, defaultReps: '30s' },
+    { name: 'TRX Bicep Curl', muscleGroup: 'Biceps', equipment: ['trx'], defaultSets: 3, defaultReps: '12' },
+  ],
 };
 
 // Muscle group splits for different styles
