@@ -671,7 +671,6 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
   const finishWorkout = () => {
     let totalVolume = 0;
     let totalSets = 0;
-    let prs = 0;
 
     for (const log of exerciseLogs) {
       for (const set of log.sets) {
@@ -695,7 +694,7 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
       exercises: exerciseLogs,
       totalVolume,
       totalSets,
-      personalRecords: prs,
+      personalRecords: 0,
     };
 
     clearStore('workout-chat');

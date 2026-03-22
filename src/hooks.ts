@@ -157,7 +157,7 @@ export function useSessions() {
     setSessions((prev) => [session, ...prev.filter((s) => s.id !== session.id)]);
   }, []);
 
-  return { sessions, loading, saveSession, loadAll, allLoaded };
+  return { sessions, loading, saveSession, loadAll };
 }
 
 export function useChat() {

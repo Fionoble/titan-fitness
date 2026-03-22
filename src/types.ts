@@ -5,7 +5,6 @@ export interface Equipment {
   description: string;
   icon: string;
   enabled: boolean;
-  details?: Record<string, string>; // e.g. { maxWeight: "50lbs", type: "adjustable" }
 }
 
 export interface Exercise {
@@ -16,7 +15,6 @@ export interface Exercise {
   sets: number;
   reps: string; // "10-12" or "Failure" or "30s"
   weight?: number;
-  notes?: string;
   restSeconds?: number;
   group?: string; // e.g. "A", "B" — exercises with same group are done together
 }
@@ -50,7 +48,6 @@ export interface SetLog {
   weight: number | null;
   reps: number | null;
   completed: boolean;
-  isPersonalRecord?: boolean;
 }
 
 export interface ExerciseLog {
@@ -72,16 +69,8 @@ export interface WorkoutSession {
   totalVolume: number; // total lbs lifted
   totalSets: number;
   personalRecords: number;
-  notes?: string;
 }
 
-export interface PersonalRecord {
-  id: string;
-  exerciseName: string;
-  weight: number;
-  reps: number;
-  date: string;
-}
 
 export interface UserProfile {
   name: string;
@@ -172,8 +161,3 @@ export interface StarredFood {
   starredAt: number;
 }
 
-export interface DailyNutrition {
-  date: string;
-  meals: MealLog[];
-  goals: NutritionGoals;
-}

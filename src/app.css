@@ -71,10 +71,6 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 input[type="number"] { -moz-appearance: textfield; }
 
-/* Smooth page transitions */
-.page-enter { opacity: 0; transform: translateX(8px); }
-.page-active { opacity: 1; transform: translateX(0); transition: all 0.2s ease-out; }
-
 /* Modal slide up animation */
 @keyframes slide-up {
   from { transform: translateY(100%); }

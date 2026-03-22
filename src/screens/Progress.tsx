@@ -106,7 +106,6 @@ function WorkoutDetail({ session, onClose }: { session: WorkoutSession; onClose:
                       {set.weight != null ? `${set.weight} lbs` : '\u2014'} {'\u00d7'} {set.reps ?? '\u2014'}
                     </span>
                     {set.completed && <Icon name="check_circle" class="text-primary text-base" />}
-                    {set.isPersonalRecord && <span class="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">PR</span>}
                   </div>
                 ))}
               </div>
@@ -135,7 +134,6 @@ export function Progress({ sessions, onLoadAll }: ProgressProps) {
 
   const totalVolume = filteredSessions.reduce((sum, s) => sum + s.totalVolume, 0);
   const totalSets = filteredSessions.reduce((sum, s) => sum + s.totalSets, 0);
-  const totalPRs = filteredSessions.reduce((sum, s) => sum + s.personalRecords, 0);
   const workoutCount = filteredSessions.length;
 
   // Generate chart bars based on time frame
@@ -395,12 +393,6 @@ export function Progress({ sessions, onLoadAll }: ProgressProps) {
                         <span class="text-slate-500 text-xs">Sets</span>
                         <span class="font-semibold text-slate-200">{s.totalSets}</span>
                       </div>
-                      {s.personalRecords > 0 && (
-                        <div class="flex flex-col border-l border-white/5 pl-4">
-                          <span class="text-slate-500 text-xs">Records</span>
-                          <span class="font-semibold text-primary">{s.personalRecords} PRs</span>
-                        </div>
-                      )}
                     </div>
                   </div>
                 ))}
