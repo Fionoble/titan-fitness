@@ -179,11 +179,14 @@ function getMuscleGroupsForToday(style: WorkoutStyle, recentSessions: WorkoutSes
   const config = STYLE_CONFIG[style];
   if (config.muscleGroups.length === 1) return config.muscleGroups[0];
 
-  // Rotate based on recent sessions
+  // Rotate based on recent sessions — check last 3 for better overlap detection
   const recentMuscles = new Set<string>();
-  for (const s of recentSessions.slice(0, 2)) {
+  for (const s of recentSessions.slice(0, 3)) {
     for (const e of s.exercises) {
-      recentMuscles.add(e.muscleGroup);
+      // Use the muscleGroup field from ExerciseLog for accurate matching
+      if (e.muscleGroup) {
+        recentMuscles.add(e.muscleGroup);
+      }
     }
   }
 

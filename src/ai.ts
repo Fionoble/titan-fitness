@@ -21,12 +21,55 @@ export function setAIConfig(apiKey: string, provider: 'anthropic' | 'openai') {
   localStorage.setItem('titan_ai_provider', provider);
 }
 
+function daysAgo(dateStr: string): number {
+  const now = new Date();
+  const then = new Date(dateStr);
+  return Math.floor((now.getTime() - then.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function formatDaysAgo(n: number): string {
+  if (n === 0) return 'today';
+  if (n === 1) return '1 day ago';
+  return `${n} days ago`;
+}
+
+function recoveryLabel(daysAgo: number): string {
+  if (daysAgo <= 1) return 'NEEDS RECOVERY';
+  if (daysAgo === 2) return 'RECOVERING';
+  return 'RECOVERED';
+}
+
+function buildMuscleRecoveryStatus(recentSessions: WorkoutSession[]): string {
+  const muscleLastTrained = new Map<string, number>();
+
+  for (const session of recentSessions.slice(0, 5)) {
+    const days = daysAgo(session.startedAt);
+    for (const ex of session.exercises) {
+      const mg = ex.muscleGroup;
+      if (!muscleLastTrained.has(mg) || days < muscleLastTrained.get(mg)!) {
+        muscleLastTrained.set(mg, days);
+      }
+    }
+  }
+
+  if (muscleLastTrained.size === 0) return '';
+
+  const lines = Array.from(muscleLastTrained.entries())
+    .sort((a, b) => a[1] - b[1])
+    .map(([muscle, days]) => `- ${muscle}: trained ${formatDaysAgo(days)} — ${recoveryLabel(days)}`);
+
+  return `\nMUSCLE RECOVERY STATUS:\n${lines.join('\n')}`;
+}
+
 function buildSystemPrompt(equipment: Equipment[], recentSessions: WorkoutSession[], injuries?: string, additionalEquipment?: string): string {
   const enabledEquip = equipment.filter((e) => e.enabled).map((e) => e.name);
   const recentWorkouts = recentSessions.slice(0, 5).map((s) => {
-    const exercises = s.exercises.map((e) => `${e.exerciseName} (${e.sets.length} sets)`).join(', ');
-    return `- ${s.name} on ${new Date(s.startedAt).toLocaleDateString()}: ${exercises}, Volume: ${s.totalVolume}lbs`;
+    const days = daysAgo(s.startedAt);
+    const exercises = s.exercises.map((e) => `${e.exerciseName} [${e.muscleGroup}] (${e.sets.length} sets)`).join(', ');
+    return `- "${s.name}" (${formatDaysAgo(days)}): ${exercises} — Volume: ${s.totalVolume}lbs`;
   });
+
+  const muscleRecovery = buildMuscleRecoveryStatus(recentSessions);
 
   return `You are Titan, an expert AI fitness coach built into a home gym app. You're knowledgeable, encouraging, and adaptive.
 
@@ -37,6 +80,7 @@ ${injuries ? `\nCURRENT INJURIES/LIMITATIONS:\n${injuries}\nIMPORTANT: Always ac
 
 RECENT WORKOUT HISTORY:
 ${recentWorkouts.length > 0 ? recentWorkouts.join('\n') : '- No recent workouts yet'}
+${muscleRecovery}
 
 GUIDELINES:
 - Only suggest exercises the user can do with their available equipment
@@ -45,6 +89,7 @@ GUIDELINES:
 - Keep responses concise and actionable
 - You can suggest workout modifications, recovery advice, form tips, and motivation
 - Be conversational and supportive, like a personal trainer
+- CRITICAL: Check the MUSCLE RECOVERY STATUS section. Never program muscles marked as "NEEDS RECOVERY" as primary movers. Muscles marked "RECOVERING" can be used lightly (assistance work only). Prioritize "FRESH" and "RECOVERED" muscle groups.
 
 WORKOUT GENERATION:
 When asked to generate, create, adjust, or modify a workout, you MUST ALWAYS include the COMPLETE workout plan as a JSON block in a \`\`\`json code fence. This is CRITICAL — never describe changes without including the full updated JSON. Even if you're only adding or removing one exercise, output the entire plan. The JSON must match this exact schema:
