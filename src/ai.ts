@@ -168,7 +168,7 @@ export async function sendMessage(
   }
 }
 
-async function callAnthropic(apiKey: string, system: string, history: ChatMessage[], userMsg: string): Promise<string> {
+async function callAnthropic(apiKey: string, system: string, history: ChatMessage[], userMsg: string, maxTokens = 1024): Promise<string> {
   const messages = history.map((m) => ({
     role: m.role as 'user' | 'assistant',
     content: m.content,
@@ -185,7 +185,7 @@ async function callAnthropic(apiKey: string, system: string, history: ChatMessag
     },
     body: JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
+      max_tokens: maxTokens,
       system,
       messages,
     }),
@@ -241,7 +241,7 @@ GUIDELINES:
   }
 }
 
-async function callOpenAI(apiKey: string, system: string, history: ChatMessage[], userMsg: string): Promise<string> {
+async function callOpenAI(apiKey: string, system: string, history: ChatMessage[], userMsg: string, maxTokens = 1024): Promise<string> {
   const messages: { role: string; content: string }[] = [{ role: 'system', content: system }];
   for (const m of history) {
     messages.push({ role: m.role, content: m.content });
@@ -257,7 +257,7 @@ async function callOpenAI(apiKey: string, system: string, history: ChatMessage[]
     body: JSON.stringify({
       model: 'gpt-5-mini',
       messages,
-      max_completion_tokens: 1024,
+      max_completion_tokens: maxTokens,
     }),
   });
 
@@ -268,4 +268,98 @@ async function callOpenAI(apiKey: string, system: string, history: ChatMessage[]
 
   const data = await res.json();
   return data.choices[0].message.content;
+}
+
+export function buildProgramSystemPrompt(equipment: Equipment[], recentSessions: WorkoutSession[], injuries?: string, additionalEquipment?: string): string {
+  const enabledEquip = equipment.filter((e) => e.enabled).map((e) => e.name);
+  const recentWorkouts = recentSessions.slice(0, 5).map((s) => {
+    const exercises = s.exercises.map((e) => `${e.exerciseName} (${e.sets.length} sets)`).join(', ');
+    return `- ${s.name} on ${new Date(s.startedAt).toLocaleDateString()}: ${exercises}, Volume: ${s.totalVolume}lbs`;
+  });
+
+  return `You are Titan, an expert AI fitness coach. Generate a complete 7-day workout program as a structured weekly training split.
+
+USER'S HOME GYM EQUIPMENT:
+${enabledEquip.length > 0 ? enabledEquip.map((e) => `- ${e}`).join('\n') : '- No equipment configured yet (bodyweight only)'}
+${additionalEquipment ? `\nADDITIONAL EQUIPMENT/NOTES:\n${additionalEquipment}` : ''}
+${injuries ? `\nCURRENT INJURIES/LIMITATIONS:\n${injuries}\nIMPORTANT: Always account for these injuries. Avoid exercises that aggravate them and suggest alternatives.` : ''}
+
+RECENT WORKOUT HISTORY:
+${recentWorkouts.length > 0 ? recentWorkouts.join('\n') : '- No recent workouts yet'}
+
+PROGRAM DESIGN GUIDELINES:
+- Design a balanced weekly split with proper muscle group recovery (e.g., Push/Pull/Legs, Upper/Lower, Full Body rotations)
+- Include 1-2 rest or active recovery days
+- Progress difficulty through the week (harder sessions early, lighter towards the end)
+- Only use exercises the user can do with their available equipment
+- Reference their workout history for progressive overload
+- Each workout day should have 5-8 exercises
+- Vary workout styles across the week (strength, hypertrophy, functional, etc.)
+
+You MUST respond with a JSON block in a \`\`\`json code fence matching this exact schema:
+{
+  "name": "string - program name (e.g., 'Week of Gains', 'Push-Pull-Legs Split')",
+  "days": [
+    {
+      "dayNumber": 1,
+      "label": "Day 1 — Push",
+      "isRest": false,
+      "plan": {
+        "name": "string - workout name",
+        "style": "strength|hypertrophy|functional|hiit|cardio|recovery|mobility|power|endurance",
+        "exercises": [
+          {
+            "name": "string - exercise name",
+            "muscleGroup": "string - target muscle",
+            "equipment": ["string - equipment id, e.g. 'dumbbells', 'barbell', or empty array for bodyweight"],
+            "sets": 3,
+            "reps": "string - e.g. '10-12', '15', 'Failure'. For time-based exercises use '30s', '45s each', '60s'",
+            "weight": null,
+            "restSeconds": 60,
+            "group": "string or null - optional superset group letter"
+          }
+        ],
+        "durationMin": 45,
+        "estimatedCalories": 350,
+        "focus": "string - e.g. 'Chest & Triceps'",
+        "intensity": 2
+      }
+    },
+    {
+      "dayNumber": 2,
+      "label": "Day 2 — Rest",
+      "isRest": true
+    }
+  ]
+}
+
+Equipment IDs are: dumbbells, barbell, kettlebells, bench, pull-up-bar, resistance-bands, rings, trx, yoga-mat, foam-roller, jump-rope, medicine-ball, ab-wheel, stationary-bike, rowing-machine, treadmill.
+Include a brief conversational message before or after the JSON block.`;
+}
+
+export async function sendProgramMessage(
+  userMessage: string,
+  equipment: Equipment[],
+  recentSessions: WorkoutSession[],
+  profileContext?: { injuries?: string; additionalEquipment?: string }
+): Promise<string> {
+  const config = getConfig();
+  if (!config) {
+    return "I'd love to help! Please set up your AI API key in the Profile settings to enable program generation.";
+  }
+
+  const systemPrompt = buildProgramSystemPrompt(equipment, recentSessions, profileContext?.injuries, profileContext?.additionalEquipment);
+
+  try {
+    if (config.provider === 'anthropic') {
+      return await callAnthropic(config.apiKey, systemPrompt, [], userMessage, 4096);
+    } else {
+      return await callOpenAI(config.apiKey, systemPrompt, [], userMessage, 8192);
+    }
+  } catch (err: any) {
+    if (err.message?.includes('401')) {
+      return "There's an issue with your API key. Please check it in Profile settings.";
+    }
+    return `Sorry, I had trouble connecting. Error: ${err.message}`;
+  }
 }
