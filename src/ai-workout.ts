@@ -99,6 +99,8 @@ function buildWorkoutPrompt(equipment: Equipment[], criteria?: WorkoutCriteria):
     prompt += `. My available equipment: ${enabled.join(', ')}`;
   }
 
+  prompt += '. Prioritize muscle groups that haven\'t been trained recently and need the least recovery.';
+
   return prompt;
 }
 
