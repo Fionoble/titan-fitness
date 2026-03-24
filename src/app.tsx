@@ -10,7 +10,7 @@ import { Coach } from './screens/Coach';
 import { Discover } from './screens/Discover';
 import { Nutrition } from './screens/Nutrition';
 import { Profile } from './screens/Profile';
-import { useEquipment, useTodayWorkout, useSessions, useChat, useProfile, useWeightHistory } from './hooks';
+import { useEquipment, useTodayWorkout, useSessions, useChat, useProfile, useWeightHistory, useWorkoutProgram } from './hooks';
 import { useAITaskByType } from './ai-tasks';
 import { withBase } from './base';
 import { Icon } from './components/Icon';
@@ -28,6 +28,7 @@ export function App() {
   const { messages, addMessage, clear: clearChat } = useChat();
   const { profile, updateProfile } = useProfile();
   const { entries: weightHistory, addEntry: addWeight, removeEntry: removeWeight } = useWeightHistory();
+  const { program, loading: programLoading, todayPlan: todayProgramDay, generateProgram, clearProgram } = useWorkoutProgram(equipment);
 
   const nav = useCallback((path: string) => route(withBase(path)), [route]);
 
@@ -73,6 +74,10 @@ export function App() {
     await regenerate(style, criteria);
   }, [regenerate]);
 
+  const handleStartProgramWorkout = useCallback((programPlan: WorkoutPlan) => {
+    setActiveWorkoutPlan(programPlan);
+  }, []);
+
   // Workout completion celebration screen
   if (completedSession) {
     return (
@@ -111,6 +116,13 @@ export function App() {
           onRegenerate={handleRegenerate}
           onAdjustWithAI={handleAdjustWithAI}
           onUpdatePlan={applyPlan}
+          workoutMode={profile?.workoutMode || 'daily'}
+          program={program}
+          programLoading={programLoading}
+          todayProgramDay={todayProgramDay}
+          onGenerateProgram={generateProgram}
+          onClearProgram={clearProgram}
+          onStartProgramWorkout={handleStartProgramWorkout}
         />
         <Route
           path={withBase('/discover')}
@@ -142,6 +154,7 @@ export function App() {
           pendingAdjustPlan={pendingAdjustPlan}
           onClearPendingAdjust={() => setPendingAdjustPlan(null)}
           profile={profile}
+          onUpdateProfile={updateProfile}
         />
         <Route
           path={withBase('/profile')}
@@ -171,6 +184,13 @@ export function App() {
           onRegenerate={handleRegenerate}
           onAdjustWithAI={handleAdjustWithAI}
           onUpdatePlan={applyPlan}
+          workoutMode={profile?.workoutMode || 'daily'}
+          program={program}
+          programLoading={programLoading}
+          todayProgramDay={todayProgramDay}
+          onGenerateProgram={generateProgram}
+          onClearProgram={clearProgram}
+          onStartProgramWorkout={handleStartProgramWorkout}
         />
       </Router>
 

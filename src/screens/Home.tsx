@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { Icon } from '../components/Icon';
-import type { WorkoutPlan, WorkoutCriteria, WorkoutStyle, Exercise, WorkoutSession } from '../types';
+import type { WorkoutPlan, WorkoutCriteria, WorkoutStyle, Exercise, WorkoutSession, WorkoutProgram, ProgramDay } from '../types';
 import { groupExercises, groupLabel } from '../group-utils';
 import { withBase } from '../base';
 
@@ -14,6 +14,14 @@ interface HomeProps {
   onRegenerate: (style?: string, criteria?: WorkoutCriteria) => void;
   onAdjustWithAI?: () => void;
   onUpdatePlan?: (plan: WorkoutPlan) => void;
+  // Program mode props
+  workoutMode?: 'daily' | 'program';
+  program?: WorkoutProgram | null;
+  programLoading?: boolean;
+  todayProgramDay?: ProgramDay | null;
+  onGenerateProgram?: () => Promise<WorkoutProgram | null>;
+  onClearProgram?: () => void;
+  onStartProgramWorkout?: (plan: WorkoutPlan) => void;
 }
 
 function getGreeting(): string {
@@ -257,6 +265,34 @@ function EditExerciseModal({ exercise, onSave, onRemove, onClose }: {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ProgramDayDots({ days, currentDay }: { days: ProgramDay[]; currentDay: number }) {
+  return (
+    <div class="flex items-center gap-1.5 justify-center">
+      {days.map((day) => (
+        <div
+          key={day.dayNumber}
+          class={`flex items-center justify-center rounded-full transition-all ${
+            day.dayNumber === currentDay
+              ? 'w-7 h-7 bg-primary text-bg-dark text-xs font-bold'
+              : day.isRest
+              ? 'w-5 h-5 bg-white/5 border border-white/10'
+              : 'w-5 h-5 bg-surface-dark border border-white/10'
+          }`}
+          title={day.label}
+        >
+          {day.dayNumber === currentDay ? day.dayNumber : (
+            day.isRest ? (
+              <span class="text-[8px] text-slate-500">R</span>
+            ) : (
+              <span class="text-[8px] text-slate-400">{day.dayNumber}</span>
+            )
+          )}
+        </div>
+      ))}
     </div>
   );
 }
@@ -551,13 +587,16 @@ function CompletedWorkoutModal({ session, onClose }: { session: WorkoutSession; 
   );
 }
 
-export function Home({ plan, loading, userName, sessions, onStartWorkout, onRegenerate, onAdjustWithAI, onUpdatePlan }: HomeProps) {
+export function Home({ plan, loading, userName, sessions, onStartWorkout, onRegenerate, onAdjustWithAI, onUpdatePlan, workoutMode, program, programLoading, todayProgramDay, onGenerateProgram, onClearProgram, onStartProgramWorkout }: HomeProps) {
   const [showRegenModal, setShowRegenModal] = useState(false);
   const [regenStyle, setRegenStyle] = useState<WorkoutStyle | ''>('');
   const [regenMood, setRegenMood] = useState('');
   const [regenLimitations, setRegenLimitations] = useState('');
   const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
   const [showCompletedModal, setShowCompletedModal] = useState(false);
+  const [generatingProgram, setGeneratingProgram] = useState(false);
+
+  const isProgramMode = workoutMode === 'program';
 
   // Find today's completed session
   const todaySession = useMemo(() => {
@@ -620,12 +659,14 @@ export function Home({ plan, loading, userName, sessions, onStartWorkout, onRege
               <div class="absolute bottom-0 right-0 w-3 h-3 bg-primary rounded-full border-2 border-bg-dark"></div>
             </div>
             <div>
-              <p class="text-xs text-primary font-medium tracking-wide uppercase">{showInlineCompletion ? 'Workout Done' : 'AI Plan Ready'}</p>
+              <p class="text-xs text-primary font-medium tracking-wide uppercase">
+                {isProgramMode && program ? 'Program Active' : showInlineCompletion ? 'Workout Done' : 'AI Plan Ready'}
+              </p>
               <h1 class="text-lg font-bold leading-tight">{getGreeting()}, {userName}</h1>
             </div>
           </div>
           <div class="flex gap-2">
-            {onAdjustWithAI && plan && (
+            {!isProgramMode && onAdjustWithAI && plan && (
               <button
                 onClick={onAdjustWithAI}
                 class="w-10 h-10 flex items-center justify-center rounded-full bg-surface-dark text-slate-300 hover:text-primary transition-colors"
@@ -634,25 +675,226 @@ export function Home({ plan, loading, userName, sessions, onStartWorkout, onRege
                 <Icon name="auto_awesome" />
               </button>
             )}
-            <button
-              onClick={() => setShowRegenModal(true)}
-              class="w-10 h-10 flex items-center justify-center rounded-full bg-surface-dark text-slate-300 hover:text-primary transition-colors"
-              title="Regenerate workout"
-            >
-              <Icon name="refresh" />
-            </button>
+            {!isProgramMode && (
+              <button
+                onClick={() => setShowRegenModal(true)}
+                class="w-10 h-10 flex items-center justify-center rounded-full bg-surface-dark text-slate-300 hover:text-primary transition-colors"
+                title="Regenerate workout"
+              >
+                <Icon name="refresh" />
+              </button>
+            )}
+            {isProgramMode && program && onClearProgram && (
+              <button
+                onClick={() => {
+                  if (confirm('Clear your current program? You can generate a new one afterward.')) {
+                    onClearProgram();
+                  }
+                }}
+                class="w-10 h-10 flex items-center justify-center rounded-full bg-surface-dark text-slate-300 hover:text-primary transition-colors"
+                title="Clear program"
+              >
+                <Icon name="restart_alt" />
+              </button>
+            )}
           </div>
         </div>
         <div class="mb-2">
           <h2 class="text-3xl font-bold tracking-tight text-white mb-1">
-            {showInlineCompletion ? 'Crushed it today!' : getMotivation()}
+            {showInlineCompletion ? 'Crushed it today!' : isProgramMode && todayProgramDay?.isRest ? 'Rest & Recover' : getMotivation()}
           </h2>
           <p class="text-slate-400 text-sm">{formatDate()}</p>
         </div>
       </div>
 
+      {/* ===== PROGRAM MODE ===== */}
+      {isProgramMode && (
+        <>
+          {/* Loading state */}
+          {(programLoading || generatingProgram) && (
+            <div class="px-4 mb-8">
+              <div class="rounded-2xl bg-surface-dark h-[280px] animate-pulse flex flex-col items-center justify-center gap-3">
+                <div class="w-8 h-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+                <p class="text-sm text-slate-400">{generatingProgram ? 'Generating your program...' : 'Loading program...'}</p>
+              </div>
+            </div>
+          )}
+
+          {/* No program yet — prompt to generate */}
+          {!programLoading && !generatingProgram && !program && (
+            <div class="px-4 mb-8">
+              <div class="rounded-2xl bg-surface-dark border border-dashed border-white/10 p-6 text-center">
+                <div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                  <Icon name="calendar_month" class="text-primary text-3xl" />
+                </div>
+                <h3 class="text-lg font-bold text-white mb-2">No Active Program</h3>
+                <p class="text-sm text-slate-400 mb-5 max-w-xs mx-auto">
+                  Generate a structured 7-day program with a balanced split, rest days, and progressive overload.
+                </p>
+                <button
+                  onClick={async () => {
+                    if (!onGenerateProgram) return;
+                    setGeneratingProgram(true);
+                    await onGenerateProgram();
+                    setGeneratingProgram(false);
+                  }}
+                  class="px-6 py-3 bg-primary text-bg-dark rounded-xl font-bold text-sm inline-flex items-center gap-2 active:scale-[0.98] transition-transform shadow-lg shadow-primary/20"
+                >
+                  <Icon name="auto_awesome" class="text-lg" />
+                  Generate Program
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Active program — show today's day */}
+          {!programLoading && !generatingProgram && program && todayProgramDay && (
+            <>
+              {/* Week progress dots */}
+              <div class="px-5 mb-4">
+                <div class="bg-surface-dark rounded-xl p-3 border border-white/5">
+                  <p class="text-xs text-slate-400 uppercase tracking-wider text-center mb-2 font-medium">{program.name}</p>
+                  <ProgramDayDots days={program.days} currentDay={todayProgramDay.dayNumber} />
+                </div>
+              </div>
+
+              {/* Rest day card */}
+              {todayProgramDay.isRest && (
+                <div class="px-4 mb-8">
+                  <div class="rounded-2xl bg-surface-dark border border-white/5 p-6 text-center">
+                    <div class="w-16 h-16 rounded-full bg-blue-500/10 flex items-center justify-center mx-auto mb-4">
+                      <Icon name="self_improvement" class="text-blue-400 text-3xl" />
+                    </div>
+                    <span class="text-xs text-blue-400 font-bold uppercase tracking-wider">{todayProgramDay.label}</span>
+                    <h3 class="text-xl font-bold text-white mt-2 mb-3">Rest Day</h3>
+                    <div class="text-sm text-slate-400 space-y-2 max-w-xs mx-auto text-left">
+                      <p class="flex items-start gap-2">
+                        <Icon name="check_circle" class="text-primary text-sm mt-0.5 shrink-0" />
+                        Stay hydrated and aim for 7-9 hours of sleep
+                      </p>
+                      <p class="flex items-start gap-2">
+                        <Icon name="check_circle" class="text-primary text-sm mt-0.5 shrink-0" />
+                        Light stretching or a short walk to keep blood flowing
+                      </p>
+                      <p class="flex items-start gap-2">
+                        <Icon name="check_circle" class="text-primary text-sm mt-0.5 shrink-0" />
+                        Focus on protein intake to support muscle recovery
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Workout day — show the plan */}
+              {!todayProgramDay.isRest && todayProgramDay.plan && (
+                <>
+                  {/* Hero card for today's program workout */}
+                  <div class="px-4 mb-8">
+                    <div class="relative overflow-hidden rounded-2xl bg-surface-dark shadow-lg shadow-primary/5">
+                      {(() => {
+                        const img = getWorkoutImage(todayProgramDay.plan!.focus, todayProgramDay.plan!.style);
+                        return img ? (
+                          <img src={img} alt="" class="absolute inset-0 w-full h-full object-cover opacity-40" />
+                        ) : (
+                          <div class="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-primary/5"></div>
+                        );
+                      })()}
+                      <div class="absolute inset-0 bg-gradient-to-t from-bg-dark via-bg-dark/60 to-bg-dark/30"></div>
+
+                      <div class="relative z-10 p-6 flex flex-col h-[320px] justify-between">
+                        <div class="flex justify-between items-start">
+                          <span class="px-3 py-1 rounded-full bg-primary/20 text-primary text-xs font-bold uppercase tracking-wider border border-primary/20 backdrop-blur-sm">
+                            {todayProgramDay.label}
+                          </span>
+                          <div class="flex gap-1">
+                            {[1, 2, 3].map((i) => (
+                              <Icon
+                                key={i}
+                                name="bolt"
+                                class={`text-sm ${i <= todayProgramDay.plan!.intensity ? 'text-primary' : 'text-slate-600'}`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <h3 class="text-3xl font-bold text-white mb-2 leading-tight">
+                            {todayProgramDay.plan!.focus}<br />
+                            <span class="text-primary">{todayProgramDay.plan!.style.charAt(0).toUpperCase() + todayProgramDay.plan!.style.slice(1)}</span>
+                          </h3>
+
+                          {/* Equipment tags */}
+                          <div class="flex flex-wrap gap-2 mb-6">
+                            {todayProgramDay.plan!.equipmentUsed.length > 0 ? (
+                              todayProgramDay.plan!.equipmentUsed.map((e) => (
+                                <span key={e} class="text-[10px] text-slate-300 bg-white/10 px-2 py-1 rounded border border-white/5 capitalize">
+                                  {e.replace(/-/g, ' ')}
+                                </span>
+                              ))
+                            ) : (
+                              <span class="text-[10px] text-slate-300 bg-white/10 px-2 py-1 rounded border border-white/5">Bodyweight</span>
+                            )}
+                          </div>
+
+                          {/* Stats */}
+                          <div class="grid grid-cols-3 gap-4 border-t border-white/10 pt-4">
+                            <div>
+                              <p class="text-slate-400 text-xs mb-1">Duration</p>
+                              <p class="text-white font-semibold flex items-center gap-1">
+                                <Icon name="schedule" class="text-primary text-base" /> {todayProgramDay.plan!.durationMin}m
+                              </p>
+                            </div>
+                            <div>
+                              <p class="text-slate-400 text-xs mb-1">Burn</p>
+                              <p class="text-white font-semibold flex items-center gap-1">
+                                <Icon name="local_fire_department" class="text-primary text-base" /> {todayProgramDay.plan!.estimatedCalories}
+                              </p>
+                            </div>
+                            <div>
+                              <p class="text-slate-400 text-xs mb-1">Focus</p>
+                              <p class="text-white font-semibold flex items-center gap-1">
+                                <Icon name="fitness_center" class="text-primary text-base" /> {todayProgramDay.plan!.focus.split(' ')[0].slice(0, 4)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Exercise list for today's program day */}
+                  <div class="px-5 pb-40">
+                    <div class="flex items-center justify-between mb-4">
+                      <h3 class="text-lg font-bold text-white">Exercises</h3>
+                      <span class="text-xs text-primary font-medium">{todayProgramDay.plan!.exercises.length} Moves</span>
+                    </div>
+                    <ExerciseList exercises={todayProgramDay.plan!.exercises} />
+                  </div>
+                </>
+              )}
+            </>
+          )}
+
+          <DiscoverCard />
+
+          {/* Start Workout FAB for program mode */}
+          {!programLoading && !generatingProgram && program && todayProgramDay && !todayProgramDay.isRest && todayProgramDay.plan && (
+            <div class="fixed bottom-nav-offset left-0 w-full px-6 pb-3 z-20 pointer-events-none max-w-[430px] mx-auto" style="left: 50%; transform: translateX(-50%) translateY(-4px);">
+              <button
+                onClick={() => onStartProgramWorkout?.(todayProgramDay.plan!)}
+                class="w-full bg-primary text-bg-dark h-14 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-primary/20 pointer-events-auto active:scale-[0.98] transition-all font-bold text-lg tracking-wide"
+              >
+                <Icon name="play_arrow" class="text-2xl" />
+                START WORKOUT
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ===== DAILY MODE (default) ===== */}
       {/* Inline completion view — replaces the plan when no newer plan exists */}
-      {showInlineCompletion && todaySession && (
+      {!isProgramMode && showInlineCompletion && todaySession && (
         <>
           <CompletedWorkoutInline
             session={todaySession}
@@ -664,7 +906,7 @@ export function Home({ plan, loading, userName, sessions, onStartWorkout, onRege
       )}
 
       {/* Completed workout card — shown when a newer plan takes priority */}
-      {showCompletedCard && todaySession && (
+      {!isProgramMode && showCompletedCard && todaySession && (
         <CompletedWorkoutCard
           session={todaySession}
           onClick={() => setShowCompletedModal(true)}
@@ -672,7 +914,7 @@ export function Home({ plan, loading, userName, sessions, onStartWorkout, onRege
       )}
 
       {/* Hero Card: AI Daily Mix — only shown if no inline completion */}
-      {!showInlineCompletion && (loading ? (
+      {!isProgramMode && !showInlineCompletion && (loading ? (
         <div class="px-4 mb-8">
           <div class="rounded-2xl bg-surface-dark h-[320px] animate-pulse flex items-center justify-center">
             <Icon name="fitness_center" class="text-4xl text-primary/30" />
@@ -755,7 +997,7 @@ export function Home({ plan, loading, userName, sessions, onStartWorkout, onRege
       ) : null)}
 
       {/* Exercise List — only when not showing inline completion */}
-      {!showInlineCompletion && plan && (
+      {!isProgramMode && !showInlineCompletion && plan && (
         <div class="px-5 pb-40">
           <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-bold text-white">Exercises</h3>
@@ -766,7 +1008,7 @@ export function Home({ plan, loading, userName, sessions, onStartWorkout, onRege
       )}
 
       {/* Discover Workouts Card — only when not showing inline completion (it's included in CompletedWorkoutInline) */}
-      {!showInlineCompletion && <DiscoverCard />}
+      {!isProgramMode && !showInlineCompletion && <DiscoverCard />}
 
       {/* Exercise Edit Modal */}
       {editingExercise && (
@@ -779,7 +1021,7 @@ export function Home({ plan, loading, userName, sessions, onStartWorkout, onRege
       )}
 
       {/* Start Workout FAB — hidden when showing inline completion */}
-      {!showInlineCompletion && plan && (
+      {!isProgramMode && !showInlineCompletion && plan && (
         <div class="fixed bottom-nav-offset left-0 w-full px-6 pb-3 z-20 pointer-events-none max-w-[430px] mx-auto" style="left: 50%; transform: translateX(-50%) translateY(-4px);">
           <button
             onClick={onStartWorkout}

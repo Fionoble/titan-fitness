@@ -82,6 +82,7 @@ export interface UserProfile {
   height?: number; // total inches
   gender?: 'male' | 'female' | 'other';
   restTimerSound?: boolean;
+  workoutMode?: 'daily' | 'program'; // defaults to 'daily'
   createdAt: string;
 }
 

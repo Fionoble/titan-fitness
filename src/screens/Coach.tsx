@@ -1,10 +1,24 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { Icon } from '../components/Icon';
-import type { ChatMessage, Equipment, WorkoutSession, WorkoutPlan, UserProfile } from '../types';
+import type { ChatMessage, Equipment, WorkoutSession, WorkoutPlan, UserProfile, WorkoutProgram } from '../types';
 import { sendMessage, isAIConfigured, setAIConfig } from '../ai';
 import { parseWorkoutFromResponse, stripJsonBlock, buildAdjustPrompt } from '../ai-workout';
+import { generateProgramViaAI } from '../ai-program';
+import * as db from '../db';
 import { uuid } from '../utils';
 import { runTask, useAITaskByType } from '../ai-tasks';
+
+/** Check if a user message is asking for a workout program */
+function isProgramRequest(text: string): boolean {
+  const lower = text.toLowerCase();
+  const patterns = [
+    /\b(build|create|make|generate|design|give me|set up|plan)\b.*\b(program|weekly plan|week plan|training plan|training program|workout program|weekly program|weekly split|training split)\b/,
+    /\b(program|weekly plan|weekly program|training program)\b.*\b(for me|please|now)\b/,
+    /\b(7[- ]day|seven[- ]day|week[- ]long)\b.*\b(program|plan|split|routine)\b/,
+    /\bweekly split\b/,
+  ];
+  return patterns.some((p) => p.test(lower));
+}
 
 interface CoachProps {
   messages: ChatMessage[];
@@ -17,6 +31,7 @@ interface CoachProps {
   pendingAdjustPlan?: WorkoutPlan | null;
   onClearPendingAdjust?: () => void;
   profile?: UserProfile | null;
+  onUpdateProfile?: (updates: Partial<UserProfile>) => void;
 }
 
 
@@ -84,7 +99,7 @@ function WorkoutPlanCard({ plan, onApply }: { plan: WorkoutPlan; onApply?: (plan
   );
 }
 
-export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, sessions, onApplyPlan, onClearChat, pendingAdjustPlan, onClearPendingAdjust, profile }: CoachProps) {
+export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, sessions, onApplyPlan, onClearChat, pendingAdjustPlan, onClearPendingAdjust, profile, onUpdateProfile }: CoachProps) {
   const [input, setInput] = useState('');
   const coachTask = useAITaskByType('coach-chat');
   const isTyping = coachTask?.status === 'running';
@@ -121,6 +136,51 @@ export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, se
 
     await onSendMessage(userMsg);
     setInput('');
+
+    // Check if this is a program generation request
+    if (isProgramRequest(msg)) {
+      const taskId = `coach-program-${userMsg.id}`;
+      runTask(taskId, 'coach-chat', async () => {
+        const program = await generateProgramViaAI(equipment, sessions);
+        if (program) {
+          await db.saveProgram(program);
+          // Auto-switch to program mode
+          onUpdateProfile?.({ workoutMode: 'program' });
+
+          // Build a summary of the program for the chat
+          const daysSummary = program.days.map((d) =>
+            d.isRest ? `  Day ${d.dayNumber}: ${d.label} (Rest)` : `  Day ${d.dayNumber}: ${d.label} — ${d.plan?.exercises.length || 0} exercises`
+          ).join('\n');
+
+          const aiMsg: ChatMessage = {
+            id: uuid(),
+            role: 'assistant',
+            content: `I've generated your 7-day program: **${program.name}**!\n\n${daysSummary}\n\nYour workout mode has been switched to Program mode. Head to the Home screen to see today's workout. The program will run for 7 days, then you can generate a new one.`,
+            timestamp: new Date().toISOString(),
+          };
+          await onReceiveMessage(aiMsg);
+          return program;
+        } else {
+          const aiMsg: ChatMessage = {
+            id: uuid(),
+            role: 'assistant',
+            content: "I wasn't able to generate a program right now. Make sure your AI API key is configured in Profile settings and try again.",
+            timestamp: new Date().toISOString(),
+          };
+          await onReceiveMessage(aiMsg);
+          return null;
+        }
+      }).catch(async () => {
+        const errorMsg: ChatMessage = {
+          id: uuid(),
+          role: 'assistant',
+          content: "Sorry, I had trouble generating your program. Please try again.",
+          timestamp: new Date().toISOString(),
+        };
+        await onReceiveMessage(errorMsg);
+      });
+      return;
+    }
 
     const taskId = `coach-chat-${userMsg.id}`;
     const allMessages = [...messages, userMsg];
