@@ -138,27 +138,22 @@ export async function sendMessage(
     return "I'd love to help! Please set up your AI API key in the Profile settings to enable the chat. You can use either an Anthropic or OpenAI key.";
   }
 
-  // Only include the workout JSON schema when the message looks like a workout request
-  const needsSchema = WORKOUT_KEYWORDS.test(userMessage);
   const systemPrompt = buildSystemPrompt(
     equipment,
     recentSessions.slice(0, 5),
     profileContext?.injuries,
     profileContext?.additionalEquipment,
-    needsSchema,
+    true,
   );
-
-  // Workout generation needs more tokens for the full JSON plan
-  const maxTokens = needsSchema ? 2048 : 1024;
 
   // Truncate history early to avoid passing large arrays through the stack
   const trimmedHistory = chatHistory.slice(-20);
 
   try {
     if (config.provider === 'anthropic') {
-      return await callAnthropic(config.apiKey, systemPrompt, trimmedHistory, userMessage, maxTokens);
+      return await callAnthropic(config.apiKey, systemPrompt, trimmedHistory, userMessage);
     } else {
-      return await callOpenAI(config.apiKey, systemPrompt, trimmedHistory, userMessage, maxTokens);
+      return await callOpenAI(config.apiKey, systemPrompt, trimmedHistory, userMessage);
     }
   } catch (err: any) {
     if (err.message?.includes('401')) {
@@ -171,7 +166,7 @@ export async function sendMessage(
   }
 }
 
-async function callAnthropic(apiKey: string, system: string, history: ChatMessage[], userMsg: string, maxTokens = 1024): Promise<string> {
+async function callAnthropic(apiKey: string, system: string, history: ChatMessage[], userMsg: string, maxTokens = 8192): Promise<string> {
   const messages = history.map((m) => ({
     role: m.role as 'user' | 'assistant',
     content: m.content,
@@ -244,7 +239,7 @@ GUIDELINES:
   }
 }
 
-async function callOpenAI(apiKey: string, system: string, history: ChatMessage[], userMsg: string, maxTokens = 1024): Promise<string> {
+async function callOpenAI(apiKey: string, system: string, history: ChatMessage[], userMsg: string, maxTokens = 8192): Promise<string> {
   const messages: { role: string; content: string }[] = [{ role: 'system', content: system }];
   for (const m of history) {
     messages.push({ role: m.role, content: m.content });
