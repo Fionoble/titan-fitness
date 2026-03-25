@@ -61,36 +61,7 @@ function buildMuscleRecoveryStatus(recentSessions: WorkoutSession[]): string {
   return `\nMUSCLE RECOVERY STATUS:\n${lines.join('\n')}`;
 }
 
-function buildSystemPrompt(equipment: Equipment[], recentSessions: WorkoutSession[], injuries?: string, additionalEquipment?: string): string {
-  const enabledEquip = equipment.filter((e) => e.enabled).map((e) => e.name);
-  const recentWorkouts = recentSessions.slice(0, 5).map((s) => {
-    const days = daysAgo(s.startedAt);
-    const exercises = s.exercises.map((e) => `${e.exerciseName} [${e.muscleGroup}] (${e.sets.length} sets)`).join(', ');
-    return `- "${s.name}" (${formatDaysAgo(days)}): ${exercises} — Volume: ${s.totalVolume}lbs`;
-  });
-
-  const muscleRecovery = buildMuscleRecoveryStatus(recentSessions);
-
-  return `You are Titan, an expert AI fitness coach built into a home gym app. You're knowledgeable, encouraging, and adaptive.
-
-USER'S HOME GYM EQUIPMENT:
-${enabledEquip.length > 0 ? enabledEquip.map((e) => `- ${e}`).join('\n') : '- No equipment configured yet (bodyweight only)'}
-${additionalEquipment ? `\nADDITIONAL EQUIPMENT/NOTES:\n${additionalEquipment}` : ''}
-${injuries ? `\nCURRENT INJURIES/LIMITATIONS:\n${injuries}\nIMPORTANT: Always account for these injuries. Avoid exercises that aggravate them and suggest alternatives.` : ''}
-
-RECENT WORKOUT HISTORY:
-${recentWorkouts.length > 0 ? recentWorkouts.join('\n') : '- No recent workouts yet'}
-${muscleRecovery}
-
-GUIDELINES:
-- Only suggest exercises the user can do with their available equipment
-- Reference their workout history to suggest progressive overload
-- If they mention an injury or limitation, immediately adapt recommendations
-- Keep responses concise and actionable
-- You can suggest workout modifications, recovery advice, form tips, and motivation
-- Be conversational and supportive, like a personal trainer
-- CRITICAL: Check the MUSCLE RECOVERY STATUS section. Never program muscles marked as "NEEDS RECOVERY" as primary movers. Muscles marked "RECOVERING" can be used lightly (assistance work only). Prioritize "FRESH" and "RECOVERED" muscle groups.
-
+const WORKOUT_SCHEMA = `
 WORKOUT GENERATION:
 When asked to generate, create, adjust, or modify a workout, you MUST ALWAYS include the COMPLETE workout plan as a JSON block in a \`\`\`json code fence. This is CRITICAL — never describe changes without including the full updated JSON. Even if you're only adding or removing one exercise, output the entire plan. The JSON must match this exact schema:
 {
@@ -115,6 +86,44 @@ When asked to generate, create, adjust, or modify a workout, you MUST ALWAYS inc
 }
 Always include a brief conversational message before or after the JSON block. Equipment IDs are: dumbbells, barbell, kettlebells, bench, pull-up-bar, resistance-bands, yoga-mat, foam-roller, jump-rope, medicine-ball, ab-wheel.
 You may group 2-3 complementary exercises as supersets by giving them the same group letter (e.g. "A"). Don't superset every exercise — keep some standalone.`;
+
+const WORKOUT_KEYWORDS = /\b(generate|create|make|build|give me|adjust|modify|change|update|swap|replace|new workout|workout plan)\b/i;
+
+function buildSystemPrompt(equipment: Equipment[], recentSessions: WorkoutSession[], injuries?: string, additionalEquipment?: string, includeWorkoutSchema?: boolean): string {
+  const enabledEquip = equipment.filter((e) => e.enabled).map((e) => e.name);
+  const recentWorkouts = recentSessions.slice(0, 5).map((s) => {
+    const days = daysAgo(s.startedAt);
+    const exercises = s.exercises.map((e) => `${e.exerciseName} [${e.muscleGroup}] (${e.sets.length} sets)`).join(', ');
+    return `- "${s.name}" (${formatDaysAgo(days)}): ${exercises} — Volume: ${s.totalVolume}lbs`;
+  });
+
+  const muscleRecovery = buildMuscleRecoveryStatus(recentSessions);
+
+  let prompt = `You are Titan, an expert AI fitness coach built into a home gym app. You're knowledgeable, encouraging, and adaptive.
+
+USER'S HOME GYM EQUIPMENT:
+${enabledEquip.length > 0 ? enabledEquip.map((e) => `- ${e}`).join('\n') : '- No equipment configured yet (bodyweight only)'}
+${additionalEquipment ? `\nADDITIONAL EQUIPMENT/NOTES:\n${additionalEquipment}` : ''}
+${injuries ? `\nCURRENT INJURIES/LIMITATIONS:\n${injuries}\nIMPORTANT: Always account for these injuries. Avoid exercises that aggravate them and suggest alternatives.` : ''}
+
+RECENT WORKOUT HISTORY:
+${recentWorkouts.length > 0 ? recentWorkouts.join('\n') : '- No recent workouts yet'}
+${muscleRecovery}
+
+GUIDELINES:
+- Only suggest exercises the user can do with their available equipment
+- Reference their workout history to suggest progressive overload
+- If they mention an injury or limitation, immediately adapt recommendations
+- Keep responses concise and actionable
+- You can suggest workout modifications, recovery advice, form tips, and motivation
+- Be conversational and supportive, like a personal trainer
+- CRITICAL: Check the MUSCLE RECOVERY STATUS section. Never program muscles marked as "NEEDS RECOVERY" as primary movers. Muscles marked "RECOVERING" can be used lightly (assistance work only). Prioritize "FRESH" and "RECOVERED" muscle groups.`;
+
+  if (includeWorkoutSchema) {
+    prompt += WORKOUT_SCHEMA;
+  }
+
+  return prompt;
 }
 
 export async function sendMessage(
@@ -129,13 +138,24 @@ export async function sendMessage(
     return "I'd love to help! Please set up your AI API key in the Profile settings to enable the chat. You can use either an Anthropic or OpenAI key.";
   }
 
-  const systemPrompt = buildSystemPrompt(equipment, recentSessions, profileContext?.injuries, profileContext?.additionalEquipment);
+  // Only include the workout JSON schema when the message looks like a workout request
+  const needsSchema = WORKOUT_KEYWORDS.test(userMessage);
+  const systemPrompt = buildSystemPrompt(
+    equipment,
+    recentSessions.slice(0, 5),
+    profileContext?.injuries,
+    profileContext?.additionalEquipment,
+    needsSchema,
+  );
+
+  // Truncate history early to avoid passing large arrays through the stack
+  const trimmedHistory = chatHistory.slice(-20);
 
   try {
     if (config.provider === 'anthropic') {
-      return await callAnthropic(config.apiKey, systemPrompt, chatHistory, userMessage);
+      return await callAnthropic(config.apiKey, systemPrompt, trimmedHistory, userMessage);
     } else {
-      return await callOpenAI(config.apiKey, systemPrompt, chatHistory, userMessage);
+      return await callOpenAI(config.apiKey, systemPrompt, trimmedHistory, userMessage);
     }
   } catch (err: any) {
     if (err.message?.includes('401')) {
@@ -149,7 +169,7 @@ export async function sendMessage(
 }
 
 async function callAnthropic(apiKey: string, system: string, history: ChatMessage[], userMsg: string): Promise<string> {
-  const messages = history.slice(-20).map((m) => ({
+  const messages = history.map((m) => ({
     role: m.role as 'user' | 'assistant',
     content: m.content,
   }));
@@ -223,7 +243,7 @@ GUIDELINES:
 
 async function callOpenAI(apiKey: string, system: string, history: ChatMessage[], userMsg: string): Promise<string> {
   const messages: { role: string; content: string }[] = [{ role: 'system', content: system }];
-  for (const m of history.slice(-20)) {
+  for (const m of history) {
     messages.push({ role: m.role, content: m.content });
   }
   messages.push({ role: 'user', content: userMsg });
@@ -237,7 +257,7 @@ async function callOpenAI(apiKey: string, system: string, history: ChatMessage[]
     body: JSON.stringify({
       model: 'gpt-5-mini',
       messages,
-      max_completion_tokens: 8192,
+      max_completion_tokens: 1024,
     }),
   });
 

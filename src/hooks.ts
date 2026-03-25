@@ -80,7 +80,9 @@ export function useTodayWorkout(equipment: Equipment[]) {
       // Try AI generation first if configured
       if (isAIConfigured()) {
         try {
-          const chatHistory = await db.getChatMessages();
+          // Only include chat history when user explicitly requested generation (has style/criteria)
+          // Auto-generation on load doesn't need prior conversation context
+          const chatHistory = (style || criteria) ? await db.getChatMessages() : [];
           const effectiveCriteria = criteria || (style ? { style: style as any } : undefined);
           const aiResult = await generateWorkoutViaAI(equipment, sessions, chatHistory, effectiveCriteria);
           if (aiResult) {

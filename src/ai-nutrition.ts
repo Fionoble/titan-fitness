@@ -188,7 +188,7 @@ export async function estimateNutritionWithImage(
       body: JSON.stringify({
         model: 'gpt-5-mini',
         messages,
-        max_completion_tokens: 8192,
+        max_completion_tokens: 1024,
       }),
     });
     if (!res.ok) throw new Error(`API error ${res.status}`);
@@ -233,7 +233,7 @@ async function callAI(systemPrompt: string, userMessage: string): Promise<string
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userMessage },
         ],
-        max_completion_tokens: 8192,
+        max_completion_tokens: 1024,
       }),
     });
     if (!res.ok) throw new Error(`API error ${res.status}`);
@@ -277,7 +277,12 @@ export async function suggestGoals(profile: UserProfile): Promise<NutritionGoals
     throw new Error('AI not configured');
   }
 
-  const profileDesc = `User profile: Name: ${profile.name}${profile.injuries ? `, Injuries/limitations: ${profile.injuries}` : ''}. Please suggest daily nutrition goals.`;
+  const parts = [`User profile: Name: ${profile.name}`];
+  if (profile.weight) parts.push(`Weight: ${profile.weight} lbs`);
+  if (profile.height) parts.push(`Height: ${Math.floor(profile.height / 12)}'${profile.height % 12}"`);
+  if (profile.gender) parts.push(`Gender: ${profile.gender}`);
+  if (profile.injuries) parts.push(`Injuries/limitations: ${profile.injuries}`);
+  const profileDesc = `${parts.join(', ')}. Please suggest daily nutrition goals.`;
   const response = await callAI(GOALS_SYSTEM_PROMPT, profileDesc);
 
   let jsonStr = response.trim();
@@ -352,7 +357,7 @@ export async function chatWithNutritionAI(
       body: JSON.stringify({
         model: 'gpt-5-mini',
         messages,
-        max_completion_tokens: 8192,
+        max_completion_tokens: 1024,
       }),
     });
     if (!res.ok) throw new Error(`API error ${res.status}`);
