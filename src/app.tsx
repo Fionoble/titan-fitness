@@ -10,6 +10,7 @@ import { Coach } from './screens/Coach';
 import { Discover } from './screens/Discover';
 import { Nutrition } from './screens/Nutrition';
 import { Profile } from './screens/Profile';
+import { ProgramDetail } from './screens/ProgramDetail';
 import { useEquipment, useTodayWorkout, useSessions, useChat, useProfile, useWeightHistory, useWorkoutProgram } from './hooks';
 import { useAITaskByType } from './ai-tasks';
 import { withBase } from './base';
@@ -172,6 +173,14 @@ export function App() {
           component={EquipmentScreen}
           equipment={equipment}
           onToggle={toggleEquipment}
+        />
+        <Route
+          path={withBase('/program')}
+          component={ProgramDetail}
+          program={program}
+          currentDay={todayProgramDay?.dayNumber || 1}
+          onStartWorkout={handleStartProgramWorkout}
+          onClearProgram={clearProgram}
         />
         <Route
           default

@@ -588,6 +588,7 @@ function CompletedWorkoutModal({ session, onClose }: { session: WorkoutSession; 
 }
 
 export function Home({ plan, loading, userName, sessions, onStartWorkout, onRegenerate, onAdjustWithAI, onUpdatePlan, workoutMode, program, programLoading, todayProgramDay, onGenerateProgram, onClearProgram, onStartProgramWorkout }: HomeProps) {
+  const { route } = useLocation();
   const [showRegenModal, setShowRegenModal] = useState(false);
   const [regenStyle, setRegenStyle] = useState<WorkoutStyle | ''>('');
   const [regenMood, setRegenMood] = useState('');
@@ -755,6 +756,13 @@ export function Home({ plan, loading, userName, sessions, onStartWorkout, onRege
                 <div class="bg-surface-dark rounded-xl p-3 border border-white/5">
                   <p class="text-xs text-slate-400 uppercase tracking-wider text-center mb-2 font-medium">{program.name}</p>
                   <ProgramDayDots days={program.days} currentDay={todayProgramDay.dayNumber} />
+                  <button
+                    onClick={() => route(withBase('/program'))}
+                    class="mt-2.5 w-full flex items-center justify-center gap-1.5 text-xs text-primary/80 hover:text-primary transition-colors py-1"
+                  >
+                    <Icon name="event_note" class="text-sm" />
+                    View Full Program
+                  </button>
                 </div>
               </div>
 
