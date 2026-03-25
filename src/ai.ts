@@ -148,14 +148,17 @@ export async function sendMessage(
     needsSchema,
   );
 
+  // Workout generation needs more tokens for the full JSON plan
+  const maxTokens = needsSchema ? 2048 : 1024;
+
   // Truncate history early to avoid passing large arrays through the stack
   const trimmedHistory = chatHistory.slice(-20);
 
   try {
     if (config.provider === 'anthropic') {
-      return await callAnthropic(config.apiKey, systemPrompt, trimmedHistory, userMessage);
+      return await callAnthropic(config.apiKey, systemPrompt, trimmedHistory, userMessage, maxTokens);
     } else {
-      return await callOpenAI(config.apiKey, systemPrompt, trimmedHistory, userMessage);
+      return await callOpenAI(config.apiKey, systemPrompt, trimmedHistory, userMessage, maxTokens);
     }
   } catch (err: any) {
     if (err.message?.includes('401')) {
