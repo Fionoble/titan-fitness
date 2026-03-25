@@ -148,14 +148,17 @@ export async function sendMessage(
     needsSchema,
   );
 
+  // Workout generation needs more tokens for the full JSON plan
+  const maxTokens = needsSchema ? 4096 : 1024;
+
   // Truncate history early to avoid passing large arrays through the stack
   const trimmedHistory = chatHistory.slice(-20);
 
   try {
     if (config.provider === 'anthropic') {
-      return await callAnthropic(config.apiKey, systemPrompt, trimmedHistory, userMessage);
+      return await callAnthropic(config.apiKey, systemPrompt, trimmedHistory, userMessage, maxTokens);
     } else {
-      return await callOpenAI(config.apiKey, systemPrompt, trimmedHistory, userMessage);
+      return await callOpenAI(config.apiKey, systemPrompt, trimmedHistory, userMessage, maxTokens);
     }
   } catch (err: any) {
     if (err.message?.includes('401')) {
@@ -168,7 +171,7 @@ export async function sendMessage(
   }
 }
 
-async function callAnthropic(apiKey: string, system: string, history: ChatMessage[], userMsg: string): Promise<string> {
+async function callAnthropic(apiKey: string, system: string, history: ChatMessage[], userMsg: string, maxTokens = 1024): Promise<string> {
   const messages = history.map((m) => ({
     role: m.role as 'user' | 'assistant',
     content: m.content,
@@ -185,7 +188,7 @@ async function callAnthropic(apiKey: string, system: string, history: ChatMessag
     },
     body: JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
+      max_tokens: maxTokens,
       system,
       messages,
     }),
@@ -241,7 +244,7 @@ GUIDELINES:
   }
 }
 
-async function callOpenAI(apiKey: string, system: string, history: ChatMessage[], userMsg: string): Promise<string> {
+async function callOpenAI(apiKey: string, system: string, history: ChatMessage[], userMsg: string, maxTokens = 1024): Promise<string> {
   const messages: { role: string; content: string }[] = [{ role: 'system', content: system }];
   for (const m of history) {
     messages.push({ role: m.role, content: m.content });
@@ -257,7 +260,7 @@ async function callOpenAI(apiKey: string, system: string, history: ChatMessage[]
     body: JSON.stringify({
       model: 'gpt-5-mini',
       messages,
-      max_completion_tokens: 1024,
+      max_completion_tokens: maxTokens,
     }),
   });
 
