@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'preact/hooks';
 import * as db from './db';
-import type { Equipment, WorkoutPlan, WorkoutSession, ChatMessage, UserProfile, WorkoutCriteria, MealLog, FoodEntry, NutritionGoals, StarredFood, WeightEntry } from './types';
+import type { Equipment, WorkoutPlan, WorkoutSession, ChatMessage, UserProfile, WorkoutCriteria, MealLog, FoodEntry, NutritionGoals, StarredFood, WeightEntry, WorkoutProgram, ProgramDay } from './types';
 import { generateWorkout, getTodayStyle } from './workout-engine';
 import { generateWorkoutViaAI } from './ai-workout';
+import { generateProgramViaAI } from './ai-program';
 import { isAIConfigured } from './ai';
 import { normalizeExerciseName } from './utils';
 import { runTask } from './ai-tasks';
@@ -133,6 +134,77 @@ export function useTodayWorkout(equipment: Equipment[]) {
   }, [equipment, generate]);
 
   return { plan, loading, regenerate: generate, applyPlan };
+}
+
+export function useWorkoutProgram(equipment: Equipment[]) {
+  const [program, setProgram] = useState<WorkoutProgram | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [todayPlan, setTodayPlan] = useState<ProgramDay | null>(null);
+
+  // Compute which day of the program we're on (1-7) based on createdAt vs today
+  const computeTodayDay = useCallback((prog: WorkoutProgram): ProgramDay | null => {
+    const created = new Date(prog.createdAt);
+    const now = new Date();
+    // Zero out times for clean day diff
+    const createdDay = new Date(created.getFullYear(), created.getMonth(), created.getDate());
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diffMs = today.getTime() - createdDay.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const dayNumber = (diffDays % 7) + 1; // 1-indexed, wraps around
+    return prog.days.find((d) => d.dayNumber === dayNumber) || null;
+  }, []);
+
+  // Check for active program on mount
+  useEffect(() => {
+    db.getActiveProgram().then((existing) => {
+      if (existing) {
+        setProgram(existing);
+        setTodayPlan(computeTodayDay(existing));
+      }
+      setLoading(false);
+    });
+  }, [computeTodayDay]);
+
+  const generateProgram = useCallback(async () => {
+    if (!isAIConfigured()) return null;
+    setLoading(true);
+    try {
+      const sessions = await db.getRecentSessions(5);
+      const result = await generateProgramViaAI(equipment, sessions);
+      if (result) {
+        await db.saveProgram(result);
+        setProgram(result);
+        setTodayPlan(computeTodayDay(result));
+        setLoading(false);
+        return result;
+      }
+    } catch {
+      // Generation failed
+    }
+    setLoading(false);
+    return null;
+  }, [equipment, computeTodayDay]);
+
+  const getDayPlan = useCallback((dayNumber: number): ProgramDay | null => {
+    if (!program) return null;
+    return program.days.find((d) => d.dayNumber === dayNumber) || null;
+  }, [program]);
+
+  const updateProgram = useCallback(async (updated: WorkoutProgram) => {
+    await db.saveProgram(updated);
+    setProgram(updated);
+    setTodayPlan(computeTodayDay(updated));
+  }, [computeTodayDay]);
+
+  const clearProgram = useCallback(async () => {
+    if (program) {
+      await db.deleteProgram(program.id);
+      setProgram(null);
+      setTodayPlan(null);
+    }
+  }, [program]);
+
+  return { program, loading, todayPlan, generateProgram, getDayPlan, clearProgram, updateProgram };
 }
 
 export function useSessions() {

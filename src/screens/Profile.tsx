@@ -34,6 +34,7 @@ export function Profile({ profile, sessions, onUpdateProfile, onNavigateEquipmen
     const stored = localStorage.getItem('titan_rest_sound');
     return stored !== 'false'; // default ON
   });
+  const [workoutMode, setWorkoutMode] = useState<'daily' | 'program'>(profile?.workoutMode || 'daily');
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -376,6 +377,59 @@ export function Profile({ profile, sessions, onUpdateProfile, onNavigateEquipmen
             >
               <div class={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${restTimerSound ? 'translate-x-[22px]' : 'translate-x-0.5'}`}></div>
             </button>
+          </div>
+
+          {/* Workout Mode */}
+          <div class="bg-surface-dark rounded-xl border border-white/5 overflow-hidden">
+            <div class="flex items-center gap-3 p-4">
+              <div class="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-400">
+                <Icon name="calendar_month" />
+              </div>
+              <div class="text-left flex-1">
+                <p class="font-semibold text-white">Workout Mode</p>
+                <p class="text-xs text-slate-400">How your workouts are generated</p>
+              </div>
+            </div>
+            <div class="px-4 pb-4 space-y-2">
+              <button
+                onClick={() => {
+                  setWorkoutMode('daily');
+                  onUpdateProfile({ workoutMode: 'daily' });
+                }}
+                class={`w-full text-left p-3 rounded-lg border transition-colors ${
+                  workoutMode === 'daily'
+                    ? 'border-primary/40 bg-primary/10'
+                    : 'border-white/5 bg-bg-dark hover:border-white/10'
+                }`}
+              >
+                <div class="flex items-center gap-2 mb-1">
+                  {workoutMode === 'daily' && (
+                    <Icon name="check_circle" class="text-primary text-sm" />
+                  )}
+                  <span class={`text-sm font-semibold ${workoutMode === 'daily' ? 'text-primary' : 'text-white'}`}>Daily</span>
+                </div>
+                <p class="text-xs text-slate-400 ml-0">Fresh AI-generated workout each day based on your history and equipment.</p>
+              </button>
+              <button
+                onClick={() => {
+                  setWorkoutMode('program');
+                  onUpdateProfile({ workoutMode: 'program' });
+                }}
+                class={`w-full text-left p-3 rounded-lg border transition-colors ${
+                  workoutMode === 'program'
+                    ? 'border-primary/40 bg-primary/10'
+                    : 'border-white/5 bg-bg-dark hover:border-white/10'
+                }`}
+              >
+                <div class="flex items-center gap-2 mb-1">
+                  {workoutMode === 'program' && (
+                    <Icon name="check_circle" class="text-primary text-sm" />
+                  )}
+                  <span class={`text-sm font-semibold ${workoutMode === 'program' ? 'text-primary' : 'text-white'}`}>Program</span>
+                </div>
+                <p class="text-xs text-slate-400 ml-0">Follow a structured 7-day program with a planned split and rest days.</p>
+              </button>
+            </div>
           </div>
 
           <button

@@ -82,6 +82,7 @@ export interface UserProfile {
   height?: number; // total inches
   gender?: 'male' | 'female' | 'other';
   restTimerSound?: boolean;
+  workoutMode?: 'daily' | 'program'; // defaults to 'daily'
   createdAt: string;
 }
 
@@ -114,6 +115,24 @@ export interface WorkoutCriteria {
   limitations?: string;
   style?: WorkoutStyle;
   customPrompt?: string;
+}
+
+// Program generation types
+
+export interface WorkoutProgram {
+  id: string;
+  name: string;
+  days: ProgramDay[];
+  createdAt: string;
+  expiresAt: string; // when to regenerate (e.g., 7 days from creation)
+  equipment: string[]; // equipment snapshot at creation time
+}
+
+export interface ProgramDay {
+  dayNumber: number; // 1-7
+  label: string; // e.g., "Day 1 — Push", "Rest Day"
+  isRest: boolean;
+  plan?: WorkoutPlan; // undefined if rest day
 }
 
 // Nutrition types
