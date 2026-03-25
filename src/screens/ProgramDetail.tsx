@@ -1,15 +1,20 @@
 import { useState, useMemo } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { Icon } from '../components/Icon';
-import type { WorkoutProgram, ProgramDay, Exercise, WorkoutPlan } from '../types';
+import type { WorkoutProgram, ProgramDay, Exercise, WorkoutPlan, Equipment } from '../types';
 import { groupExercises, groupLabel } from '../group-utils';
 import { withBase } from '../base';
+import { sendMessage, isAIConfigured } from '../ai';
+import { parseWorkoutFromResponse } from '../ai-workout';
+import { uuid } from '../utils';
 
 interface ProgramDetailProps {
   program: WorkoutProgram | null;
   currentDay: number;
   onStartWorkout?: (plan: WorkoutPlan) => void;
   onClearProgram?: () => void;
+  onUpdateProgram?: (program: WorkoutProgram) => void;
+  equipment?: Equipment[];
 }
 
 const STYLE_COLORS: Record<string, string> = {
@@ -24,12 +29,206 @@ const STYLE_COLORS: Record<string, string> = {
   endurance: '#ec4899',
 };
 
-function DayCard({ day, isCurrent, isExpanded, onToggle, onStart }: {
+// --- Edit Exercise Modal with AI Quick Actions ---
+
+function EditExerciseModal({ exercise, dayPlan, equipment, onSave, onRemove, onClose }: {
+  exercise: Exercise;
+  dayPlan: WorkoutPlan;
+  equipment: Equipment[];
+  onSave: (updated: Exercise) => void;
+  onRemove: () => void;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState(exercise.name);
+  const [sets, setSets] = useState(exercise.sets.toString());
+  const [reps, setReps] = useState(exercise.reps);
+  const [weight, setWeight] = useState(exercise.weight?.toString() || '');
+  const [muscleGroup, setMuscleGroup] = useState(exercise.muscleGroup);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
+
+  const handleSave = () => {
+    onSave({
+      ...exercise,
+      name: name.trim() || exercise.name,
+      sets: parseInt(sets) || exercise.sets,
+      reps: reps.trim() || exercise.reps,
+      weight: weight ? Number(weight) : undefined,
+      muscleGroup: muscleGroup.trim() || exercise.muscleGroup,
+    });
+  };
+
+  const aiAction = async (action: 'substitute' | 'easier' | 'harder') => {
+    if (!isAIConfigured() || aiLoading) return;
+    setAiLoading(true);
+    setAiSuggestion(null);
+
+    const enabledEquip = equipment.filter((e) => e.enabled).map((e) => e.name);
+    const prompts: Record<string, string> = {
+      substitute: `Suggest a substitute for "${exercise.name}" (${exercise.muscleGroup}) that targets the same muscle group. My equipment: ${enabledEquip.join(', ') || 'bodyweight only'}. Reply with ONLY the exercise name, sets, and reps in this format: "Exercise Name | 3 sets × 10-12 reps"`,
+      easier: `Suggest an easier regression of "${exercise.name}" (currently ${exercise.sets}×${exercise.reps}). Same muscle group (${exercise.muscleGroup}). My equipment: ${enabledEquip.join(', ') || 'bodyweight only'}. Reply with ONLY the exercise name, sets, and reps in this format: "Exercise Name | 3 sets × 10-12 reps"`,
+      harder: `Suggest a harder progression of "${exercise.name}" (currently ${exercise.sets}×${exercise.reps}). Same muscle group (${exercise.muscleGroup}). My equipment: ${enabledEquip.join(', ') || 'bodyweight only'}. Reply with ONLY the exercise name, sets, and reps in this format: "Exercise Name | 3 sets × 10-12 reps"`,
+    };
+
+    try {
+      const response = await sendMessage(prompts[action], [], equipment, []);
+      setAiSuggestion(response);
+
+      // Try to auto-parse the suggestion
+      const match = response.match(/^(.+?)\s*\|\s*(\d+)\s*sets?\s*×\s*(.+?)\s*(?:reps?)?\s*$/im);
+      if (match) {
+        setName(match[1].trim());
+        setSets(match[2]);
+        setReps(match[3].trim());
+      }
+    } catch {
+      setAiSuggestion('Failed to get suggestion. Try again.');
+    }
+    setAiLoading(false);
+  };
+
+  return (
+    <div class="fixed inset-0 z-[100] flex items-end justify-center">
+      <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
+      <div class="relative w-full max-w-[430px] bg-bg-dark border-t border-white/10 rounded-t-2xl p-5 pb-8 animate-slide-up max-h-[85vh] overflow-y-auto">
+        <div class="w-10 h-1 bg-slate-600 rounded-full mx-auto mb-4"></div>
+        <h3 class="text-lg font-bold text-white mb-1">Edit Exercise</h3>
+        <p class="text-xs text-slate-500 mb-4">{dayPlan.name}</p>
+
+        {/* AI Quick Actions */}
+        {isAIConfigured() && (
+          <div class="mb-4">
+            <p class="text-[10px] text-slate-500 uppercase tracking-wider font-medium mb-2">AI Actions</p>
+            <div class="flex gap-2">
+              <button
+                onClick={() => aiAction('substitute')}
+                disabled={aiLoading}
+                class="flex-1 py-2 px-3 rounded-lg bg-primary/10 text-primary text-xs font-medium flex items-center justify-center gap-1.5 hover:bg-primary/20 transition-colors disabled:opacity-50"
+              >
+                <Icon name="swap_horiz" class="text-sm" />
+                Substitute
+              </button>
+              <button
+                onClick={() => aiAction('easier')}
+                disabled={aiLoading}
+                class="flex-1 py-2 px-3 rounded-lg bg-blue-500/10 text-blue-400 text-xs font-medium flex items-center justify-center gap-1.5 hover:bg-blue-500/20 transition-colors disabled:opacity-50"
+              >
+                <Icon name="arrow_downward" class="text-sm" />
+                Easier
+              </button>
+              <button
+                onClick={() => aiAction('harder')}
+                disabled={aiLoading}
+                class="flex-1 py-2 px-3 rounded-lg bg-orange-500/10 text-orange-400 text-xs font-medium flex items-center justify-center gap-1.5 hover:bg-orange-500/20 transition-colors disabled:opacity-50"
+              >
+                <Icon name="arrow_upward" class="text-sm" />
+                Harder
+              </button>
+            </div>
+            {aiLoading && (
+              <div class="flex items-center gap-2 mt-2 text-xs text-slate-400">
+                <div class="w-3.5 h-3.5 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+                Thinking...
+              </div>
+            )}
+            {aiSuggestion && !aiLoading && (
+              <div class="mt-2 p-2.5 rounded-lg bg-surface-dark border border-white/5 text-xs text-slate-300">
+                {aiSuggestion}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Form fields */}
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1 uppercase tracking-wider">Name</label>
+            <input
+              type="text"
+              value={name}
+              onInput={(e) => setName((e.target as HTMLInputElement).value)}
+              class="w-full bg-surface-dark border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-primary/50 focus:ring-1 focus:ring-primary/50"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1 uppercase tracking-wider">Muscle Group</label>
+            <input
+              type="text"
+              value={muscleGroup}
+              onInput={(e) => setMuscleGroup((e.target as HTMLInputElement).value)}
+              class="w-full bg-surface-dark border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-primary/50 focus:ring-1 focus:ring-primary/50"
+            />
+          </div>
+
+          <div class="grid grid-cols-3 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1 uppercase tracking-wider">Sets</label>
+              <input
+                type="number"
+                value={sets}
+                onInput={(e) => setSets((e.target as HTMLInputElement).value)}
+                class="w-full bg-surface-dark border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white text-center focus:border-primary/50 focus:ring-1 focus:ring-primary/50"
+              />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1 uppercase tracking-wider">Reps</label>
+              <input
+                type="text"
+                value={reps}
+                onInput={(e) => setReps((e.target as HTMLInputElement).value)}
+                placeholder="10-12"
+                class="w-full bg-surface-dark border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white text-center focus:border-primary/50 focus:ring-1 focus:ring-primary/50"
+              />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1 uppercase tracking-wider">Weight</label>
+              <input
+                type="number"
+                value={weight}
+                onInput={(e) => setWeight((e.target as HTMLInputElement).value)}
+                placeholder="lbs"
+                class="w-full bg-surface-dark border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white text-center focus:border-primary/50 focus:ring-1 focus:ring-primary/50"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="flex gap-3 mt-6">
+          <button
+            onClick={onRemove}
+            class="h-12 w-12 rounded-xl bg-red-500/10 text-red-400 flex items-center justify-center hover:bg-red-500/20 transition-colors shrink-0"
+            title="Remove exercise"
+          >
+            <Icon name="delete" />
+          </button>
+          <button
+            onClick={onClose}
+            class="flex-1 py-3 rounded-xl bg-surface-dark text-slate-300 font-semibold text-sm"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            class="flex-1 py-3 rounded-xl bg-primary text-bg-dark font-bold text-sm"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Day Card ---
+
+function DayCard({ day, isCurrent, isExpanded, onToggle, onStart, onEditExercise }: {
   day: ProgramDay;
   isCurrent: boolean;
   isExpanded: boolean;
   onToggle: () => void;
   onStart?: () => void;
+  onEditExercise?: (exercise: Exercise) => void;
 }) {
   const plan = day.plan;
   const styleColor = plan ? STYLE_COLORS[plan.style] || '#2bee79' : '#a78bfa';
@@ -60,7 +259,7 @@ function DayCard({ day, isCurrent, isExpanded, onToggle, onStart }: {
 
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2">
-            <h3 class={`font-semibold truncate ${isCurrent ? 'text-primary' : 'text-white'}`}>
+            <h3 class={`font-semibold ${isCurrent ? 'text-primary' : 'text-white'} ${isExpanded ? '' : 'truncate'}`}>
               {day.label}
             </h3>
             {isCurrent && (
@@ -69,7 +268,7 @@ function DayCard({ day, isCurrent, isExpanded, onToggle, onStart }: {
               </span>
             )}
           </div>
-          {plan && (
+          {plan && !isExpanded && (
             <div class="flex items-center gap-2 mt-0.5">
               <span class="text-xs" style={{ color: styleColor }}>
                 {plan.style.charAt(0).toUpperCase() + plan.style.slice(1)}
@@ -97,7 +296,7 @@ function DayCard({ day, isCurrent, isExpanded, onToggle, onStart }: {
           {day.isRest ? (
             <RestDayContent />
           ) : plan ? (
-            <DayWorkoutContent plan={plan} isCurrent={isCurrent} onStart={onStart} />
+            <DayWorkoutContent plan={plan} isCurrent={isCurrent} onStart={onStart} onEditExercise={onEditExercise} />
           ) : null}
         </div>
       )}
@@ -128,10 +327,11 @@ function RestDayContent() {
   );
 }
 
-function DayWorkoutContent({ plan, isCurrent, onStart }: {
+function DayWorkoutContent({ plan, isCurrent, onStart, onEditExercise }: {
   plan: WorkoutPlan;
   isCurrent: boolean;
   onStart?: () => void;
+  onEditExercise?: (exercise: Exercise) => void;
 }) {
   const groups = useMemo(() => groupExercises(plan.exercises), [plan.exercises]);
   let counter = 0;
@@ -182,7 +382,7 @@ function DayWorkoutContent({ plan, isCurrent, onStart }: {
           if (group.type === 'standalone') {
             counter++;
             const ex = group.exercises[0];
-            return <CompactExerciseRow key={group.groupId} ex={ex} num={counter} />;
+            return <CompactExerciseRow key={group.groupId} ex={ex} num={counter} onTap={onEditExercise ? () => onEditExercise(ex) : undefined} />;
           }
 
           const badge = group.groupId;
@@ -195,7 +395,7 @@ function DayWorkoutContent({ plan, isCurrent, onStart }: {
               <div class="border-l-2 border-primary/30 pl-2.5 space-y-1.5">
                 {group.exercises.map((ex) => {
                   counter++;
-                  return <CompactExerciseRow key={ex.id} ex={ex} num={counter} badge={badge} />;
+                  return <CompactExerciseRow key={ex.id} ex={ex} num={counter} badge={badge} onTap={onEditExercise ? () => onEditExercise(ex) : undefined} />;
                 })}
               </div>
             </div>
@@ -217,9 +417,12 @@ function DayWorkoutContent({ plan, isCurrent, onStart }: {
   );
 }
 
-function CompactExerciseRow({ ex, num, badge }: { ex: Exercise; num: number; badge?: string }) {
+function CompactExerciseRow({ ex, num, badge, onTap }: { ex: Exercise; num: number; badge?: string; onTap?: () => void }) {
   return (
-    <div class="flex items-center gap-3 bg-surface-darker/60 rounded-lg p-2.5">
+    <div
+      onClick={onTap}
+      class={`flex items-center gap-3 bg-surface-darker/60 rounded-lg p-2.5 ${onTap ? 'cursor-pointer hover:bg-surface-darker active:scale-[0.98] transition-all' : ''}`}
+    >
       <span class="w-6 h-6 rounded-md bg-surface-dark flex items-center justify-center text-xs font-bold text-primary/50 shrink-0">
         {badge || num}
       </span>
@@ -227,19 +430,25 @@ function CompactExerciseRow({ ex, num, badge }: { ex: Exercise; num: number; bad
         <span class="text-sm text-white truncate block">{ex.name}</span>
         <span class="text-xs text-slate-500">{ex.muscleGroup}</span>
       </div>
-      <div class="text-right shrink-0">
-        <span class="text-xs text-slate-300">{ex.sets}×{ex.reps}</span>
-        {ex.weight && (
-          <span class="text-[10px] text-slate-500 block">{ex.weight} lbs</span>
-        )}
+      <div class="text-right shrink-0 flex items-center gap-2">
+        <div>
+          <span class="text-xs text-slate-300">{ex.sets}×{ex.reps}</span>
+          {ex.weight && (
+            <span class="text-[10px] text-slate-500 block">{ex.weight} lbs</span>
+          )}
+        </div>
+        {onTap && <Icon name="edit" class="text-slate-600 text-sm" />}
       </div>
     </div>
   );
 }
 
-export function ProgramDetail({ program, currentDay, onStartWorkout, onClearProgram }: ProgramDetailProps) {
+// --- Main Component ---
+
+export function ProgramDetail({ program, currentDay, onStartWorkout, onClearProgram, onUpdateProgram, equipment }: ProgramDetailProps) {
   const { route } = useLocation();
   const [expandedDay, setExpandedDay] = useState<number>(currentDay);
+  const [editingExercise, setEditingExercise] = useState<{ exercise: Exercise; dayNumber: number } | null>(null);
 
   if (!program) {
     return (
@@ -257,6 +466,55 @@ export function ProgramDetail({ program, currentDay, onStartWorkout, onClearProg
       </div>
     );
   }
+
+  const handleSaveExercise = (updated: Exercise) => {
+    if (!editingExercise || !onUpdateProgram) return;
+    const { dayNumber } = editingExercise;
+
+    const updatedProgram: WorkoutProgram = {
+      ...program,
+      days: program.days.map((day) => {
+        if (day.dayNumber !== dayNumber || !day.plan) return day;
+        return {
+          ...day,
+          plan: {
+            ...day.plan,
+            exercises: day.plan.exercises.map((ex) =>
+              ex.id === updated.id ? updated : ex
+            ),
+          },
+        };
+      }),
+    };
+    onUpdateProgram(updatedProgram);
+    setEditingExercise(null);
+  };
+
+  const handleRemoveExercise = () => {
+    if (!editingExercise || !onUpdateProgram) return;
+    const { exercise, dayNumber } = editingExercise;
+
+    const updatedProgram: WorkoutProgram = {
+      ...program,
+      days: program.days.map((day) => {
+        if (day.dayNumber !== dayNumber || !day.plan) return day;
+        return {
+          ...day,
+          plan: {
+            ...day.plan,
+            exercises: day.plan.exercises.filter((ex) => ex.id !== exercise.id),
+          },
+        };
+      }),
+    };
+    onUpdateProgram(updatedProgram);
+    setEditingExercise(null);
+  };
+
+  // Find the plan for the currently edited exercise's day
+  const editingDayPlan = editingExercise
+    ? program.days.find((d) => d.dayNumber === editingExercise.dayNumber)?.plan
+    : null;
 
   // Compute summary stats
   const workoutDays = program.days.filter((d) => !d.isRest);
@@ -372,10 +630,27 @@ export function ProgramDetail({ program, currentDay, onStartWorkout, onClearProg
                   ? () => onStartWorkout(day.plan!)
                   : undefined
               }
+              onEditExercise={
+                onUpdateProgram
+                  ? (exercise) => setEditingExercise({ exercise, dayNumber: day.dayNumber })
+                  : undefined
+              }
             />
           ))}
         </div>
       </div>
+
+      {/* Edit exercise modal */}
+      {editingExercise && editingDayPlan && (
+        <EditExerciseModal
+          exercise={editingExercise.exercise}
+          dayPlan={editingDayPlan}
+          equipment={equipment || []}
+          onSave={handleSaveExercise}
+          onRemove={handleRemoveExercise}
+          onClose={() => setEditingExercise(null)}
+        />
+      )}
     </div>
   );
 }

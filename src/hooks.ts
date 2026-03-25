@@ -190,6 +190,12 @@ export function useWorkoutProgram(equipment: Equipment[]) {
     return program.days.find((d) => d.dayNumber === dayNumber) || null;
   }, [program]);
 
+  const updateProgram = useCallback(async (updated: WorkoutProgram) => {
+    await db.saveProgram(updated);
+    setProgram(updated);
+    setTodayPlan(computeTodayDay(updated));
+  }, [computeTodayDay]);
+
   const clearProgram = useCallback(async () => {
     if (program) {
       await db.deleteProgram(program.id);
@@ -198,7 +204,7 @@ export function useWorkoutProgram(equipment: Equipment[]) {
     }
   }, [program]);
 
-  return { program, loading, todayPlan, generateProgram, getDayPlan, clearProgram };
+  return { program, loading, todayPlan, generateProgram, getDayPlan, clearProgram, updateProgram };
 }
 
 export function useSessions() {

@@ -29,7 +29,7 @@ export function App() {
   const { messages, addMessage, clear: clearChat } = useChat();
   const { profile, updateProfile } = useProfile();
   const { entries: weightHistory, addEntry: addWeight, removeEntry: removeWeight } = useWeightHistory();
-  const { program, loading: programLoading, todayPlan: todayProgramDay, generateProgram, clearProgram } = useWorkoutProgram(equipment);
+  const { program, loading: programLoading, todayPlan: todayProgramDay, generateProgram, clearProgram, updateProgram } = useWorkoutProgram(equipment);
 
   const nav = useCallback((path: string) => route(withBase(path)), [route]);
 
@@ -181,6 +181,8 @@ export function App() {
           currentDay={todayProgramDay?.dayNumber || 1}
           onStartWorkout={handleStartProgramWorkout}
           onClearProgram={clearProgram}
+          onUpdateProgram={updateProgram}
+          equipment={equipment}
         />
         <Route
           default
