@@ -532,7 +532,7 @@ export function ProgramDetail({ program, currentDay, onStartWorkout, onClearProg
   return (
     <div class="pb-24 overflow-y-auto">
       {/* Header */}
-      <div class="sticky top-0 z-30 bg-bg-dark/95 backdrop-blur-md border-b border-white/5">
+      <div class="sticky top-0 z-30 bg-bg-dark/95 backdrop-blur-md border-b border-white/5 pt-[env(safe-area-inset-top)]">
         <div class="max-w-[430px] mx-auto flex items-center gap-3 px-5 py-3">
           <button
             onClick={() => route(withBase('/'))}
