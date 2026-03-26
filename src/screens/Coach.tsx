@@ -108,10 +108,20 @@ export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, se
   const [setupKey, setSetupKey] = useState('');
   const [setupProvider, setSetupProvider] = useState<'anthropic' | 'openai'>('anthropic');
   const hasSentAdjust = useRef(false);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
+
+  // Detect iOS keyboard open/close to hide BottomNav spacer
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const onResize = () => setKeyboardOpen(window.innerHeight - vv.height > 100);
+    vv.addEventListener('resize', onResize);
+    return () => vv.removeEventListener('resize', onResize);
+  }, []);
 
   // Auto-send adjustment request when coming from Home
   useEffect(() => {
@@ -229,7 +239,7 @@ export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, se
   };
 
   return (
-    <div class="flex flex-col h-full bg-bg-dark">
+    <div class="flex flex-col bg-bg-dark" style="height: 100dvh;">
       {/* Header */}
       <header class="sticky top-0 z-50 bg-bg-dark/95 backdrop-blur-sm border-b border-white/5 px-4 pt-4 pt-safe pb-3 flex items-center justify-between">
         <div class="w-10">
@@ -259,7 +269,7 @@ export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, se
       </header>
 
       {/* Chat area */}
-      <main class="flex-1 overflow-y-auto p-4 space-y-4 pb-56">
+      <main class="flex-1 overflow-y-auto p-4 space-y-4 pb-4">
         {!configured && messages.length === 0 && (
           <div class="text-center py-8">
             <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-surface-dark border border-white/10 flex items-center justify-center">
@@ -393,11 +403,8 @@ export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, se
         <div ref={chatEndRef}></div>
       </main>
 
-      {/* Bottom input area - sits above BottomNav (~70px) */}
-      <div class="fixed bottom-nav-offset left-0 w-full bg-bg-dark border-t border-white/5 z-40 pb-2 pt-2 max-w-[430px] mx-auto" style="left: 50%; transform: translateX(-50%);">
-        <div class="absolute top-[-20px] left-0 w-full h-20 bg-gradient-to-t from-bg-dark to-transparent pointer-events-none -z-10"></div>
-
-        {/* Input */}
+      {/* Bottom input area */}
+      <div class="shrink-0 bg-bg-dark border-t border-white/5 pt-2 pb-2">
         <div class="px-4 flex items-end gap-2">
           <div class="flex-1 bg-surface-dark rounded-xl border border-white/10 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/50 transition-all flex items-center px-3 py-2">
             <input
@@ -419,6 +426,8 @@ export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, se
             <Icon name="arrow_upward" class="text-[24px] font-bold" filled />
           </button>
         </div>
+        {/* Spacer for BottomNav — hidden when keyboard is open */}
+        {!keyboardOpen && <div style="height: calc(76px + env(safe-area-inset-bottom, 0px));"></div>}
       </div>
     </div>
   );
