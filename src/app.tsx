@@ -105,6 +105,10 @@ export function App() {
   const workoutGenTask = useAITaskByType('workout-gen');
   const isGeneratingWorkout = workoutGenTask?.status === 'running';
 
+  const currentPath = stripBase(path);
+  const showBanner = workoutIsActive && currentPath !== '/workout';
+
+
   // Workout completion celebration screen
   if (completedSession) {
     return (
@@ -114,9 +118,6 @@ export function App() {
       />
     );
   }
-
-  const currentPath = stripBase(path);
-  const showBanner = workoutIsActive && currentPath !== '/workout';
 
   return (
     <div class="h-full flex flex-col relative">
