@@ -79,6 +79,10 @@ export function App() {
     setActiveWorkoutPlan(programPlan);
   }, []);
 
+  // Hooks must be called before any conditional returns
+  const workoutGenTask = useAITaskByType('workout-gen');
+  const isGeneratingWorkout = workoutGenTask?.status === 'running';
+
   // Workout completion celebration screen
   if (completedSession) {
     return (
@@ -99,9 +103,6 @@ export function App() {
       />
     );
   }
-
-  const workoutGenTask = useAITaskByType('workout-gen');
-  const isGeneratingWorkout = workoutGenTask?.status === 'running';
 
   return (
     <div class="h-full flex flex-col relative">
