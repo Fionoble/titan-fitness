@@ -39,7 +39,7 @@ export function WorkoutBanner({ activeWorkout, onResume, onEnd }: WorkoutBannerP
     <>
       <button
         onClick={onResume}
-        class="fixed bottom-[calc(70px+var(--pwa-bottom-nudge,0px))] left-0 right-0 z-40 flex justify-center"
+        class="fixed top-[env(safe-area-inset-top,0px)] left-0 right-0 z-40 flex justify-center"
       >
         <div class="max-w-[430px] w-full px-4">
           <div class="bg-primary/95 backdrop-blur-sm rounded-xl px-4 py-3 flex items-center gap-3 shadow-lg shadow-primary/30 active:scale-[0.98] transition-transform">
