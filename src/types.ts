@@ -83,6 +83,10 @@ export interface UserProfile {
   gender?: 'male' | 'female' | 'other';
   restTimerSound?: boolean;
   workoutMode?: 'daily' | 'program'; // defaults to 'daily'
+  avgWorkoutMinutes?: number; // preferred workout duration in minutes
+  programActiveDays?: number; // number of active (non-rest) days in a 7-day program (default 6)
+  countIn?: boolean; // count-in timer before timed exercises
+  countInSeconds?: 3 | 5 | 7; // count-in duration
   createdAt: string;
 }
 

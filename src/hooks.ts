@@ -85,7 +85,9 @@ export function useTodayWorkout(equipment: Equipment[]) {
           // Auto-generation on load doesn't need prior conversation context
           const chatHistory = (style || criteria) ? await db.getChatMessages() : [];
           const effectiveCriteria = criteria || (style ? { style: style as any } : undefined);
-          const aiResult = await generateWorkoutViaAI(equipment, sessions, chatHistory, effectiveCriteria);
+          const profile = await db.getProfile();
+          const profileCtx = profile ? { injuries: profile.injuries, additionalEquipment: profile.additionalEquipment, avgWorkoutMinutes: profile.avgWorkoutMinutes } : undefined;
+          const aiResult = await generateWorkoutViaAI(equipment, sessions, chatHistory, effectiveCriteria, profileCtx);
           if (aiResult) {
             const planWithWeights = applyPrevWeights(aiResult.plan, prevWeights);
             await db.savePlan(planWithWeights);
@@ -298,9 +300,15 @@ export function useProfile() {
     db.getProfile().then((p) => {
       if (p) {
         setProfile(p);
-        // Sync rest timer sound setting to localStorage for fast access in timer callbacks
+        // Sync timer settings to localStorage for fast access in timer callbacks
         if (p.restTimerSound !== undefined) {
           localStorage.setItem('titan_rest_sound', String(p.restTimerSound));
+        }
+        if (p.countIn !== undefined) {
+          localStorage.setItem('titan_count_in', String(p.countIn));
+        }
+        if (p.countInSeconds !== undefined) {
+          localStorage.setItem('titan_count_in_seconds', String(p.countInSeconds));
         }
       } else {
         const defaultProfile: UserProfile = { name: 'User', createdAt: new Date().toISOString() };

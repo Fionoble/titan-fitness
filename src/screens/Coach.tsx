@@ -186,7 +186,7 @@ export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, se
     const allMessages = [...messages, userMsg];
 
     runTask(taskId, 'coach-chat', async () => {
-      const profileContext = profile ? { injuries: profile.injuries, additionalEquipment: profile.additionalEquipment } : undefined;
+      const profileContext = profile ? { injuries: profile.injuries, additionalEquipment: profile.additionalEquipment, avgWorkoutMinutes: profile.avgWorkoutMinutes } : undefined;
       const response = await sendMessage(msg, allMessages, equipment, sessions, profileContext);
 
       // Check if the response contains a workout plan

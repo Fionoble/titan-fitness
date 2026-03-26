@@ -35,6 +35,10 @@ export function Profile({ profile, sessions, onUpdateProfile, onNavigateEquipmen
     return stored !== 'false'; // default ON
   });
   const [workoutMode, setWorkoutMode] = useState<'daily' | 'program'>(profile?.workoutMode || 'daily');
+  const [avgWorkoutMinutes, setAvgWorkoutMinutes] = useState<string>(profile?.avgWorkoutMinutes?.toString() || '');
+  const [programActiveDays, setProgramActiveDays] = useState(profile?.programActiveDays ?? 6);
+  const [countIn, setCountIn] = useState(profile?.countIn ?? false);
+  const [countInSeconds, setCountInSeconds] = useState<3 | 5 | 7>(profile?.countInSeconds ?? 3);
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -354,81 +358,171 @@ export function Profile({ profile, sessions, onUpdateProfile, onNavigateEquipmen
             <Icon name="chevron_right" class="text-slate-500" />
           </button>
 
-          <div
-            class="w-full flex items-center justify-between p-4 bg-surface-dark rounded-xl border border-white/5"
-          >
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-400">
-                <Icon name="volume_up" />
-              </div>
-              <div class="text-left">
-                <p class="font-semibold text-white">Rest Timer Sound</p>
-                <p class="text-xs text-slate-400">Beep when rest period ends</p>
-              </div>
-            </div>
-            <button
-              onClick={() => {
-                const next = !restTimerSound;
-                setRestTimerSound(next);
-                localStorage.setItem('titan_rest_sound', String(next));
-                onUpdateProfile({ restTimerSound: next });
-              }}
-              class={`relative w-12 h-7 rounded-full transition-colors ${restTimerSound ? 'bg-primary' : 'bg-white/10'}`}
-            >
-              <div class={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${restTimerSound ? 'translate-x-[22px]' : 'translate-x-0.5'}`}></div>
-            </button>
-          </div>
-
-          {/* Workout Mode */}
+          {/* Workout Preferences */}
           <div class="bg-surface-dark rounded-xl border border-white/5 overflow-hidden">
-            <div class="flex items-center gap-3 p-4">
-              <div class="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-400">
-                <Icon name="calendar_month" />
+            <div class="flex items-center gap-3 p-4 border-b border-white/5">
+              <div class="w-10 h-10 rounded-lg bg-violet-500/10 flex items-center justify-center text-violet-400">
+                <Icon name="tune" />
               </div>
               <div class="text-left flex-1">
-                <p class="font-semibold text-white">Workout Mode</p>
-                <p class="text-xs text-slate-400">How your workouts are generated</p>
+                <p class="font-semibold text-white">Workout Preferences</p>
+                <p class="text-xs text-slate-400">Customize your training experience</p>
               </div>
             </div>
-            <div class="px-4 pb-4 space-y-2">
-              <button
-                onClick={() => {
-                  setWorkoutMode('daily');
-                  onUpdateProfile({ workoutMode: 'daily' });
-                }}
-                class={`w-full text-left p-3 rounded-lg border transition-colors ${
-                  workoutMode === 'daily'
-                    ? 'border-primary/40 bg-primary/10'
-                    : 'border-white/5 bg-bg-dark hover:border-white/10'
-                }`}
-              >
-                <div class="flex items-center gap-2 mb-1">
-                  {workoutMode === 'daily' && (
-                    <Icon name="check_circle" class="text-primary text-sm" />
-                  )}
-                  <span class={`text-sm font-semibold ${workoutMode === 'daily' ? 'text-primary' : 'text-white'}`}>Daily</span>
-                </div>
-                <p class="text-xs text-slate-400 ml-0">Fresh AI-generated workout each day based on your history and equipment.</p>
-              </button>
-              <button
-                onClick={() => {
-                  setWorkoutMode('program');
-                  onUpdateProfile({ workoutMode: 'program' });
-                }}
-                class={`w-full text-left p-3 rounded-lg border transition-colors ${
-                  workoutMode === 'program'
-                    ? 'border-primary/40 bg-primary/10'
-                    : 'border-white/5 bg-bg-dark hover:border-white/10'
-                }`}
-              >
-                <div class="flex items-center gap-2 mb-1">
+
+            <div class="divide-y divide-white/5">
+              {/* Workout Mode */}
+              <div class="p-4">
+                <p class="text-sm font-medium text-white mb-2">Workout Mode</p>
+                <div class="space-y-2">
+                  <button
+                    onClick={() => {
+                      setWorkoutMode('daily');
+                      onUpdateProfile({ workoutMode: 'daily' });
+                    }}
+                    class={`w-full text-left p-3 rounded-lg border transition-colors ${
+                      workoutMode === 'daily'
+                        ? 'border-primary/40 bg-primary/10'
+                        : 'border-white/5 bg-bg-dark hover:border-white/10'
+                    }`}
+                  >
+                    <div class="flex items-center gap-2 mb-1">
+                      {workoutMode === 'daily' && (
+                        <Icon name="check_circle" class="text-primary text-sm" />
+                      )}
+                      <span class={`text-sm font-semibold ${workoutMode === 'daily' ? 'text-primary' : 'text-white'}`}>Daily</span>
+                    </div>
+                    <p class="text-xs text-slate-400">Fresh AI-generated workout each day based on your history and equipment.</p>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setWorkoutMode('program');
+                      onUpdateProfile({ workoutMode: 'program' });
+                    }}
+                    class={`w-full text-left p-3 rounded-lg border transition-colors ${
+                      workoutMode === 'program'
+                        ? 'border-primary/40 bg-primary/10'
+                        : 'border-white/5 bg-bg-dark hover:border-white/10'
+                    }`}
+                  >
+                    <div class="flex items-center gap-2 mb-1">
+                      {workoutMode === 'program' && (
+                        <Icon name="check_circle" class="text-primary text-sm" />
+                      )}
+                      <span class={`text-sm font-semibold ${workoutMode === 'program' ? 'text-primary' : 'text-white'}`}>Program</span>
+                    </div>
+                    <p class="text-xs text-slate-400">Follow a structured 7-day program with a planned split and rest days.</p>
+                  </button>
                   {workoutMode === 'program' && (
-                    <Icon name="check_circle" class="text-primary text-sm" />
+                    <div class="p-3 rounded-lg border border-white/5 bg-bg-dark">
+                      <p class="text-xs font-medium text-slate-400 mb-2">Active days per week</p>
+                      <div class="flex gap-1.5">
+                        {[3, 4, 5, 6].map((d) => (
+                          <button
+                            key={d}
+                            onClick={() => {
+                              setProgramActiveDays(d);
+                              onUpdateProfile({ programActiveDays: d });
+                            }}
+                            class={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                              programActiveDays === d
+                                ? 'bg-primary text-bg-dark'
+                                : 'bg-surface-dark text-slate-300 hover:bg-white/10'
+                            }`}
+                          >
+                            {d}
+                          </button>
+                        ))}
+                      </div>
+                      <p class="text-[11px] text-slate-500 mt-1.5">{7 - programActiveDays} rest day{7 - programActiveDays !== 1 ? 's' : ''} per week</p>
+                    </div>
                   )}
-                  <span class={`text-sm font-semibold ${workoutMode === 'program' ? 'text-primary' : 'text-white'}`}>Program</span>
                 </div>
-                <p class="text-xs text-slate-400 ml-0">Follow a structured 7-day program with a planned split and rest days.</p>
-              </button>
+              </div>
+
+              {/* Average Workout Time */}
+              <div class="p-4 flex items-center justify-between">
+                <div>
+                  <p class="text-sm font-medium text-white">Workout Duration</p>
+                  <p class="text-xs text-slate-400">Target length for generated workouts</p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={avgWorkoutMinutes}
+                    placeholder="—"
+                    onInput={(e) => {
+                      const val = (e.target as HTMLInputElement).value;
+                      setAvgWorkoutMinutes(val);
+                      const num = parseInt(val, 10);
+                      onUpdateProfile({ avgWorkoutMinutes: num > 0 ? num : undefined });
+                    }}
+                    class="w-16 bg-bg-dark border border-white/10 rounded-lg text-center text-white text-sm p-2 focus:border-primary/50 focus:ring-1 focus:ring-primary/50"
+                  />
+                  <span class="text-xs text-slate-400">min</span>
+                </div>
+              </div>
+
+              {/* Rest Timer Sound */}
+              <div class="p-4 flex items-center justify-between">
+                <div>
+                  <p class="text-sm font-medium text-white">Rest Timer Sound</p>
+                  <p class="text-xs text-slate-400">Beep when rest period ends</p>
+                </div>
+                <button
+                  onClick={() => {
+                    const next = !restTimerSound;
+                    setRestTimerSound(next);
+                    localStorage.setItem('titan_rest_sound', String(next));
+                    onUpdateProfile({ restTimerSound: next });
+                  }}
+                  class={`relative w-12 h-7 rounded-full transition-colors ${restTimerSound ? 'bg-primary' : 'bg-white/10'}`}
+                >
+                  <div class={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${restTimerSound ? 'translate-x-[22px]' : 'translate-x-0.5'}`}></div>
+                </button>
+              </div>
+
+              {/* Count-in Timer */}
+              <div class="p-4">
+                <div class="flex items-center justify-between mb-2">
+                  <div>
+                    <p class="text-sm font-medium text-white">Count-in Timer</p>
+                    <p class="text-xs text-slate-400">Countdown before timed exercises</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const next = !countIn;
+                      setCountIn(next);
+                      localStorage.setItem('titan_count_in', String(next));
+                      onUpdateProfile({ countIn: next });
+                    }}
+                    class={`relative w-12 h-7 rounded-full transition-colors ${countIn ? 'bg-primary' : 'bg-white/10'}`}
+                  >
+                    <div class={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${countIn ? 'translate-x-[22px]' : 'translate-x-0.5'}`}></div>
+                  </button>
+                </div>
+                {countIn && (
+                  <div class="flex gap-2 mt-3">
+                    {([3, 5, 7] as const).map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => {
+                          setCountInSeconds(s);
+                          localStorage.setItem('titan_count_in_seconds', String(s));
+                          onUpdateProfile({ countInSeconds: s });
+                        }}
+                        class={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          countInSeconds === s
+                            ? 'bg-primary text-bg-dark'
+                            : 'bg-bg-dark text-slate-300 border border-white/10 hover:border-white/20'
+                        }`}
+                      >
+                        {s}s
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

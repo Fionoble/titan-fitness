@@ -108,12 +108,13 @@ export async function generateWorkoutViaAI(
   equipment: Equipment[],
   sessions: WorkoutSession[],
   chatHistory: ChatMessage[],
-  criteria?: WorkoutCriteria
+  criteria?: WorkoutCriteria,
+  profileContext?: { injuries?: string; additionalEquipment?: string; avgWorkoutMinutes?: number }
 ): Promise<{ plan: WorkoutPlan; message: string } | null> {
   if (!isAIConfigured()) return null;
 
   const prompt = buildWorkoutPrompt(equipment, criteria);
-  const response = await sendMessage(prompt, chatHistory, equipment, sessions);
+  const response = await sendMessage(prompt, chatHistory, equipment, sessions, profileContext);
   const plan = parseWorkoutFromResponse(response);
 
   if (!plan) return null;

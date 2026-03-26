@@ -41,6 +41,22 @@ function playRestBeep() {
   }
 }
 
+function playCountInBeep(final = false) {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') ctx.resume();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.frequency.value = final ? 1046.5 : 660; // C6 on final, E5 on count
+  osc.type = 'sine';
+  gain.gain.value = 0.35;
+  gain.gain.setTargetAtTime(0, ctx.currentTime + 0.1, 0.02);
+  osc.start(ctx.currentTime);
+  osc.stop(ctx.currentTime + 0.15);
+}
+
 interface ActiveWorkoutProps {
   plan: WorkoutPlan;
   onComplete: (session: WorkoutSession) => void;
@@ -520,7 +536,72 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
     }
   }, [plan.exercises, scrollToGroupExercise]);
 
+  // Count-in timer state
+  const [countInTimer, setCountInTimer] = useState<number | null>(null);
+  const countInRef = useRef<ReturnType<typeof setInterval>>();
+  const countInPendingRef = useRef<{ logIdx: number; setIdx: number; mode: 'countdown' | 'countup' } | null>(null);
+
+  const skipCountIn = useCallback(() => {
+    setCountInTimer(null);
+    clearInterval(countInRef.current);
+    const pending = countInPendingRef.current;
+    if (pending) {
+      countInPendingRef.current = null;
+      const exercise = plan.exercises[pending.logIdx];
+      const targetSec = parseTimeSeconds(exercise.reps);
+      setExTimer({
+        logIdx: pending.logIdx,
+        setIdx: pending.setIdx,
+        seconds: pending.mode === 'countdown' ? targetSec : 0,
+        running: true,
+        mode: pending.mode,
+      });
+    }
+  }, [plan.exercises]);
+
+  // Count-in countdown effect
+  useEffect(() => {
+    if (countInTimer !== null && countInTimer > 0) {
+      playCountInBeep(false);
+      countInRef.current = setInterval(() => {
+        setCountInTimer((c) => {
+          if (c !== null && c <= 1) {
+            clearInterval(countInRef.current);
+            playCountInBeep(true);
+            // Start the actual exercise timer
+            const pending = countInPendingRef.current;
+            if (pending) {
+              countInPendingRef.current = null;
+              const exercise = plan.exercises[pending.logIdx];
+              const targetSec = parseTimeSeconds(exercise.reps);
+              setExTimer({
+                logIdx: pending.logIdx,
+                setIdx: pending.setIdx,
+                seconds: pending.mode === 'countdown' ? targetSec : 0,
+                running: true,
+                mode: pending.mode,
+              });
+            }
+            return null;
+          }
+          if (c !== null && c > 1) playCountInBeep(false);
+          return c !== null ? c - 1 : null;
+        });
+      }, 1000);
+      return () => clearInterval(countInRef.current);
+    }
+  }, [countInTimer !== null && countInTimer > 0]); // only re-run when count-in starts
+
   const startExTimer = useCallback((logIdx: number, setIdx: number, mode: 'countdown' | 'countup') => {
+    // Check if count-in is enabled
+    const countInEnabled = localStorage.getItem('titan_count_in') === 'true';
+    if (countInEnabled) {
+      const seconds = parseInt(localStorage.getItem('titan_count_in_seconds') || '3', 10) as 3 | 5 | 7;
+      countInPendingRef.current = { logIdx, setIdx, mode };
+      setCountInTimer(seconds);
+      return;
+    }
+
     const exercise = plan.exercises[logIdx];
     const targetSec = parseTimeSeconds(exercise.reps);
     setExTimer({
@@ -1014,6 +1095,20 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
           renderSetGrid(currentGroup.exercises[0], exIdToLogIdx.get(currentGroup.exercises[0].id)!, true)
         )}
       </main>
+
+      {/* Count-in overlay */}
+      {countInTimer !== null && (
+        <div class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-bg-dark/90 backdrop-blur-lg rounded-2xl p-8 text-center border border-amber-500/20 shadow-2xl">
+          <p class="text-slate-400 text-sm uppercase tracking-wider mb-2">Get Ready</p>
+          <p class="text-7xl font-bold text-amber-400 mb-4">{countInTimer}</p>
+          <button
+            onClick={skipCountIn}
+            class="text-sm text-slate-400 hover:text-white transition-colors"
+          >
+            Skip
+          </button>
+        </div>
+      )}
 
       {/* Rest timer overlay */}
       {restTimer !== null && (

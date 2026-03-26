@@ -89,7 +89,7 @@ You may group 2-3 complementary exercises as supersets by giving them the same g
 
 const WORKOUT_KEYWORDS = /\b(generate|create|make|build|give me|adjust|modify|change|update|swap|replace|new workout|workout plan)\b/i;
 
-function buildSystemPrompt(equipment: Equipment[], recentSessions: WorkoutSession[], injuries?: string, additionalEquipment?: string, includeWorkoutSchema?: boolean): string {
+function buildSystemPrompt(equipment: Equipment[], recentSessions: WorkoutSession[], injuries?: string, additionalEquipment?: string, includeWorkoutSchema?: boolean, avgWorkoutMinutes?: number): string {
   const enabledEquip = equipment.filter((e) => e.enabled).map((e) => e.name);
   const recentWorkouts = recentSessions.slice(0, 5).map((s) => {
     const days = daysAgo(s.startedAt);
@@ -105,6 +105,7 @@ USER'S HOME GYM EQUIPMENT:
 ${enabledEquip.length > 0 ? enabledEquip.map((e) => `- ${e}`).join('\n') : '- No equipment configured yet (bodyweight only)'}
 ${additionalEquipment ? `\nADDITIONAL EQUIPMENT/NOTES:\n${additionalEquipment}` : ''}
 ${injuries ? `\nCURRENT INJURIES/LIMITATIONS:\n${injuries}\nIMPORTANT: Always account for these injuries. Avoid exercises that aggravate them and suggest alternatives.` : ''}
+${avgWorkoutMinutes ? `\nPREFERRED WORKOUT DURATION: ${avgWorkoutMinutes} minutes\nIMPORTANT: Design workouts to fit within this time frame. Adjust the number of exercises and sets accordingly.` : ''}
 
 RECENT WORKOUT HISTORY:
 ${recentWorkouts.length > 0 ? recentWorkouts.join('\n') : '- No recent workouts yet'}
@@ -131,7 +132,7 @@ export async function sendMessage(
   chatHistory: ChatMessage[],
   equipment: Equipment[],
   recentSessions: WorkoutSession[],
-  profileContext?: { injuries?: string; additionalEquipment?: string }
+  profileContext?: { injuries?: string; additionalEquipment?: string; avgWorkoutMinutes?: number }
 ): Promise<string> {
   const config = getConfig();
   if (!config) {
@@ -144,6 +145,7 @@ export async function sendMessage(
     profileContext?.injuries,
     profileContext?.additionalEquipment,
     true,
+    profileContext?.avgWorkoutMinutes,
   );
 
   // Truncate history early to avoid passing large arrays through the stack
@@ -268,7 +270,7 @@ async function callOpenAI(apiKey: string, system: string, history: ChatMessage[]
   return data.choices[0].message.content;
 }
 
-export function buildProgramSystemPrompt(equipment: Equipment[], recentSessions: WorkoutSession[], injuries?: string, additionalEquipment?: string): string {
+export function buildProgramSystemPrompt(equipment: Equipment[], recentSessions: WorkoutSession[], injuries?: string, additionalEquipment?: string, avgWorkoutMinutes?: number, programActiveDays?: number): string {
   const enabledEquip = equipment.filter((e) => e.enabled).map((e) => e.name);
   const recentWorkouts = recentSessions.slice(0, 5).map((s) => {
     const exercises = s.exercises.map((e) => `${e.exerciseName} (${e.sets.length} sets)`).join(', ');
@@ -281,13 +283,14 @@ USER'S HOME GYM EQUIPMENT:
 ${enabledEquip.length > 0 ? enabledEquip.map((e) => `- ${e}`).join('\n') : '- No equipment configured yet (bodyweight only)'}
 ${additionalEquipment ? `\nADDITIONAL EQUIPMENT/NOTES:\n${additionalEquipment}` : ''}
 ${injuries ? `\nCURRENT INJURIES/LIMITATIONS:\n${injuries}\nIMPORTANT: Always account for these injuries. Avoid exercises that aggravate them and suggest alternatives.` : ''}
+${avgWorkoutMinutes ? `\nPREFERRED WORKOUT DURATION: ${avgWorkoutMinutes} minutes\nIMPORTANT: Design each workout day to fit within this time frame.` : ''}
 
 RECENT WORKOUT HISTORY:
 ${recentWorkouts.length > 0 ? recentWorkouts.join('\n') : '- No recent workouts yet'}
 
 PROGRAM DESIGN GUIDELINES:
 - Design a balanced weekly split with proper muscle group recovery (e.g., Push/Pull/Legs, Upper/Lower, Full Body rotations)
-- Include 1-2 rest or active recovery days
+- The program must have exactly ${programActiveDays || 6} active workout days and ${7 - (programActiveDays || 6)} rest/recovery day${7 - (programActiveDays || 6) !== 1 ? 's' : ''}. Spread rest days evenly through the week for optimal recovery.
 - Progress difficulty through the week (harder sessions early, lighter towards the end)
 - Only use exercises the user can do with their available equipment
 - Reference their workout history for progressive overload
@@ -339,14 +342,14 @@ export async function sendProgramMessage(
   userMessage: string,
   equipment: Equipment[],
   recentSessions: WorkoutSession[],
-  profileContext?: { injuries?: string; additionalEquipment?: string }
+  profileContext?: { injuries?: string; additionalEquipment?: string; avgWorkoutMinutes?: number; programActiveDays?: number }
 ): Promise<string> {
   const config = getConfig();
   if (!config) {
     return "I'd love to help! Please set up your AI API key in the Profile settings to enable program generation.";
   }
 
-  const systemPrompt = buildProgramSystemPrompt(equipment, recentSessions, profileContext?.injuries, profileContext?.additionalEquipment);
+  const systemPrompt = buildProgramSystemPrompt(equipment, recentSessions, profileContext?.injuries, profileContext?.additionalEquipment, profileContext?.avgWorkoutMinutes, profileContext?.programActiveDays);
 
   try {
     if (config.provider === 'anthropic') {

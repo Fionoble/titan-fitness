@@ -121,13 +121,15 @@ export async function generateProgramViaAI(
 
   const profile = await getProfile();
   const profileContext = profile
-    ? { injuries: profile.injuries, additionalEquipment: profile.additionalEquipment }
+    ? { injuries: profile.injuries, additionalEquipment: profile.additionalEquipment, avgWorkoutMinutes: profile.avgWorkoutMinutes, programActiveDays: profile.programActiveDays }
     : undefined;
 
+  const activeDays = profile?.programActiveDays ?? 6;
+  const restDays = 7 - activeDays;
   const enabledEquip = equipment.filter((e) => e.enabled).map((e) => e.name);
-  const prompt = `Generate a complete 7-day workout program for me.${
+  const prompt = `Generate a complete 7-day workout program for me with ${activeDays} active workout days and ${restDays} rest day${restDays !== 1 ? 's' : ''}.${
     enabledEquip.length > 0 ? ` My available equipment: ${enabledEquip.join(', ')}.` : ' I have no equipment (bodyweight only).'
-  } Design a balanced weekly split with proper muscle group recovery, including 1-2 rest days.`;
+  } Design a balanced weekly split with proper muscle group recovery.`;
 
   const response = await sendProgramMessage(prompt, equipment, sessions, profileContext);
   return parseProgramFromResponse(response, equipment);
