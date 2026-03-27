@@ -5,6 +5,9 @@ import type { WorkoutSession } from '../types';
 interface ProgressProps {
   sessions: WorkoutSession[];
   onLoadAll?: () => void;
+  onUpdateSession?: (session: WorkoutSession) => void;
+  onDeleteSession?: (id: string) => void;
+  onStartFromSession?: (session: WorkoutSession) => void;
 }
 
 type TimeFrame = 'week' | 'month' | 'year';
@@ -45,8 +48,49 @@ function getStyleColor(style: string): string {
   return map[style] || 'bg-primary/10 text-primary';
 }
 
-function WorkoutDetail({ session, onClose }: { session: WorkoutSession; onClose: () => void }) {
+function WorkoutDetail({ session, onClose, onUpdate, onDelete, onStartFrom }: {
+  session: WorkoutSession;
+  onClose: () => void;
+  onUpdate?: (session: WorkoutSession) => void;
+  onDelete?: (id: string) => void;
+  onStartFrom?: (session: WorkoutSession) => void;
+}) {
   const date = new Date(session.startedAt);
+  const [editing, setEditing] = useState(false);
+  const [editData, setEditData] = useState(session);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const handleSetChange = (exIdx: number, setIdx: number, field: 'weight' | 'reps', value: number | null) => {
+    setEditData((prev) => {
+      const updated = { ...prev };
+      const exercises = [...updated.exercises];
+      const ex = { ...exercises[exIdx] };
+      const sets = [...ex.sets];
+      sets[setIdx] = { ...sets[setIdx], [field]: value };
+      ex.sets = sets;
+      exercises[exIdx] = ex;
+      
+      // Recalculate totals
+      let totalVolume = 0;
+      let totalSets = 0;
+      for (const e of exercises) {
+        for (const s of e.sets) {
+          if (s.completed) {
+            totalSets++;
+            if (s.weight && s.reps) totalVolume += s.weight * s.reps;
+          }
+        }
+      }
+      return { ...updated, exercises, totalVolume, totalSets };
+    });
+  };
+
+  const handleSave = () => {
+    onUpdate?.(editData);
+    setEditing(false);
+  };
+
+  const displaySession = editing ? editData : session;
 
   return (
     <div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end justify-center" onClick={onClose}>
@@ -66,35 +110,46 @@ function WorkoutDetail({ session, onClose }: { session: WorkoutSession; onClose:
               </p>
             </div>
           </div>
-          <button onClick={onClose} class="text-slate-400 p-1">
-            <Icon name="close" />
-          </button>
+          <div class="flex items-center gap-2">
+            {editing ? (
+              <button onClick={handleSave} class="text-primary text-sm font-semibold">
+                Save
+              </button>
+            ) : onUpdate ? (
+              <button onClick={() => setEditing(true)} class="text-slate-400 p-1 hover:text-primary transition-colors">
+                <Icon name="edit" />
+              </button>
+            ) : null}
+            <button onClick={onClose} class="text-slate-400 p-1">
+              <Icon name="close" />
+            </button>
+          </div>
         </div>
 
         <div class="grid grid-cols-3 gap-3 px-5 py-4 border-b border-white/5">
           <div class="flex flex-col items-center">
             <span class="text-xs text-slate-500">Duration</span>
-            <span class="text-sm font-bold text-white">{formatDuration(session.durationSeconds)}</span>
+            <span class="text-sm font-bold text-white">{formatDuration(displaySession.durationSeconds)}</span>
           </div>
           <div class="flex flex-col items-center">
             <span class="text-xs text-slate-500">Volume</span>
-            <span class="text-sm font-bold text-white">{session.totalVolume.toLocaleString()} lbs</span>
+            <span class="text-sm font-bold text-white">{displaySession.totalVolume.toLocaleString()} lbs</span>
           </div>
           <div class="flex flex-col items-center">
             <span class="text-xs text-slate-500">Sets</span>
-            <span class="text-sm font-bold text-white">{session.totalSets}</span>
+            <span class="text-sm font-bold text-white">{displaySession.totalSets}</span>
           </div>
         </div>
 
         <div class="overflow-y-auto flex-1 px-5 py-4 space-y-4">
-          {session.exercises.map((ex) => (
+          {displaySession.exercises.map((ex, exIdx) => (
             <div key={ex.exerciseId}>
               <div class="flex items-center gap-2 mb-2">
                 <span class="text-sm font-semibold text-white">{ex.exerciseName}</span>
                 <span class="text-[10px] text-slate-500 uppercase">{ex.muscleGroup}</span>
               </div>
               <div class="space-y-1">
-                {ex.sets.map((set) => (
+                {ex.sets.map((set, setIdx) => (
                   <div
                     key={set.setNumber}
                     class={`flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm ${
@@ -102,22 +157,97 @@ function WorkoutDetail({ session, onClose }: { session: WorkoutSession; onClose:
                     }`}
                   >
                     <span class="text-xs text-slate-500 w-5">S{set.setNumber}</span>
-                    <span class="text-slate-200 font-medium flex-1">
-                      {set.weight != null ? `${set.weight} lbs` : '\u2014'} {'\u00d7'} {set.reps ?? '\u2014'}
-                    </span>
-                    {set.completed && <Icon name="check_circle" class="text-primary text-base" />}
+                    {editing ? (
+                      <div class="flex items-center gap-2 flex-1">
+                        <input
+                          type="number"
+                          value={set.weight ?? ''}
+                          placeholder="—"
+                          onInput={(e) => handleSetChange(exIdx, setIdx, 'weight', (e.target as HTMLInputElement).value ? Number((e.target as HTMLInputElement).value) : null)}
+                          class="w-16 bg-bg-dark border border-white/10 rounded px-2 py-1 text-sm text-white text-center focus:ring-1 focus:ring-primary"
+                        />
+                        <span class="text-slate-500 text-xs">lbs ×</span>
+                        <input
+                          type="number"
+                          value={set.reps ?? ''}
+                          placeholder="—"
+                          onInput={(e) => handleSetChange(exIdx, setIdx, 'reps', (e.target as HTMLInputElement).value ? Number((e.target as HTMLInputElement).value) : null)}
+                          class="w-14 bg-bg-dark border border-white/10 rounded px-2 py-1 text-sm text-white text-center focus:ring-1 focus:ring-primary"
+                        />
+                      </div>
+                    ) : (
+                      <span class="text-slate-200 font-medium flex-1">
+                        {set.weight != null ? `${set.weight} lbs` : '\u2014'} {'\u00d7'} {set.reps ?? '\u2014'}
+                      </span>
+                    )}
+                    {set.completed && !editing && <Icon name="check_circle" class="text-primary text-base" />}
+                    {set.isPersonalRecord && <span class="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">PR</span>}
                   </div>
                 ))}
               </div>
             </div>
           ))}
         </div>
+
+        {/* Action buttons */}
+        {!editing && (onStartFrom || onDelete) && (
+          <div class="px-5 py-4 border-t border-white/5 space-y-2">
+            {onStartFrom && (
+              <button
+                onClick={() => { onStartFrom(session); onClose(); }}
+                class="w-full py-3 rounded-xl bg-primary text-bg-dark font-bold text-sm flex items-center justify-center gap-2"
+              >
+                <Icon name="replay" class="text-lg" />
+                Repeat Workout
+              </button>
+            )}
+            {onDelete && (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                class="w-full py-3 rounded-xl bg-red-500/10 text-red-400 font-semibold text-sm flex items-center justify-center gap-2 hover:bg-red-500/20 transition-colors"
+              >
+                <Icon name="delete" class="text-lg" />
+                Delete Workout
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Delete confirmation */}
+        {showDeleteConfirm && (
+          <div class="fixed inset-0 z-[60] flex items-center justify-center">
+            <div class="absolute inset-0 bg-black/60" onClick={() => setShowDeleteConfirm(false)}></div>
+            <div class="relative bg-surface-dark rounded-2xl p-6 max-w-[320px] w-full mx-4 border border-white/10 shadow-2xl">
+              <div class="text-center mb-4">
+                <div class="w-14 h-14 rounded-full bg-red-500/15 flex items-center justify-center mx-auto mb-3">
+                  <Icon name="delete_forever" class="text-red-400 text-3xl" />
+                </div>
+                <h3 class="text-lg font-bold text-white mb-1">Delete Workout?</h3>
+                <p class="text-sm text-slate-400">This cannot be undone.</p>
+              </div>
+              <div class="flex gap-3">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  class="flex-1 py-3 rounded-xl bg-surface-darker text-slate-300 font-semibold text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => { onDelete?.(session.id); onClose(); }}
+                  class="flex-1 py-3 rounded-xl bg-red-500 text-white font-bold text-sm"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-export function Progress({ sessions, onLoadAll }: ProgressProps) {
+export function Progress({ sessions, onLoadAll, onUpdateSession, onDeleteSession, onStartFromSession }: ProgressProps) {
   useEffect(() => { onLoadAll?.(); }, [onLoadAll]);
   const [timeFrame, setTimeFrame] = useState<TimeFrame>('week');
   const [selectedSession, setSelectedSession] = useState<WorkoutSession | null>(null);
@@ -403,7 +533,13 @@ export function Progress({ sessions, onLoadAll }: ProgressProps) {
       </div>
 
       {selectedSession && (
-        <WorkoutDetail session={selectedSession} onClose={() => setSelectedSession(null)} />
+        <WorkoutDetail
+          session={selectedSession}
+          onClose={() => setSelectedSession(null)}
+          onUpdate={onUpdateSession}
+          onDelete={(id) => { onDeleteSession?.(id); setSelectedSession(null); }}
+          onStartFrom={onStartFromSession}
+        />
       )}
     </div>
   );

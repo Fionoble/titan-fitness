@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'preact/hooks';
 import { Icon } from '../components/Icon';
-import type { WorkoutPlan, WorkoutSession, ExerciseLog, Exercise } from '../types';
+import type { WorkoutPlan, WorkoutSession, ExerciseLog, Exercise, ActiveWorkoutState } from '../types';
 import { uuid } from '../utils';
 import { groupExercises, groupLabel } from '../group-utils';
 import type { ExerciseGroup } from '../group-utils';
@@ -58,9 +58,12 @@ function playCountInBeep(final = false) {
 }
 
 interface ActiveWorkoutProps {
-  plan: WorkoutPlan;
+  activeWorkout: ActiveWorkoutState | null;
   onComplete: (session: WorkoutSession) => void;
-  onCancel: () => void;
+  onNavigateBack: () => void;
+  onUpdateState: (updates: Partial<ActiveWorkoutState>) => void;
+  onSaveNow: (state: ActiveWorkoutState) => void;
+  onEndWorkout: () => void;
 }
 
 function isTimeBased(reps: string): boolean {
@@ -394,7 +397,20 @@ function ProgressModal({ open, onClose, groups, exerciseLogs, exIdToLogIdx, curr
   );
 }
 
-export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps) {
+export function ActiveWorkout({ activeWorkout, onComplete, onNavigateBack, onUpdateState, onSaveNow, onEndWorkout }: ActiveWorkoutProps) {
+  // If no active workout, show empty state
+  if (!activeWorkout) {
+    return (
+      <div class="flex-1 flex items-center justify-center">
+        <div class="text-center">
+          <Icon name="fitness_center" class="text-4xl text-primary/30 mb-3" />
+          <p class="text-slate-400 text-sm">No active workout</p>
+        </div>
+      </div>
+    );
+  }
+
+  const plan = activeWorkout.plan;
   const groups = useMemo(() => groupExercises(plan.exercises), [plan.exercises]);
 
   // Map each exercise ID to its flat index in exerciseLogs
@@ -404,36 +420,41 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
     return map;
   }, [plan.exercises]);
 
-  const [currentGroupIdx, setCurrentGroupIdx] = useState(0);
-  const [activeExInGroup, setActiveExInGroup] = useState(0);
-  const [exerciseLogs, setExerciseLogs] = useState<ExerciseLog[]>(() =>
-    plan.exercises.map((ex) => ({
-      exerciseId: ex.id,
-      exerciseName: ex.name,
-      muscleGroup: ex.muscleGroup,
-      sets: Array.from({ length: ex.sets }, (_, i) => ({
-        setNumber: i + 1,
-        weight: ex.weight || null,
-        reps: null,
-        completed: false,
-      })),
-    }))
-  );
+  const [currentGroupIdx, setCurrentGroupIdx] = useState(activeWorkout.currentGroupIdx);
+  const [activeExInGroup, setActiveExInGroup] = useState(activeWorkout.activeExInGroup);
+  const [exerciseLogs, setExerciseLogs] = useState<ExerciseLog[]>(activeWorkout.exerciseLogs);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [restTimer, setRestTimer] = useState<number | null>(null);
   const [exTimer, setExTimer] = useState<ExerciseTimerState | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval>>();
   const restRef = useRef<ReturnType<typeof setInterval>>();
   const exTimerRef = useRef<ReturnType<typeof setInterval>>();
-  const startTimeRef = useRef(new Date().toISOString());
   const [chatOpen, setChatOpen] = useState(false);
   const [progressOpen, setProgressOpen] = useState(false);
+  const [showEndConfirm, setShowEndConfirm] = useState(false);
 
-  // Main timer
+  // Compute elapsed time from startedAt
   useEffect(() => {
-    timerRef.current = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
+    const startTime = new Date(activeWorkout.startedAt).getTime();
+    const update = () => setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
+    update();
+    timerRef.current = setInterval(update, 1000);
     return () => clearInterval(timerRef.current);
-  }, []);
+  }, [activeWorkout.startedAt]);
+
+  // Persist state changes to parent (debounced via hook)
+  const persistRef = useRef(false);
+  useEffect(() => {
+    if (!persistRef.current) {
+      persistRef.current = true;
+      return;
+    }
+    onUpdateState({
+      exerciseLogs,
+      currentGroupIdx,
+      activeExInGroup,
+    });
+  }, [exerciseLogs, currentGroupIdx, activeExInGroup]);
 
   // Flag to distinguish manual dismissal from natural timer expiry
   const restSkippedRef = useRef(false);
@@ -769,7 +790,7 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
       planId: plan.id,
       name: plan.name,
       style: plan.style,
-      startedAt: startTimeRef.current,
+      startedAt: activeWorkout.startedAt,
       completedAt: new Date().toISOString(),
       durationSeconds: elapsedSeconds,
       exercises: exerciseLogs,
@@ -991,7 +1012,7 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
       {/* Header */}
       <header class="sticky top-0 z-50 bg-bg-dark/95 backdrop-blur-md border-b border-white/5 pt-safe">
         <div class="flex items-center justify-between px-4 py-3">
-          <button onClick={onCancel} class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-dark transition-colors">
+          <button onClick={onNavigateBack} class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-dark transition-colors">
             <Icon name="arrow_back" />
           </button>
           <div class="text-center">
@@ -1144,6 +1165,38 @@ export function ActiveWorkout({ plan, onComplete, onCancel }: ActiveWorkoutProps
         currentExercise={primaryExercise}
         planSummary={planSummary}
       />
+
+      {/* End Workout Confirmation */}
+      {showEndConfirm && (
+        <div class="fixed inset-0 z-[200] flex items-center justify-center">
+          <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowEndConfirm(false)}></div>
+          <div class="relative bg-surface-dark rounded-2xl p-6 max-w-[320px] w-full mx-4 border border-white/10 shadow-2xl">
+            <div class="text-center mb-5">
+              <div class="w-14 h-14 rounded-full bg-red-500/15 flex items-center justify-center mx-auto mb-3">
+                <Icon name="warning" class="text-red-400 text-3xl" />
+              </div>
+              <h3 class="text-lg font-bold text-white mb-1">End Workout?</h3>
+              <p class="text-sm text-slate-400">
+                Your progress will not be saved. Use "Finish" to save.
+              </p>
+            </div>
+            <div class="flex gap-3">
+              <button
+                onClick={() => setShowEndConfirm(false)}
+                class="flex-1 py-3 rounded-xl bg-surface-darker text-slate-300 font-semibold text-sm"
+              >
+                Keep Going
+              </button>
+              <button
+                onClick={() => { setShowEndConfirm(false); onEndWorkout(); }}
+                class="flex-1 py-3 rounded-xl bg-red-500 text-white font-bold text-sm"
+              >
+                End
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bottom actions */}
       <div class="fixed bottom-0 left-0 w-full bg-bg-dark border-t border-white/5 p-4 pb-safe z-40 max-w-[430px] mx-auto" style="left: 50%; transform: translateX(-50%)">
