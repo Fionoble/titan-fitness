@@ -4,3 +4,11 @@ dist
 .DS_Store
 screenshots
 .claude/worktrees/
+
+# Capacitor native build artifacts
+ios/App/Pods/
+ios/DerivedData/
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties

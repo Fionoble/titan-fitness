@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Titan Fitness</string>
+    <string name="title_activity_main">Titan Fitness</string>
+    <string name="package_name">com.titanfitness.app</string>
+    <string name="custom_url_scheme">com.titanfitness.app</string>
+</resources>
