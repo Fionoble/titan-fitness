@@ -5,14 +5,16 @@ import { NavSlotProvider } from './components/NavSlot';
 import './app.css';
 import { isNative, configureStatusBar } from './native';
 
-// Detect standalone PWA mode (especially iOS) or native app
-const isStandalone =
-  isNative ||
-  (window.navigator as any).standalone === true ||
-  window.matchMedia('(display-mode: standalone)').matches;
+// Detect standalone PWA mode (iOS Safari only — not needed in native Capacitor
+// where the WebView handles safe areas properly)
+if (!isNative) {
+  const isStandalone =
+    (window.navigator as any).standalone === true ||
+    window.matchMedia('(display-mode: standalone)').matches;
 
-if (isStandalone) {
-  document.documentElement.classList.add('pwa-standalone');
+  if (isStandalone) {
+    document.documentElement.classList.add('pwa-standalone');
+  }
 }
 
 // Configure native shell (no-ops on web)
