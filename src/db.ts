@@ -89,10 +89,10 @@ async function migrateEquipment(): Promise<void> {
   const hasNew = existing.some((e: Equipment) => e.id === 'trx-rings');
 
   // Update barbell icon
-  const barbell = existing.find((e: Equipment) => e.id === 'barbell' && e.icon === 'horizontal_rule');
+  const barbell = existing.find((e: Equipment) => e.id === 'barbell' && (e.icon === 'horizontal_rule' || e.icon === 'horizontal_distribute'));
   if (barbell) {
     const txBb = db.transaction('equipment', 'readwrite');
-    await txBb.store.put({ ...barbell, icon: 'horizontal_distribute' });
+    await txBb.store.put({ ...barbell, icon: 'weight_lifter' });
     await txBb.done;
   }
 
@@ -140,7 +140,7 @@ export async function initDefaultEquipment(): Promise<void> {
   const defaults: Equipment[] = [
     { id: 'dumbbells', name: 'Dumbbells', category: 'weights', description: 'Adjustable or fixed', icon: 'fitness_center', enabled: false },
     { id: 'kettlebells', name: 'Kettlebells', category: 'weights', description: 'Various weights', icon: 'water_drop', enabled: false },
-    { id: 'barbell', name: 'Barbell', category: 'weights', description: 'Standard or Olympic', icon: 'horizontal_distribute', enabled: false },
+    { id: 'barbell', name: 'Barbell', category: 'weights', description: 'Standard or Olympic', icon: 'weight_lifter', enabled: false },
     { id: 'bench', name: 'Bench', category: 'weights', description: 'Flat or adjustable', icon: 'chair_alt', enabled: false },
     { id: 'pull-up-bar', name: 'Pull-Up Bar', category: 'weights', description: 'Doorway or mounted', icon: 'drag_handle', enabled: false },
     { id: 'resistance-bands', name: 'Resistance Bands', category: 'weights', description: 'Light to heavy', icon: 'all_inclusive', enabled: false },
