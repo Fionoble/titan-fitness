@@ -88,11 +88,19 @@ async function migrateEquipment(): Promise<void> {
   const hasOldTrx = existing.some((e: Equipment) => e.id === 'trx');
   const hasNew = existing.some((e: Equipment) => e.id === 'trx-rings');
 
+  // Update dumbbells icon
+  const dumbbells = existing.find((e: Equipment) => e.id === 'dumbbells' && e.icon !== 'exercise');
+  if (dumbbells) {
+    const txDb = db.transaction('equipment', 'readwrite');
+    await txDb.store.put({ ...dumbbells, icon: 'exercise' });
+    await txDb.done;
+  }
+
   // Update barbell icon
-  const barbell = existing.find((e: Equipment) => e.id === 'barbell' && (e.icon === 'horizontal_rule' || e.icon === 'horizontal_distribute'));
+  const barbell = existing.find((e: Equipment) => e.id === 'barbell' && e.icon !== 'fitness_center');
   if (barbell) {
     const txBb = db.transaction('equipment', 'readwrite');
-    await txBb.store.put({ ...barbell, icon: 'weight_lifter' });
+    await txBb.store.put({ ...barbell, icon: 'fitness_center' });
     await txBb.done;
   }
 
@@ -105,10 +113,10 @@ async function migrateEquipment(): Promise<void> {
   }
 
   // Update kettlebells icon
-  const kettlebells = existing.find((e: Equipment) => e.id === 'kettlebells' && e.icon === 'circle');
+  const kettlebells = existing.find((e: Equipment) => e.id === 'kettlebells' && e.icon !== 'weight');
   if (kettlebells) {
     const txKb = db.transaction('equipment', 'readwrite');
-    await txKb.store.put({ ...kettlebells, icon: 'water_drop' });
+    await txKb.store.put({ ...kettlebells, icon: 'weight' });
     await txKb.done;
   }
 
@@ -138,9 +146,9 @@ export async function initDefaultEquipment(): Promise<void> {
   }
 
   const defaults: Equipment[] = [
-    { id: 'dumbbells', name: 'Dumbbells', category: 'weights', description: 'Adjustable or fixed', icon: 'fitness_center', enabled: false },
-    { id: 'kettlebells', name: 'Kettlebells', category: 'weights', description: 'Various weights', icon: 'water_drop', enabled: false },
-    { id: 'barbell', name: 'Barbell', category: 'weights', description: 'Standard or Olympic', icon: 'weight_lifter', enabled: false },
+    { id: 'dumbbells', name: 'Dumbbells', category: 'weights', description: 'Adjustable or fixed', icon: 'exercise', enabled: false },
+    { id: 'kettlebells', name: 'Kettlebells', category: 'weights', description: 'Various weights', icon: 'weight', enabled: false },
+    { id: 'barbell', name: 'Barbell', category: 'weights', description: 'Standard or Olympic', icon: 'fitness_center', enabled: false },
     { id: 'bench', name: 'Bench', category: 'weights', description: 'Flat or adjustable', icon: 'chair_alt', enabled: false },
     { id: 'pull-up-bar', name: 'Pull-Up Bar', category: 'weights', description: 'Doorway or mounted', icon: 'drag_handle', enabled: false },
     { id: 'resistance-bands', name: 'Resistance Bands', category: 'weights', description: 'Light to heavy', icon: 'all_inclusive', enabled: false },
