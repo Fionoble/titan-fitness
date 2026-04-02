@@ -242,6 +242,7 @@ export function App() {
           component={EquipmentScreen}
           equipment={equipment}
           onToggle={toggleEquipment}
+          onBack={() => nav('/profile')}
         />
         <Route
           path={withBase('/program')}

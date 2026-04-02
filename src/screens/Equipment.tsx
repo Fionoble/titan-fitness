@@ -5,6 +5,7 @@ import type { Equipment as EquipmentType } from '../types';
 interface EquipmentProps {
   equipment: EquipmentType[];
   onToggle: (id: string) => void;
+  onBack?: () => void;
 }
 
 const CATEGORY_INFO: Record<string, { label: string; icon: string }> = {
@@ -14,7 +15,7 @@ const CATEGORY_INFO: Record<string, { label: string; icon: string }> = {
   other: { label: 'Other', icon: 'category' },
 };
 
-export function EquipmentScreen({ equipment, onToggle }: EquipmentProps) {
+export function EquipmentScreen({ equipment, onToggle, onBack }: EquipmentProps) {
   const [search, setSearch] = useState('');
 
   const grouped = useMemo(() => {
@@ -37,7 +38,12 @@ export function EquipmentScreen({ equipment, onToggle }: EquipmentProps) {
       {/* Header */}
       <header class="sticky top-0 z-30 bg-bg-dark/95 backdrop-blur-md border-b border-white/5 pt-safe">
         <div class="flex items-center justify-between px-4 py-4">
-          <div></div>
+          {onBack ? (
+            <button onClick={onBack} class="flex items-center gap-0.5 text-primary text-sm font-medium -ml-1">
+              <Icon name="chevron_left" class="text-[20px]" />
+              Profile
+            </button>
+          ) : <div></div>}
           <h1 class="text-lg font-bold tracking-tight">My Equipment</h1>
           <span class="text-primary text-sm font-semibold">{enabledCount} active</span>
         </div>
