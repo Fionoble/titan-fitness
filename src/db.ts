@@ -88,7 +88,7 @@ async function migrateEquipment(): Promise<void> {
   const hasOldTrx = existing.some((e: Equipment) => e.id === 'trx');
   const hasNew = existing.some((e: Equipment) => e.id === 'trx-rings');
 
-  if ((hasOldRings || hasOldTrx) && !hasNew) {
+  if (!hasNew) {
     const wasEnabled = existing.some((e: Equipment) => (e.id === 'rings' || e.id === 'trx') && e.enabled);
     const tx = db.transaction('equipment', 'readwrite');
     if (hasOldRings) await tx.store.delete('rings');
