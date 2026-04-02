@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'Titan Fitness',
   webDir: 'dist',
   ios: {
-    contentInset: 'automatic',
+    contentInset: 'never',
     preferredContentMode: 'mobile',
     backgroundColor: '#102217',
   },
