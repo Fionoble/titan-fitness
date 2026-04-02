@@ -1,0 +1,20 @@
+{
+	"appId": "com.titanfitness.app",
+	"appName": "Titan Fitness",
+	"webDir": "dist",
+	"ios": {
+		"contentInset": "never",
+		"preferredContentMode": "mobile",
+		"backgroundColor": "#102217"
+	},
+	"android": {
+		"backgroundColor": "#102217"
+	},
+	"packageClassList": [
+		"AppPlugin",
+		"HapticsPlugin",
+		"PushNotificationsPlugin",
+		"SharePlugin",
+		"StatusBarPlugin"
+	]
+}

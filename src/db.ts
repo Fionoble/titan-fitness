@@ -81,9 +81,29 @@ export async function saveAllEquipment(items: Equipment[]): Promise<void> {
   await tx.done;
 }
 
+async function migrateEquipment(): Promise<void> {
+  const db = await getDB();
+  const existing = await db.getAll('equipment');
+  const hasOldRings = existing.some((e: Equipment) => e.id === 'rings');
+  const hasOldTrx = existing.some((e: Equipment) => e.id === 'trx');
+  const hasNew = existing.some((e: Equipment) => e.id === 'trx-rings');
+
+  if ((hasOldRings || hasOldTrx) && !hasNew) {
+    const wasEnabled = existing.some((e: Equipment) => (e.id === 'rings' || e.id === 'trx') && e.enabled);
+    const tx = db.transaction('equipment', 'readwrite');
+    if (hasOldRings) await tx.store.delete('rings');
+    if (hasOldTrx) await tx.store.delete('trx');
+    await tx.store.put({ id: 'trx-rings', name: 'TRX / Rings', category: 'weights', description: 'Suspension trainer or gymnastic rings', icon: 'sports_gymnastics', enabled: wasEnabled });
+    await tx.done;
+  }
+}
+
 export async function initDefaultEquipment(): Promise<void> {
   const existing = await getAllEquipment();
-  if (existing.length > 0) return;
+  if (existing.length > 0) {
+    await migrateEquipment();
+    return;
+  }
 
   const defaults: Equipment[] = [
     { id: 'dumbbells', name: 'Dumbbells', category: 'weights', description: 'Adjustable or fixed', icon: 'fitness_center', enabled: false },
@@ -92,8 +112,7 @@ export async function initDefaultEquipment(): Promise<void> {
     { id: 'bench', name: 'Bench', category: 'weights', description: 'Flat or adjustable', icon: 'chair_alt', enabled: false },
     { id: 'pull-up-bar', name: 'Pull-Up Bar', category: 'weights', description: 'Doorway or mounted', icon: 'expand', enabled: false },
     { id: 'resistance-bands', name: 'Resistance Bands', category: 'weights', description: 'Light to heavy', icon: 'lasso', enabled: false },
-    { id: 'rings', name: 'Rings', category: 'weights', description: 'Gymnastic rings', icon: 'sports_gymnastics', enabled: false },
-    { id: 'trx', name: 'TRX', category: 'weights', description: 'Suspension trainer', icon: 'cable', enabled: false },
+    { id: 'trx-rings', name: 'TRX / Rings', category: 'weights', description: 'Suspension trainer or gymnastic rings', icon: 'sports_gymnastics', enabled: false },
     { id: 'stationary-bike', name: 'Stationary Bike', category: 'cardio', description: 'Spin or upright', icon: 'directions_bike', enabled: false },
     { id: 'rowing-machine', name: 'Rowing Machine', category: 'cardio', description: 'Air or water', icon: 'rowing', enabled: false },
     { id: 'jump-rope', name: 'Jump Rope', category: 'cardio', description: 'Speed or weighted', icon: 'steps', enabled: false },
