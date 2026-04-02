@@ -88,6 +88,14 @@ async function migrateEquipment(): Promise<void> {
   const hasOldTrx = existing.some((e: Equipment) => e.id === 'trx');
   const hasNew = existing.some((e: Equipment) => e.id === 'trx-rings');
 
+  // Update pull-up bar icon
+  const pullUpBar = existing.find((e: Equipment) => e.id === 'pull-up-bar' && e.icon === 'expand');
+  if (pullUpBar) {
+    const txPb = db.transaction('equipment', 'readwrite');
+    await txPb.store.put({ ...pullUpBar, icon: 'power_input' });
+    await txPb.done;
+  }
+
   // Update kettlebells icon
   const kettlebells = existing.find((e: Equipment) => e.id === 'kettlebells' && e.icon === 'circle');
   if (kettlebells) {
@@ -126,7 +134,7 @@ export async function initDefaultEquipment(): Promise<void> {
     { id: 'kettlebells', name: 'Kettlebells', category: 'weights', description: 'Various weights', icon: 'water_drop', enabled: false },
     { id: 'barbell', name: 'Barbell', category: 'weights', description: 'Standard or Olympic', icon: 'horizontal_rule', enabled: false },
     { id: 'bench', name: 'Bench', category: 'weights', description: 'Flat or adjustable', icon: 'chair_alt', enabled: false },
-    { id: 'pull-up-bar', name: 'Pull-Up Bar', category: 'weights', description: 'Doorway or mounted', icon: 'expand', enabled: false },
+    { id: 'pull-up-bar', name: 'Pull-Up Bar', category: 'weights', description: 'Doorway or mounted', icon: 'power_input', enabled: false },
     { id: 'resistance-bands', name: 'Resistance Bands', category: 'weights', description: 'Light to heavy', icon: 'all_inclusive', enabled: false },
     { id: 'trx-rings', name: 'TRX / Rings', category: 'weights', description: 'Suspension trainer or gymnastic rings', icon: 'sports_gymnastics', enabled: false },
     { id: 'stationary-bike', name: 'Stationary Bike', category: 'cardio', description: 'Spin or upright', icon: 'directions_bike', enabled: false },
