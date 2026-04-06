@@ -15,29 +15,34 @@ export function BottomNav() {
   const currentPath = stripBase(path);
 
   return (
-    <nav class="fixed bottom-[var(--pwa-bottom-nudge,0px)] left-0 right-0 z-50 bg-[#0d1b12]/95 backdrop-blur-md border-t border-white/5">
-      <div class="max-w-[430px] mx-auto flex items-center justify-around px-2 pt-2 pb-3">
+    <div class="fixed bottom-0 left-0 right-0 z-50 flex justify-center pointer-events-none pb-safe">
+      <nav class="nav-island pointer-events-auto mx-4 mb-2 px-2 py-1.5 flex items-center justify-around gap-1 max-w-[400px] w-full">
         {tabs.map((tab) => {
           const isActive = currentPath === tab.id;
           return (
             <button
               key={tab.id}
               onClick={() => route(withBase(tab.id))}
-              class={`flex flex-col items-center gap-1 p-1.5 min-w-[48px] transition-colors ${
-                isActive ? 'text-primary' : 'text-slate-500'
+              class={`nav-tab flex flex-col items-center gap-0.5 py-1.5 px-3 min-w-0 flex-1 rounded-2xl transition-all duration-300 ${
+                isActive ? 'nav-tab-active' : ''
               }`}
             >
-              <div class={`flex h-8 w-10 items-center justify-center rounded-full transition-colors ${
-                isActive ? 'bg-primary/15' : ''
+              <Icon
+                name={tab.icon}
+                filled={isActive}
+                class={`transition-all duration-300 ${
+                  isActive ? 'text-primary text-[22px] drop-shadow-[0_0_8px_rgba(43,238,121,0.4)]' : 'text-white/50 text-[20px]'
+                }`}
+              />
+              <span class={`text-[9px] font-semibold tracking-wide transition-all duration-300 ${
+                isActive ? 'text-primary' : 'text-white/40'
               }`}>
-                <Icon name={tab.icon} filled={isActive} class="text-[24px]" />
-              </div>
-              <span class="text-[10px] font-medium">{tab.label}</span>
+                {tab.label}
+              </span>
             </button>
           );
         })}
-      </div>
-      <div class="pb-safe"></div>
-    </nav>
+      </nav>
+    </div>
   );
 }

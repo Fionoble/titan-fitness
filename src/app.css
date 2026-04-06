@@ -58,9 +58,9 @@ body {
 .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
 
 /* Fixed bottom nav offset for elements above it */
-.bottom-nav-offset { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+.bottom-nav-offset { bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
 html.pwa-standalone .bottom-nav-offset {
-  bottom: calc(76px + env(safe-area-inset-bottom, 0px) + var(--pwa-bottom-nudge));
+  bottom: calc(72px + env(safe-area-inset-bottom, 0px) + var(--pwa-bottom-nudge));
 }
 
 /* Number input spinners hidden */
@@ -70,6 +70,34 @@ input[type="number"]::-webkit-outer-spin-button {
   margin: 0;
 }
 input[type="number"] { -moz-appearance: textfield; }
+
+/* Liquid glass island nav */
+.nav-island {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.03) 50%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  backdrop-filter: blur(24px) saturate(1.8);
+  -webkit-backdrop-filter: blur(24px) saturate(1.8);
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.nav-tab {
+  position: relative;
+}
+
+.nav-tab-active {
+  background: rgba(43, 238, 121, 0.08);
+  box-shadow: 0 0 16px rgba(43, 238, 121, 0.08);
+}
 
 /* Modal slide up animation */
 @keyframes slide-up {
