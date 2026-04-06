@@ -307,7 +307,9 @@ export async function chatWithNutritionAI(
   context?: { totals?: { calories: number; protein: number; carbs: number; fats: number }; goals?: NutritionGoals }
 ): Promise<string> {
   const config = getConfig();
-  if (!config) throw new Error('AI not configured');
+  if (!config) {
+    return "I'd love to help! Please set up your AI API key in the Profile settings to enable the nutrition coach.";
+  }
 
   let systemPrompt = CHAT_SYSTEM_PROMPT;
   if (context?.totals && context?.goals) {
@@ -322,46 +324,66 @@ export async function chatWithNutritionAI(
     content: m.content,
   }));
 
-  if (config.provider === 'anthropic') {
-    const messages = [...historyMessages, { role: 'user' as const, content: userMessage }];
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': config.apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
-        system: systemPrompt,
-        messages,
-      }),
-    });
-    if (!res.ok) throw new Error(`API error ${res.status}`);
-    const data = await res.json();
-    return data.content[0].text;
-  } else {
-    const messages = [
-      { role: 'system' as const, content: systemPrompt },
-      ...historyMessages,
-      { role: 'user' as const, content: userMessage },
-    ];
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${config.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-5-mini',
-        messages,
-        max_completion_tokens: 1024,
-      }),
-    });
-    if (!res.ok) throw new Error(`API error ${res.status}`);
-    const data = await res.json();
-    return data.choices[0].message.content;
+  try {
+    if (config.provider === 'anthropic') {
+      const messages = [...historyMessages, { role: 'user' as const, content: userMessage }];
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': config.apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 1024,
+          system: systemPrompt,
+          messages,
+        }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Anthropic API error ${res.status}: ${text}`);
+      }
+      const data = await res.json();
+      const reply = data?.content?.[0]?.text;
+      if (!reply) throw new Error('Empty response from API');
+      return reply;
+    } else {
+      const messages = [
+        { role: 'system' as const, content: systemPrompt },
+        ...historyMessages,
+        { role: 'user' as const, content: userMessage },
+      ];
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${config.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'gpt-5-mini',
+          messages,
+          max_completion_tokens: 1024,
+        }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`OpenAI API error ${res.status}: ${text}`);
+      }
+      const data = await res.json();
+      const reply = data?.choices?.[0]?.message?.content;
+      if (!reply) throw new Error('Empty response from API');
+      return reply;
+    }
+  } catch (err: any) {
+    if (err.message?.includes('401')) {
+      return "There's an issue with your API key. Please check it in Profile settings.";
+    }
+    if (err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError') || err.message?.includes('Load failed')) {
+      return "Couldn't reach the AI service. Please check your internet connection and try again.";
+    }
+    return `Sorry, I had trouble connecting. Error: ${err.message}`;
   }
 }
