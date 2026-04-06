@@ -812,7 +812,7 @@ export function Home({ plan, loading, userName, sessions, onStartWorkout, onRege
                       })()}
                       <div class="absolute inset-0 bg-gradient-to-t from-bg-dark via-bg-dark/60 to-bg-dark/30"></div>
 
-                      <div class="relative z-10 p-6 flex flex-col h-[320px] justify-between">
+                      <div class="relative z-10 p-6 flex flex-col min-h-[320px] justify-between">
                         <div class="flex justify-between items-start">
                           <span class="px-3 py-1 rounded-full bg-primary/20 text-primary text-xs font-bold uppercase tracking-wider border border-primary/20 backdrop-blur-sm">
                             {todayProgramDay.label}
@@ -945,7 +945,7 @@ export function Home({ plan, loading, userName, sessions, onStartWorkout, onRege
             })()}
             <div class="absolute inset-0 bg-gradient-to-t from-bg-dark via-bg-dark/60 to-bg-dark/30"></div>
 
-            <div class="relative z-10 p-6 flex flex-col h-[320px] justify-between">
+            <div class="relative z-10 p-6 flex flex-col min-h-[320px] justify-between">
               <div class="flex justify-between items-start">
                 <span class="px-3 py-1 rounded-full bg-primary/20 text-primary text-xs font-bold uppercase tracking-wider border border-primary/20 backdrop-blur-sm">
                   AI Daily Mix
