@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { Icon } from '../components/Icon';
+import { useNavSlot } from '../components/NavSlot';
 import type { WorkoutPlan, WorkoutCriteria, WorkoutStyle, Exercise, WorkoutSession, WorkoutProgram, ProgramDay, ActiveWorkoutState } from '../types';
 import { groupExercises, groupLabel } from '../group-utils';
 import { withBase } from '../base';
@@ -621,6 +622,30 @@ export function Home({ plan, loading, userName, sessions, onStartWorkout, onRege
   // Show collapsed card when there IS a newer plan
   const showCompletedCard = todaySession && planIsNewer;
 
+  // Determine which start button to show and render into nav slot
+  const showProgramStart = isProgramMode && !programLoading && !generatingProgram && program && todayProgramDay && !todayProgramDay.isRest && todayProgramDay.plan;
+  const showDailyStart = !isProgramMode && !showInlineCompletion && plan;
+
+  useNavSlot(
+    showProgramStart ? (
+      <button
+        onClick={() => onStartProgramWorkout?.(todayProgramDay!.plan!)}
+        class="w-full nav-island bg-primary/20 h-12 flex items-center justify-center gap-2 active:scale-[0.98] transition-all font-bold text-base tracking-wide text-primary"
+      >
+        <Icon name="play_arrow" class="text-xl" />
+        START WORKOUT
+      </button>
+    ) : showDailyStart ? (
+      <button
+        onClick={onStartWorkout}
+        class="w-full nav-island bg-primary/20 h-12 flex items-center justify-center gap-2 active:scale-[0.98] transition-all font-bold text-base tracking-wide text-primary"
+      >
+        <Icon name="play_arrow" class="text-xl" />
+        START WORKOUT
+      </button>
+    ) : null
+  );
+
   const handleSaveExercise = (updated: Exercise) => {
     if (!plan || !onUpdatePlan) return;
     const newExercises = plan.exercises.map((ex) => ex.id === updated.id ? updated : ex);
@@ -888,18 +913,7 @@ export function Home({ plan, loading, userName, sessions, onStartWorkout, onRege
 
           <DiscoverCard />
 
-          {/* Start Workout FAB for program mode */}
-          {!programLoading && !generatingProgram && program && todayProgramDay && !todayProgramDay.isRest && todayProgramDay.plan && (
-            <div class="fixed bottom-nav-offset left-0 w-full px-6 pb-3 z-20 pointer-events-none max-w-[430px] mx-auto" style="left: 50%; transform: translateX(-50%) translateY(-4px);">
-              <button
-                onClick={() => onStartProgramWorkout?.(todayProgramDay.plan!)}
-                class="w-full bg-primary text-bg-dark h-14 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-primary/20 pointer-events-auto active:scale-[0.98] transition-all font-bold text-lg tracking-wide"
-              >
-                <Icon name="play_arrow" class="text-2xl" />
-                START WORKOUT
-              </button>
-            </div>
-          )}
+
         </>
       )}
 
@@ -1031,18 +1045,7 @@ export function Home({ plan, loading, userName, sessions, onStartWorkout, onRege
         />
       )}
 
-      {/* Start Workout FAB — hidden when showing inline completion */}
-      {!isProgramMode && !showInlineCompletion && plan && (
-        <div class="fixed bottom-nav-offset left-0 w-full px-6 pb-3 z-20 pointer-events-none max-w-[430px] mx-auto" style="left: 50%; transform: translateX(-50%) translateY(-4px);">
-          <button
-            onClick={onStartWorkout}
-            class="w-full bg-primary text-bg-dark h-14 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-primary/20 pointer-events-auto active:scale-[0.98] transition-all font-bold text-lg tracking-wide"
-          >
-            <Icon name="play_arrow" class="text-2xl" />
-            START WORKOUT
-          </button>
-        </div>
-      )}
+
 
       {/* Completed workout detail modal — opens from collapsed card */}
       {showCompletedModal && todaySession && (

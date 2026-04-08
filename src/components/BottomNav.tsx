@@ -1,6 +1,7 @@
 import { useLocation } from 'preact-iso';
 import { Icon } from './Icon';
 import { stripBase, withBase } from '../base';
+import { useNavSlotContent } from './NavSlot';
 
 const tabs = [
   { id: '/', icon: 'home', label: 'Home' },
@@ -13,9 +14,17 @@ const tabs = [
 export function BottomNav() {
   const { path, route } = useLocation();
   const currentPath = stripBase(path);
+  const above = useNavSlotContent();
 
   return (
-    <div class="fixed bottom-0 left-0 right-0 z-50 flex justify-center pointer-events-none pb-safe">
+    <div class="fixed bottom-0 left-0 right-0 z-50 flex flex-col items-center pointer-events-none pb-safe">
+      {/* Slot for content above the nav (input fields, buttons, etc.) */}
+      {above && (
+        <div class="w-full max-w-[430px] px-4 mb-2 pointer-events-auto">
+          {above}
+        </div>
+      )}
+
       <nav class="nav-island pointer-events-auto mx-4 mb-2 px-2 py-1.5 flex items-center justify-around gap-1 max-w-[400px] w-full">
         {tabs.map((tab) => {
           const isActive = currentPath === tab.id;
