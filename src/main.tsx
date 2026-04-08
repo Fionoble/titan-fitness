@@ -1,6 +1,7 @@
 import { render } from 'preact';
 import { LocationProvider } from 'preact-iso';
 import { App } from './app';
+import { NavSlotProvider } from './components/NavSlot';
 import './app.css';
 
 // Detect standalone PWA mode (especially iOS)
@@ -14,7 +15,9 @@ if (isStandalone) {
 
 render(
   <LocationProvider scope={import.meta.env.BASE_URL}>
-    <App />
+    <NavSlotProvider>
+      <App />
+    </NavSlotProvider>
   </LocationProvider>,
   document.getElementById('app')!
 );
