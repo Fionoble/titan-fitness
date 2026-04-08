@@ -1,36 +1,36 @@
 import { createContext } from 'preact';
-import { useContext, useState, useCallback, useEffect } from 'preact/hooks';
+import { createPortal } from 'preact/compat';
+import { useContext, useRef, useEffect, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 
-type NavSlotContextType = {
-  content: ComponentChildren;
-  setContent: (content: ComponentChildren) => void;
-};
+// Context holds a ref to the DOM node inside BottomNav where content is portaled into
+const NavSlotContext = createContext<HTMLDivElement | null>(null);
 
-const NavSlotContext = createContext<NavSlotContextType>({
-  content: null,
-  setContent: () => {},
-});
+/** Wrap around BottomNav's slot container to provide the portal target */
+export function NavSlotTarget({ children }: { children?: ComponentChildren }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [node, setNode] = useState<HTMLDivElement | null>(null);
 
-export function NavSlotProvider({ children }: { children: ComponentChildren }) {
-  const [content, setContent] = useState<ComponentChildren>(null);
+  useEffect(() => {
+    setNode(ref.current);
+  }, []);
+
   return (
-    <NavSlotContext.Provider value={{ content, setContent }}>
+    <NavSlotContext.Provider value={node}>
+      <div ref={ref} class="contents" />
       {children}
     </NavSlotContext.Provider>
   );
 }
 
-/** Returns the current nav slot content (used by BottomNav) */
-export function useNavSlotContent(): ComponentChildren {
-  return useContext(NavSlotContext).content;
-}
-
-/** Sets content to render above the nav island. Clears on unmount. */
-export function useNavSlot(content: ComponentChildren) {
-  const { setContent } = useContext(NavSlotContext);
-  useEffect(() => {
-    setContent(content);
-    return () => setContent(null);
-  }, [content]);
+/** Portal children into the nav slot above the island. Content clears on unmount. */
+export function NavSlot({ children }: { children: ComponentChildren }) {
+  const target = useContext(NavSlotContext);
+  if (!target) return null;
+  return createPortal(
+    <div class="w-full max-w-[430px] mx-auto px-4 mb-2 pointer-events-auto">
+      {children}
+    </div>,
+    target
+  );
 }

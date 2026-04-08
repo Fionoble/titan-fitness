@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useMemo } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 import { Icon } from '../components/Icon';
-import { useNavSlot } from '../components/NavSlot';
+import { NavSlot } from '../components/NavSlot';
 import type { ChatMessage, Equipment, WorkoutSession, WorkoutPlan, UserProfile, WorkoutProgram } from '../types';
 import { sendMessage, isAIConfigured, setAIConfig } from '../ai';
 import { parseWorkoutFromResponse, stripJsonBlock, buildAdjustPrompt } from '../ai-workout';
@@ -109,31 +109,6 @@ export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, se
   const [setupKey, setSetupKey] = useState('');
   const [setupProvider, setSetupProvider] = useState<'anthropic' | 'openai'>('anthropic');
   const hasSentAdjust = useRef(false);
-
-  // Render input into the nav slot (above the island)
-  useNavSlot(
-    configured ? (
-      <div class="nav-island flex items-center gap-2 px-3 py-2">
-        <input
-          type="text"
-          value={input}
-          onInput={(e: any) => setInput(e.target.value)}
-          onKeyDown={(e: any) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-          placeholder="Ask Titan..."
-          enterkeyhint="send"
-          class="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-white/30 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 focus:outline-none transition-all"
-        />
-        <button
-          onTouchEnd={(e: any) => { e.preventDefault(); handleSend(); }}
-          onClick={() => handleSend()}
-          disabled={!input.trim() || isTyping}
-          class="w-10 h-10 rounded-xl bg-primary text-bg-dark flex items-center justify-center shrink-0 active:scale-95 transition-all disabled:opacity-40"
-        >
-          <Icon name="arrow_upward" class="text-[20px] font-bold" filled />
-        </button>
-      </div>
-    ) : null
-  );
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -419,7 +394,30 @@ export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, se
         <div ref={chatEndRef}></div>
       </main>
 
-      {/* Nav slot input rendered above the nav island */}
+      {/* Input portaled above the nav island */}
+      {configured && (
+        <NavSlot>
+          <div class="nav-island flex items-center gap-2 px-3 py-2">
+            <input
+              type="text"
+              value={input}
+              onInput={(e: any) => setInput(e.target.value)}
+              onKeyDown={(e: any) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+              placeholder="Ask Titan..."
+              enterkeyhint="send"
+              class="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-white/30 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 focus:outline-none transition-all"
+            />
+            <button
+              onTouchEnd={(e: any) => { e.preventDefault(); handleSend(); }}
+              onClick={() => handleSend()}
+              disabled={!input.trim() || isTyping}
+              class="w-10 h-10 rounded-xl bg-primary text-bg-dark flex items-center justify-center shrink-0 active:scale-95 transition-all disabled:opacity-40"
+            >
+              <Icon name="arrow_upward" class="text-[20px] font-bold" filled />
+            </button>
+          </div>
+        </NavSlot>
+      )}
     </div>
   );
 }
