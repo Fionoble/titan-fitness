@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'preact/hooks';
 import { Router, Route, useLocation } from 'preact-iso';
 import { BottomNav } from './components/BottomNav';
+import { NavSlot } from './components/NavSlot';
 import { WorkoutBanner } from './components/WorkoutBanner';
 import { Home } from './screens/Home';
 import { ActiveWorkout } from './screens/ActiveWorkout';
@@ -290,19 +291,17 @@ export function App() {
             />
           )}
 
-          {/* Global AI workout generation indicator */}
+          {/* Global AI workout generation indicator — portaled above nav island */}
           {isGeneratingWorkout && (
-            <div class={`fixed ${showBanner ? 'bottom-[calc(120px+var(--pwa-bottom-nudge,0px))]' : 'bottom-[calc(70px+var(--pwa-bottom-nudge,0px))]'} left-0 right-0 z-50 flex justify-center pointer-events-none`}>
-              <div class="max-w-[430px] w-full px-4">
-                <div class="bg-surface-dark/95 backdrop-blur-sm border border-primary/20 rounded-xl px-4 py-2.5 flex items-center gap-3 shadow-lg shadow-black/30 pointer-events-auto">
-                  <div class="w-5 h-5 rounded-full border-2 border-primary/30 border-t-primary animate-spin shrink-0" />
-                  <div class="flex-1 min-w-0">
-                    <span class="text-sm font-medium text-white">Generating workout...</span>
-                  </div>
-                  <Icon name="fitness_center" class="text-primary text-lg shrink-0" />
+            <NavSlot>
+              <div class="nav-island px-4 py-2.5 flex items-center gap-3">
+                <div class="w-5 h-5 rounded-full border-2 border-primary/30 border-t-primary animate-spin shrink-0" />
+                <div class="flex-1 min-w-0">
+                  <span class="text-sm font-medium text-white">Generating workout...</span>
                 </div>
+                <Icon name="fitness_center" class="text-primary text-lg shrink-0" />
               </div>
-            </div>
+            </NavSlot>
           )}
 
           <BottomNav />
