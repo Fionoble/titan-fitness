@@ -34,9 +34,11 @@ function formatDaysAgo(n: number): string {
 }
 
 function recoveryLabel(daysAgo: number): string {
-  if (daysAgo <= 1) return 'NEEDS RECOVERY';
-  if (daysAgo === 2) return 'RECOVERING';
-  return 'RECOVERED';
+  if (daysAgo === 0) return 'TRAINED TODAY — do not retrain';
+  if (daysAgo === 1) return 'NEEDS RECOVERY (24h)';
+  if (daysAgo === 2) return 'RECOVERING (48h)';
+  if (daysAgo === 3) return 'MOSTLY RECOVERED (72h) — light work OK';
+  return 'FULLY RECOVERED';
 }
 
 function buildMuscleRecoveryStatus(recentSessions: WorkoutSession[]): string {
@@ -54,11 +56,18 @@ function buildMuscleRecoveryStatus(recentSessions: WorkoutSession[]): string {
 
   if (muscleLastTrained.size === 0) return '';
 
+  // Calculate rest days context
+  const workoutDays = recentSessions.slice(0, 5).map((s) => daysAgo(s.startedAt));
+  const lastWorkoutDays = workoutDays.length > 0 ? workoutDays[0] : null;
+  const restDayNote = lastWorkoutDays !== null && lastWorkoutDays >= 2
+    ? `\nNote: User has had ${lastWorkoutDays} rest day${lastWorkoutDays > 1 ? 's' : ''} since their last workout — most muscle groups should be recovered.`
+    : '';
+
   const lines = Array.from(muscleLastTrained.entries())
     .sort((a, b) => a[1] - b[1])
     .map(([muscle, days]) => `- ${muscle}: trained ${formatDaysAgo(days)} — ${recoveryLabel(days)}`);
 
-  return `\nMUSCLE RECOVERY STATUS:\n${lines.join('\n')}`;
+  return `\nMUSCLE RECOVERY STATUS:${restDayNote}\n${lines.join('\n')}`;
 }
 
 const WORKOUT_SCHEMA = `
