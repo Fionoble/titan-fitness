@@ -191,7 +191,7 @@ function WorkoutDetail({ session, onClose, onUpdate, onDelete, onStartFrom }: {
 
         {/* Action buttons */}
         {!editing && (onStartFrom || onDelete) && (
-          <div class="px-5 py-4 border-t border-white/5 space-y-2">
+          <div class="px-5 py-4 pb-24 border-t border-white/5 space-y-2">
             {onStartFrom && (
               <button
                 onClick={() => { onStartFrom(session); onClose(); }}
