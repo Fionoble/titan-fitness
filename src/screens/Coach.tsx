@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'preact/hooks';
+import { useState, useEffect, useLayoutEffect, useRef } from 'preact/hooks';
 import { Icon } from '../components/Icon';
 import { NavSlot } from '../components/NavSlot';
 import type { ChatMessage, Equipment, WorkoutSession, WorkoutPlan, UserProfile, WorkoutProgram } from '../types';
@@ -111,11 +111,17 @@ export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, se
   const hasSentAdjust = useRef(false);
   const hasInitialScroll = useRef(false);
 
-  useEffect(() => {
+  // Scroll to bottom before first paint to avoid flicker
+  useLayoutEffect(() => {
     if (!hasInitialScroll.current) {
       chatEndRef.current?.scrollIntoView({ behavior: 'instant' });
       hasInitialScroll.current = true;
-    } else {
+    }
+  }, []);
+
+  // Smooth scroll for subsequent messages
+  useEffect(() => {
+    if (hasInitialScroll.current) {
       chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, isTyping]);
