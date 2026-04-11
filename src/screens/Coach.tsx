@@ -109,9 +109,15 @@ export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, se
   const [setupKey, setSetupKey] = useState('');
   const [setupProvider, setSetupProvider] = useState<'anthropic' | 'openai'>('anthropic');
   const hasSentAdjust = useRef(false);
+  const hasInitialScroll = useRef(false);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (!hasInitialScroll.current) {
+      chatEndRef.current?.scrollIntoView({ behavior: 'instant' });
+      hasInitialScroll.current = true;
+    } else {
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages, isTyping]);
 
   // Auto-send adjustment request when coming from Home
