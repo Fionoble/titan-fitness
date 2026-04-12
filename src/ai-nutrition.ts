@@ -201,7 +201,7 @@ export async function estimateNutritionWithImage(
       body: JSON.stringify({
         model: 'gpt-5-mini',
         messages,
-        max_completion_tokens: 1024,
+        max_completion_tokens: 4096,
       }),
     });
     if (!res.ok) throw new Error(`API error ${res.status}`);
@@ -263,7 +263,7 @@ export async function scanNutritionLabel(imageBase64: string, mediaType: string)
             ],
           },
         ],
-        max_completion_tokens: 1024,
+        max_completion_tokens: 4096,
       }),
     });
     if (!res.ok) {
@@ -330,7 +330,7 @@ async function callAI(systemPrompt: string, userMessage: string): Promise<string
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userMessage },
         ],
-        max_completion_tokens: 1024,
+        max_completion_tokens: 4096,
       }),
     });
     if (!res.ok) throw new Error(`API error ${res.status}`);
@@ -462,7 +462,7 @@ export async function chatWithNutritionAI(
         body: JSON.stringify({
           model: 'gpt-5-mini',
           messages,
-          max_completion_tokens: 1024,
+          max_completion_tokens: 4096,
         }),
       });
       if (!res.ok) {
