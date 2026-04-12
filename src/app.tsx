@@ -12,6 +12,7 @@ import { Coach } from './screens/Coach';
 import { Discover } from './screens/Discover';
 import { Nutrition } from './screens/Nutrition';
 import { Profile } from './screens/Profile';
+import { Settings } from './screens/Settings';
 import { ProgramDetail } from './screens/ProgramDetail';
 import { useEquipment, useTodayWorkout, useSessions, useChat, useProfile, useWeightHistory, useWorkoutProgram, useActiveWorkout } from './hooks';
 import { useAITaskByType } from './ai-tasks';
@@ -233,17 +234,26 @@ export function App() {
           profile={profile}
           sessions={sessions}
           onUpdateProfile={updateProfile}
-          onNavigateEquipment={() => nav('/equipment')}
+          onNavigateSettings={() => nav('/settings')}
           weightHistory={weightHistory}
           onAddWeight={addWeight}
           onRemoveWeight={removeWeight}
+        />
+        <Route
+          path={withBase('/settings')}
+          component={Settings}
+          profile={profile}
+          onUpdateProfile={updateProfile}
+          onNavigateEquipment={() => nav('/equipment')}
+          onAddWeight={addWeight}
+          onBack={() => nav('/profile')}
         />
         <Route
           path={withBase('/equipment')}
           component={EquipmentScreen}
           equipment={equipment}
           onToggle={toggleEquipment}
-          onBack={() => nav('/profile')}
+          onBack={() => nav('/settings')}
         />
         <Route
           path={withBase('/program')}
