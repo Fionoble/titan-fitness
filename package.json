@@ -6,19 +6,31 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "native:sync": "pnpm build && npx cap sync",
+    "native:ios": "npx cap open ios",
+    "native:android": "npx cap open android"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "packageManager": "pnpm@10.23.0",
   "dependencies": {
+    "@capacitor/android": "^8.3.0",
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/core": "^8.3.0",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/ios": "^8.3.0",
+    "@capacitor/push-notifications": "^8.0.3",
+    "@capacitor/share": "^8.0.1",
+    "@capacitor/status-bar": "^8.0.2",
     "html5-qrcode": "^2.3.8",
     "idb": "^8.0.3",
     "preact": "^10.28.4",
     "preact-iso": "^2.11.1"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.3.0",
     "@preact/preset-vite": "^2.10.3",
     "@tailwindcss/vite": "^4.2.0",
     "autoprefixer": "^10.4.24",
