@@ -79,6 +79,19 @@ Rules:
 - Calories in kcal, protein/carbs/fats in grams
 - If multiple foods visible, return multiple items in the array`;
 
+const LABEL_SCAN_PROMPT = `You are a nutrition label reader. Given a photo of a nutrition facts label, extract the nutritional data.
+
+You MUST respond with ONLY a valid JSON array, no other text:
+[{"name": "Product name (read from label or packaging, or 'Unknown Product')", "calories": 200, "protein": 10, "carbs": 25, "fats": 8, "servingSize": 1, "servingUnit": "serving"}]
+
+Rules:
+- Read the values directly from the label — do not estimate
+- Use the "per serving" values, not "per 100g" (unless serving size IS 100g)
+- Calories in kcal, protein/carbs/fats in grams
+- Include the serving size and unit from the label
+- If the label is unclear or partially visible, do your best with what's readable
+- Always return valid JSON array, nothing else`;
+
 export function isJSONResponse(text: string): boolean {
   const trimmed = text.trim();
   // Check for raw JSON array
@@ -195,6 +208,90 @@ export async function estimateNutritionWithImage(
     const data = await res.json();
     return data.choices[0].message.content;
   }
+}
+
+export async function scanNutritionLabel(imageBase64: string, mediaType: string): Promise<FoodEntry[]> {
+  const config = getConfig();
+  if (!config) throw new Error('AI not configured');
+
+  let responseText: string;
+
+  if (config.provider === 'anthropic') {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': config.apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        system: LABEL_SCAN_PROMPT,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mediaType, data: imageBase64 } },
+            { type: 'text', text: 'Read the nutrition facts from this label.' },
+          ],
+        }],
+      }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`API error ${res.status}: ${text}`);
+    }
+    const data = await res.json();
+    responseText = data?.content?.[0]?.text;
+  } else {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${config.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-5-mini',
+        messages: [
+          { role: 'system', content: LABEL_SCAN_PROMPT },
+          {
+            role: 'user',
+            content: [
+              { type: 'image_url', image_url: { url: `data:${mediaType};base64,${imageBase64}` } },
+              { type: 'text', text: 'Read the nutrition facts from this label.' },
+            ],
+          },
+        ],
+        max_completion_tokens: 1024,
+      }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`API error ${res.status}: ${text}`);
+    }
+    const data = await res.json();
+    responseText = data?.choices?.[0]?.message?.content;
+  }
+
+  if (!responseText) throw new Error('Empty response from API');
+
+  let jsonStr = responseText.trim();
+  const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (jsonMatch) jsonStr = jsonMatch[1].trim();
+
+  const parsed = JSON.parse(jsonStr);
+  return (Array.isArray(parsed) ? parsed : [parsed]).map((item: any) => ({
+    id: `label-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    name: item.name || 'Unknown Product',
+    calories: Math.round(item.calories || 0),
+    protein: Math.round(item.protein || 0),
+    carbs: Math.round(item.carbs || 0),
+    fats: Math.round(item.fats || 0),
+    servingSize: item.servingSize || 1,
+    servingUnit: item.servingUnit || 'serving',
+    source: 'scan' as const,
+  }));
 }
 
 async function callAI(systemPrompt: string, userMessage: string): Promise<string> {

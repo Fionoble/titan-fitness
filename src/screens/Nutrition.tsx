@@ -3,7 +3,7 @@ import { Icon } from '../components/Icon';
 import { useNutrition, useRecentFoods } from '../hooks';
 import type { RecentFoodItem } from '../hooks';
 import { isAIConfigured } from '../ai';
-import { estimateNutrition, estimateNutritionWithImage, isJSONResponse, suggestGoals, chatWithNutritionAI } from '../ai-nutrition';
+import { estimateNutrition, estimateNutritionWithImage, isJSONResponse, suggestGoals, chatWithNutritionAI, scanNutritionLabel } from '../ai-nutrition';
 import { getFoodByBarcode, saveFoodCache } from '../db';
 import { useStore, runTask, useAITask, clearStore } from '../ai-tasks';
 import type { FoodEntry, MealLog, NutritionGoals, UserProfile, StarredFood } from '../types';
@@ -253,6 +253,9 @@ function AddFoodModal({ mealType, onAdd, onAddMultiple, onClose, recentFoods, st
   const [scanResult, setScanResult] = useState<FoodEntry | null>(null);
   const [scanLoading, setScanLoading] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [scanMode, setScanMode] = useState<'choose' | 'barcode' | 'label'>('choose');
+  const labelInputRef = useRef<HTMLInputElement>(null);
+  const labelCameraRef = useRef<HTMLInputElement>(null);
 
   const handleManualAdd = () => {
     if (!name.trim()) return;
@@ -441,6 +444,34 @@ function AddFoodModal({ mealType, onAdd, onAddMultiple, onClose, recentFoods, st
     setScanLoading(false);
   };
 
+  const handleLabelScan = async (e: Event) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    setScanLoading(true);
+    setScanError(null);
+    setScanResult(null);
+
+    try {
+      const reader = new FileReader();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('Failed to read image'));
+        reader.readAsDataURL(file);
+      });
+      const base64 = dataUrl.split(',')[1];
+      const mediaType = file.type || 'image/jpeg';
+      const results = await scanNutritionLabel(base64, mediaType);
+      if (results.length > 0) {
+        setScanResult(results[0]);
+      } else {
+        setScanError('Could not read nutrition data from this image');
+      }
+    } catch (err: any) {
+      setScanError(err.message || 'Failed to read nutrition label');
+    }
+    setScanLoading(false);
+  };
+
   const mealLabel = MEAL_CONFIG.find((m) => m.type === mealType)?.label || mealType;
 
   return (
@@ -455,7 +486,7 @@ function AddFoodModal({ mealType, onAdd, onAddMultiple, onClose, recentFoods, st
           {[
             { id: 'recent' as const, label: 'Recent', icon: 'history' },
             { id: 'manual' as const, label: 'Manual', icon: 'edit' },
-            { id: 'scan' as const, label: 'Scan', icon: 'qr_code_scanner' },
+            { id: 'scan' as const, label: 'Scan', icon: 'document_scanner' },
             { id: 'ai' as const, label: 'AI', icon: 'auto_awesome' },
           ].map((t) => (
             <button
@@ -667,7 +698,7 @@ function AddFoodModal({ mealType, onAdd, onAddMultiple, onClose, recentFoods, st
             {scanLoading ? (
               <div class="flex flex-col items-center py-8 gap-3">
                 <div class="w-10 h-10 rounded-full border-3 border-primary/30 border-t-primary animate-spin" />
-                <span class="text-sm text-slate-300">Looking up product...</span>
+                <span class="text-sm text-slate-300">{scanMode === 'label' ? 'Reading nutrition label...' : 'Looking up product...'}</span>
               </div>
             ) : scanResult ? (
               <div class="space-y-3">
@@ -695,7 +726,7 @@ function AddFoodModal({ mealType, onAdd, onAddMultiple, onClose, recentFoods, st
                 </div>
                 <div class="flex gap-3">
                   <button
-                    onClick={() => { setScanResult(null); setScanError(null); }}
+                    onClick={() => { setScanResult(null); setScanError(null); setScanMode('choose'); }}
                     class="flex-1 py-3 rounded-xl bg-surface-dark text-slate-300 font-semibold text-sm"
                   >
                     Scan Again
@@ -709,21 +740,41 @@ function AddFoodModal({ mealType, onAdd, onAddMultiple, onClose, recentFoods, st
                 </div>
               </div>
             ) : (
-              <div class="text-center py-6">
+              <div>
                 {scanError && (
                   <div class="bg-red-500/10 border border-red-500/20 rounded-lg p-3 mb-4">
                     <p class="text-red-400 text-sm">{scanError}</p>
                   </div>
                 )}
-                <Icon name="qr_code_scanner" class="text-5xl text-slate-500 mb-3" />
-                <p class="text-slate-300 text-sm mb-4">Scan a product barcode to auto-fill nutrition info</p>
-                <button
-                  onClick={() => setShowScanner(true)}
-                  class="px-8 py-3 rounded-xl bg-primary text-bg-dark font-bold text-sm inline-flex items-center gap-2"
-                >
-                  <Icon name="photo_camera" class="text-lg" />
-                  Open Scanner
-                </button>
+                <div class="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => { setScanMode('barcode'); setShowScanner(true); }}
+                    class="flex flex-col items-center gap-3 p-5 rounded-xl bg-surface-dark border border-white/5 hover:border-primary/30 transition-colors"
+                  >
+                    <div class="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Icon name="qr_code_scanner" class="text-primary text-2xl" />
+                    </div>
+                    <div class="text-center">
+                      <p class="text-sm font-semibold text-white">Barcode</p>
+                      <p class="text-[10px] text-slate-400 mt-0.5">Scan product barcode</p>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => { setScanMode('label'); labelCameraRef.current?.click(); }}
+                    class={`flex flex-col items-center gap-3 p-5 rounded-xl bg-surface-dark border border-white/5 transition-colors ${isAIConfigured() ? 'hover:border-primary/30' : 'opacity-50 cursor-not-allowed'}`}
+                    disabled={!isAIConfigured()}
+                  >
+                    <div class="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Icon name="document_scanner" class="text-primary text-2xl" />
+                    </div>
+                    <div class="text-center">
+                      <p class="text-sm font-semibold text-white">Nutrition Label</p>
+                      <p class="text-[10px] text-slate-400 mt-0.5">{isAIConfigured() ? 'Photo of label' : 'Requires AI key'}</p>
+                    </div>
+                  </button>
+                </div>
+                <input ref={labelCameraRef} type="file" accept="image/*" capture="environment" class="hidden" onChange={handleLabelScan} />
+                <input ref={labelInputRef} type="file" accept="image/*" class="hidden" onChange={handleLabelScan} />
               </div>
             )}
           </div>
