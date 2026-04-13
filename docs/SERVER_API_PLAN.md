@@ -196,6 +196,20 @@ GET  /api/v1/subscription         # Subscription status
 POST /api/v1/subscription/validate      # Validate App Store / Play Store receipt
 ```
 
+### Rate Limits (per user, per day)
+
+| Endpoint | Free (post-trial) | Workout Pro | Titan Pro |
+|---|---|---|---|
+| Program generation | 1/week | 7/day | 10/day |
+| Coach chat | — | 50/day | 75/day |
+| In-workout chat | — | 30/day | 30/day |
+| Nutrition estimate | — | — | 30/day |
+| Nutrition vision/label | — | — | 20/day |
+| Nutrition chat | — | — | 50/day |
+| Nutrition goals | — | — | 5/day |
+
+Enforced server-side via usage counters in D1, reset at midnight UTC. Response includes `X-RateLimit-Remaining` header so the app can show usage to users proactively.
+
 ### Auth Flow
 
 ```
