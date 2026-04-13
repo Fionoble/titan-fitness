@@ -63,9 +63,9 @@ Note: Currently using `gpt-5-mini` ($1.50/$6.00), but it wastes budget on reason
 
 | Tier | Price | Features | API cost/user/mo | Revenue after store cut (30%) | Margin |
 |---|---|---|---|---|---|
-| **Free** | $0 | 1 program generation per week | ~$0.01 | — | — |
-| **Workout Pro** | $6.99/mo | AI Coach chat, in-workout chat, program gen | ~$0.50-1.00 | ~$4.89 | ~$3.89-4.39 |
-| **Titan Pro** | $12.99/mo | Everything + nutrition tracking, vision, label scan | ~$1.00-2.00 | ~$9.09 | ~$7.09-8.09 |
+| **Free** | $0 | 7-day trial of Titan Pro, then 1 program gen/week | ~$0.01 | — | — |
+| **Workout Pro** | $6.99/mo | AI Coach chat (gpt-5-mini), in-workout chat, program gen (gpt-5-mini) | ~$1.50-3.00 | ~$4.89 | ~$1.89-3.39 |
+| **Titan Pro** | $12.99/mo | Everything + nutrition tracking, vision, label scan (gpt-4.1-mini) | ~$2.00-4.00 | ~$9.09 | ~$5.09-7.09 |
 
 Annual pricing options:
 - Workout Pro Annual: $49.99/yr ($4.17/mo) — better retention, healthy margin
@@ -80,7 +80,28 @@ Annual pricing options:
 | gpt-5-mini | $1.50 / $6.00 | $4.00-7.00 | Current model, reasoning token overhead |
 | gpt-4.1 | $2.00 / $8.00 | $2.00-3.50 | Best quality, overkill for most requests |
 
-Strategy: Use gpt-4.1-mini for all endpoints. If quality issues arise for specific features (e.g. program generation), selectively upgrade those to gpt-4.1.
+### Model routing strategy
+
+Use gpt-5-mini for endpoints that require reasoning about constraints (injuries, equipment, recovery, multi-day programming). Use gpt-4.1-mini for everything else.
+
+| Endpoint | Model | Rationale |
+|---|---|---|
+| Coach chat | gpt-5-mini | Reasons about injuries, equipment, muscle recovery |
+| Program generation | gpt-5-mini | Complex multi-day planning with constraints |
+| In-workout chat | gpt-4.1-mini | Quick form tips, simple Q&A |
+| Nutrition estimate (text) | gpt-4.1-mini | Straightforward estimation |
+| Nutrition vision | gpt-4.1-mini | Read food from image |
+| Nutrition label scan | gpt-4.1-mini | OCR + structured extraction |
+| Nutrition goals | gpt-4.1-mini | Simple calculation from profile |
+| Nutrition chat | gpt-4.1-mini | General nutrition Q&A |
+
+### Revised per-user monthly estimates (mixed models)
+
+| Usage tier | Requests/month | Est. cost/month |
+|---|---|---|
+| Light (3x/week workouts) | ~200 | $0.80 - $1.50 |
+| Moderate (5x/week) | ~500 | $1.50 - $3.00 |
+| Heavy (daily + nutrition tracking) | ~1,000 | $2.50 - $4.50 |
 
 ---
 
@@ -346,12 +367,12 @@ This enables:
 
 1. **Auth**: Apple Sign-In + Google Sign-In (Apple requires Apple Sign-In if any third-party login is offered)
 2. **Tiers**: Free (1 program gen/week) → Workout Pro $6.99/mo (chat + workouts) → Titan Pro $12.99/mo (+ nutrition)
-3. **Model**: gpt-4.1-mini for all endpoints (5-6x cheaper than current gpt-5-mini, no reasoning token waste)
+3. **Model**: gpt-5-mini for reasoning-heavy endpoints (coach chat, program gen), gpt-4.1-mini for everything else. 7-day free trial of Titan Pro for new signups.
 4. **BYOK**: PWA only (titan.fio.dev). Native apps require subscription for AI features.
 5. **Domain**: `titan-api.fio.dev`
 
 ## Open Questions
 
-1. **gpt-4.1-nano for simple endpoints?** Could use nano for nutrition estimates, label scans, and goal suggestions to cut costs further (~4x cheaper than mini). Test quality first.
+1. **gpt-4.1-nano for simple endpoints?** Could use nano for nutrition label scan and goal suggestions to cut costs further (~4x cheaper than mini). Test quality first.
 2. **Free tier rate limiting**: 1 program gen per week — should it expire (regenerate allowed) or persist until next week?
-3. **Trial period**: Offer 7-day free trial of Titan Pro for new signups?
+3. **Trial → conversion flow**: After 7-day trial expires, what's the UX? Soft paywall (show features grayed out with upgrade prompt) or hard paywall (block AI features entirely)?
