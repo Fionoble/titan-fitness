@@ -27,24 +27,27 @@
 
 ---
 
-## Token Cost Estimates (Claude Sonnet)
+## Token Cost Estimates (OpenAI gpt-4.1-mini)
 
-**Model: `claude-sonnet-4-20250514`**
-- Input: $3.00 / 1M tokens
-- Output: $15.00 / 1M tokens
+**Model: `gpt-4.1-mini`** (recommended — best price/quality for this workload)
+- Input: $0.40 / 1M tokens
+- Output: $1.60 / 1M tokens
+- Vision: supported
 
-### Per-request estimates
+Note: Currently using `gpt-5-mini` ($1.50/$6.00), but it wastes budget on reasoning tokens that don't produce visible output. `gpt-4.1-mini` is 5-6x cheaper with excellent quality for coaching/nutrition tasks.
+
+### Per-request estimates (gpt-4.1-mini)
 
 | Feature | Input tokens | Output tokens | Cost/request |
 |---|---|---|---|
-| Coach chat (short) | ~1,200 | ~500 | $0.0111 |
-| Coach chat (with history) | ~3,000 | ~800 | $0.0210 |
-| Program generation | ~1,500 | ~4,000 | $0.0645 |
-| Nutrition estimate (text) | ~300 | ~200 | $0.0039 |
-| Nutrition vision | ~1,500* | ~300 | $0.0090 |
-| Nutrition label scan | ~1,500* | ~200 | $0.0075 |
-| Nutrition chat | ~600 | ~400 | $0.0078 |
-| In-workout chat | ~500 | ~200 | $0.0045 |
+| Coach chat (short) | ~1,200 | ~500 | $0.0013 |
+| Coach chat (with history) | ~3,000 | ~800 | $0.0025 |
+| Program generation | ~1,500 | ~4,000 | $0.0070 |
+| Nutrition estimate (text) | ~300 | ~200 | $0.0004 |
+| Nutrition vision | ~1,500* | ~300 | $0.0011 |
+| Nutrition label scan | ~1,500* | ~200 | $0.0009 |
+| Nutrition chat | ~600 | ~400 | $0.0009 |
+| In-workout chat | ~500 | ~200 | $0.0005 |
 
 *Vision requests include image tokens (~1,000-1,500 for a typical photo)
 
@@ -52,21 +55,32 @@
 
 | Usage tier | Requests/month | Est. cost/month |
 |---|---|---|
-| Light (3x/week workouts) | ~200 | $1.50 - $2.50 |
-| Moderate (5x/week) | ~500 | $3.50 - $6.00 |
-| Heavy (daily + nutrition tracking) | ~1,000 | $7.00 - $12.00 |
+| Light (3x/week workouts) | ~200 | $0.35 - $0.65 |
+| Moderate (5x/week) | ~500 | $0.75 - $1.30 |
+| Heavy (daily + nutrition tracking) | ~1,000 | $1.50 - $2.50 |
 
-### Suggested pricing
+### Subscription Tiers
 
-| Plan | Price | Margin at moderate use |
-|---|---|---|
-| **Free tier** | $0 | 5 AI requests/day (coach chat only, no vision) |
-| **Pro** | $9.99/mo | ~40-60% margin |
-| **Pro Annual** | $79.99/yr ($6.67/mo) | ~15-30% margin |
+| Tier | Price | Features | API cost/user/mo | Revenue after store cut (30%) | Margin |
+|---|---|---|---|---|---|
+| **Free** | $0 | 1 program generation per week | ~$0.01 | — | — |
+| **Workout Pro** | $6.99/mo | AI Coach chat, in-workout chat, program gen | ~$0.50-1.00 | ~$4.89 | ~$3.89-4.39 |
+| **Titan Pro** | $12.99/mo | Everything + nutrition tracking, vision, label scan | ~$1.00-2.00 | ~$9.09 | ~$7.09-8.09 |
 
-Apple/Google take 30% (15% after year 1 for small business), so factor that in:
-- $9.99 → you receive ~$7.00 → cost ~$4-6 → margin $1-3/user/month
-- Annual gets better retention and you keep more per-month
+Annual pricing options:
+- Workout Pro Annual: $49.99/yr ($4.17/mo) — better retention, healthy margin
+- Titan Pro Annual: $99.99/yr ($8.33/mo) — best value for heavy users
+
+### Model alternatives considered
+
+| Model | Input/Output per 1M | Monthly cost (moderate) | Notes |
+|---|---|---|---|
+| gpt-4.1-nano | $0.10 / $0.40 | $0.18-0.35 | Cheapest, quality may suffer for nuanced coaching |
+| **gpt-4.1-mini** | **$0.40 / $1.60** | **$0.75-1.30** | **Best balance — recommended** |
+| gpt-5-mini | $1.50 / $6.00 | $4.00-7.00 | Current model, reasoning token overhead |
+| gpt-4.1 | $2.00 / $8.00 | $2.00-3.50 | Best quality, overkill for most requests |
+
+Strategy: Use gpt-4.1-mini for all endpoints. If quality issues arise for specific features (e.g. program generation), selectively upgrade those to gpt-4.1.
 
 ---
 
@@ -165,13 +179,17 @@ POST /api/v1/subscription/validate      # Validate App Store / Play Store receip
 
 ```
 1. User opens app → no account → "Sign in to use AI features"
-2. User signs in (Apple Sign-In / Google Sign-In / email magic link)
+2. User signs in via Apple Sign-In or Google Sign-In
+   - Apple Sign-In required if offering any third-party login (App Store rule)
+   - Capacitor plugins: @capacitor/google-auth, @capacitor-community/apple-sign-in
+   - PWA: JS SDKs for both providers
 3. Server creates account, returns JWT (short-lived) + refresh token
 4. App stores tokens in secure storage (Keychain on iOS, Keystore on Android)
 5. All /api/v1/ai/* requests include Authorization: Bearer <jwt>
-6. Server validates JWT, checks subscription status, checks rate limit
-7. If free tier: allow if under daily limit
-8. If Pro: proxy to Anthropic, track usage
+6. Server validates JWT, checks subscription tier, checks rate limit
+7. If free tier: allow program generation only (1x/week)
+8. If Workout Pro: allow coach chat, in-workout chat, program gen
+9. If Titan Pro: allow all features including nutrition
 ```
 
 ### Request/Response Pattern
@@ -189,10 +207,11 @@ POST /api/v1/ai/chat
 
 // Server:
 // 1. Validates JWT
-// 2. Checks subscription / rate limit
-// 3. Forwards to Anthropic API with server-side API key
-// 4. Streams response back to client
-// 5. Logs usage (tokens in/out) to D1
+// 2. Checks subscription tier (free/workout-pro/titan-pro)
+// 3. Checks feature access (e.g. nutrition endpoints require titan-pro)
+// 4. Forwards to OpenAI API (gpt-4.1-mini) with server-side API key
+// 5. Streams response back to client
+// 6. Logs usage (tokens in/out) to D1
 ```
 
 ### App-Side Changes
@@ -200,8 +219,8 @@ POST /api/v1/ai/chat
 ```ts
 // src/native/platform.ts — add:
 export const apiBase = isNative
-  ? 'https://api.titanfitness.app'
-  : 'https://api.titanfitness.app'; // same for PWA
+  ? 'https://titan-api.fio.dev'
+  : 'https://titan-api.fio.dev'; // same for PWA
 
 // src/ai.ts — refactor getConfig():
 function getConfig(): AIConfig {
@@ -219,7 +238,7 @@ function getConfig(): AIConfig {
 }
 ```
 
-Users with their own API key bypass the server entirely (no cost to you). Server-side users go through the proxy.
+**BYOK (Bring Your Own Key)**: Available on the PWA at titan.fio.dev only. Users with their own API key bypass the server entirely (no cost to you). Native app users (iOS/Android) always go through the server proxy and require a subscription for AI features.
 
 ---
 
@@ -305,7 +324,7 @@ This enables:
 - [ ] Usage tracking in D1
 - [ ] Rate limiting (free tier: 5 requests/day)
 - [ ] App-side: add server auth flow, refactor AI calls to support both BYOK and server modes
-- [ ] Deploy to `api.titanfitness.app`
+- [ ] Deploy to `titan-api.fio.dev`
 
 ### Phase 2 — Subscriptions — ~1-2 weeks
 - [ ] Apple StoreKit 2 Capacitor plugin
@@ -323,10 +342,16 @@ This enables:
 
 ---
 
-## Key Decisions Needed
+## Decisions Made
 
-1. **Auth provider**: Magic link email only? Or Apple/Google Sign-In from day 1? (Apple requires Apple Sign-In if you offer any other social login)
-2. **Free tier limits**: 5 requests/day? Coach chat only? Include vision?
-3. **Model choice**: Sonnet for all endpoints, or Haiku for simpler ones (nutrition estimate, label scan) to save cost?
-4. **BYOK coexistence**: Keep BYOK as an option for power users, or sunset it once server proxy ships?
-5. **Domain**: `api.titanfitness.app`?
+1. **Auth**: Apple Sign-In + Google Sign-In (Apple requires Apple Sign-In if any third-party login is offered)
+2. **Tiers**: Free (1 program gen/week) → Workout Pro $6.99/mo (chat + workouts) → Titan Pro $12.99/mo (+ nutrition)
+3. **Model**: gpt-4.1-mini for all endpoints (5-6x cheaper than current gpt-5-mini, no reasoning token waste)
+4. **BYOK**: PWA only (titan.fio.dev). Native apps require subscription for AI features.
+5. **Domain**: `titan-api.fio.dev`
+
+## Open Questions
+
+1. **gpt-4.1-nano for simple endpoints?** Could use nano for nutrition estimates, label scans, and goal suggestions to cut costs further (~4x cheaper than mini). Test quality first.
+2. **Free tier rate limiting**: 1 program gen per week — should it expire (regenerate allowed) or persist until next week?
+3. **Trial period**: Offer 7-day free trial of Titan Pro for new signups?
