@@ -16,16 +16,33 @@ function getAudioCtx(): AudioContext | null {
   } catch { return null; }
 }
 
-/** Call once from any touchstart/click handler to unlock audio on iOS */
+/** Call once from any touchstart/click handler to unlock audio on iOS.
+ *  Also plays a silent buffer to fully prime the audio pipeline. */
 function unlockAudio() {
-  const ctx = getAudioCtx();
-  if (ctx && ctx.state === 'suspended') ctx.resume();
-}
-
-function playRestBeep() {
   const ctx = getAudioCtx();
   if (!ctx) return;
   if (ctx.state === 'suspended') ctx.resume();
+  // Play a silent buffer to fully unlock on iOS
+  const buf = ctx.createBuffer(1, 1, 22050);
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.connect(ctx.destination);
+  src.start(0);
+}
+
+/** Ensure AudioContext is active before playing. Returns true if ready. */
+async function ensureAudioReady(): Promise<boolean> {
+  const ctx = getAudioCtx();
+  if (!ctx) return false;
+  if (ctx.state === 'suspended') {
+    try { await ctx.resume(); } catch { return false; }
+  }
+  return ctx.state === 'running';
+}
+
+async function playRestBeep() {
+  if (!await ensureAudioReady()) return;
+  const ctx = _audioCtx!;
   // Double beep: two short tones
   for (const offset of [0, 0.18]) {
     const osc = ctx.createOscillator();
@@ -41,10 +58,9 @@ function playRestBeep() {
   }
 }
 
-function playExerciseBeep() {
-  const ctx = getAudioCtx();
-  if (!ctx) return;
-  if (ctx.state === 'suspended') ctx.resume();
+async function playExerciseBeep() {
+  if (!await ensureAudioReady()) return;
+  const ctx = _audioCtx!;
   // Triple ascending beep — distinct from rest timer's double beep
   const notes = [660, 880, 1046.5]; // E5, A5, C6
   for (let i = 0; i < notes.length; i++) {
@@ -463,6 +479,15 @@ export function ActiveWorkout({ activeWorkout, onComplete, onNavigateBack, onUpd
     return () => clearInterval(timerRef.current);
   }, [activeWorkout.startedAt]);
 
+  // Keep AudioContext alive during the workout — iOS suspends it after inactivity
+  useEffect(() => {
+    const keepAlive = setInterval(() => {
+      const ctx = getAudioCtx();
+      if (ctx?.state === 'suspended') ctx.resume();
+    }, 5000);
+    return () => clearInterval(keepAlive);
+  }, []);
+
   // Persist state changes to parent (debounced via hook)
   const persistRef = useRef(false);
   useEffect(() => {
@@ -486,12 +511,15 @@ export function ActiveWorkout({ activeWorkout, onComplete, onNavigateBack, onUpd
   }, []);
 
   // Rest timer
+  const restTimerDoneRef = useRef(false);
+
   useEffect(() => {
     if (restTimer !== null && restTimer > 0) {
       restRef.current = setInterval(() => {
         setRestTimer((r) => {
           if (r !== null && r <= 1) {
             clearInterval(restRef.current);
+            restTimerDoneRef.current = true;
             return null;
           }
           return r !== null ? r - 1 : null;
@@ -501,20 +529,22 @@ export function ActiveWorkout({ activeWorkout, onComplete, onNavigateBack, onUpd
     }
   }, [restTimer]);
 
-  // Play beep when rest timer expires naturally (not skipped)
-  const prevRestRef = useRef<number | null>(null);
+  // Handle rest timer completion — runs after state update, outside the updater
   useEffect(() => {
-    if (prevRestRef.current !== null && prevRestRef.current > 0 && restTimer === null) {
+    if (restTimer === null && restTimerDoneRef.current) {
+      restTimerDoneRef.current = false;
       if (!restSkippedRef.current) {
         const soundOff = localStorage.getItem('titan_rest_sound') === 'false';
         if (!soundOff) playRestBeep();
       }
       restSkippedRef.current = false;
     }
-    prevRestRef.current = restTimer;
   }, [restTimer]);
 
   // Exercise timer (for time-based exercises)
+  // Track completion outside the state updater so beep + side effects run cleanly
+  const exTimerDoneRef = useRef<{ logIdx: number; setIdx: number } | null>(null);
+
   useEffect(() => {
     if (exTimer?.running) {
       exTimerRef.current = setInterval(() => {
@@ -523,11 +553,7 @@ export function ActiveWorkout({ activeWorkout, onComplete, onNavigateBack, onUpd
           if (prev.mode === 'countdown') {
             if (prev.seconds <= 1) {
               clearInterval(exTimerRef.current);
-              // Play beep if sound is enabled
-              const soundOff = localStorage.getItem('titan_rest_sound') === 'false';
-              if (!soundOff) playExerciseBeep();
-              // Auto-complete the set
-              completeTimedSet(prev.logIdx, prev.setIdx, parseTimeSeconds(plan.exercises[prev.logIdx].reps));
+              exTimerDoneRef.current = { logIdx: prev.logIdx, setIdx: prev.setIdx };
               return null;
             }
             return { ...prev, seconds: prev.seconds - 1 };
@@ -580,6 +606,17 @@ export function ActiveWorkout({ activeWorkout, onComplete, onNavigateBack, onUpd
       setRestTimer(exercise.restSeconds || 60);
     }
   }, [plan.exercises, scrollToGroupExercise]);
+
+  // Handle exercise timer completion — runs after state update, outside the updater
+  useEffect(() => {
+    if (exTimer === null && exTimerDoneRef.current) {
+      const { logIdx, setIdx } = exTimerDoneRef.current;
+      exTimerDoneRef.current = null;
+      const soundOff = localStorage.getItem('titan_rest_sound') === 'false';
+      if (!soundOff) playExerciseBeep();
+      completeTimedSet(logIdx, setIdx, parseTimeSeconds(plan.exercises[logIdx].reps));
+    }
+  }, [exTimer, plan.exercises, completeTimedSet]);
 
   // Count-in timer state
   const [countInTimer, setCountInTimer] = useState<number | null>(null);
