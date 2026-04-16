@@ -1047,14 +1047,53 @@ export function ActiveWorkout({ activeWorkout, onComplete, onNavigateBack, onUpd
           </>
         )}
 
-        {/* Add Set */}
-        <button
-          onClick={() => addSet(logIdx)}
-          class="mt-2 py-3 w-full rounded-lg border border-dashed border-slate-600 text-sm font-medium text-slate-400 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all flex items-center justify-center gap-2"
-        >
-          <Icon name="add" class="text-lg" />
-          Add Set
-        </button>
+        {/* Notes + Add Set */}
+        <div class="flex gap-2 mt-2">
+          <button
+            onClick={() => {
+              setExerciseLogs((prev) => {
+                const updated = [...prev];
+                const log = { ...updated[logIdx] };
+                log.notes = log.notes === undefined ? '' : undefined;
+                updated[logIdx] = log;
+                return updated;
+              });
+            }}
+            class={`py-3 px-4 rounded-lg border text-sm font-medium flex items-center justify-center gap-1.5 transition-all ${
+              log.notes !== undefined
+                ? 'border-amber-500/30 text-amber-400 bg-amber-500/5'
+                : 'border-dashed border-slate-600 text-slate-400 hover:border-amber-500/30 hover:text-amber-400'
+            }`}
+          >
+            <Icon name={log.notes !== undefined ? 'sticky_note_2' : 'note_add'} class="text-base" />
+          </button>
+          <button
+            onClick={() => addSet(logIdx)}
+            class="py-3 flex-1 rounded-lg border border-dashed border-slate-600 text-sm font-medium text-slate-400 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all flex items-center justify-center gap-2"
+          >
+            <Icon name="add" class="text-lg" />
+            Add Set
+          </button>
+        </div>
+
+        {log.notes !== undefined && (
+          <textarea
+            value={log.notes}
+            onInput={(e) => {
+              const value = (e.target as HTMLTextAreaElement).value;
+              setExerciseLogs((prev) => {
+                const updated = [...prev];
+                const l = { ...updated[logIdx] };
+                l.notes = value;
+                updated[logIdx] = l;
+                return updated;
+              });
+            }}
+            placeholder="e.g. Go heavier next time, felt easy..."
+            rows={2}
+            class="w-full bg-bg-dark border border-amber-500/20 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-500/40 focus:ring-1 focus:ring-amber-500/40 resize-none mt-1"
+          />
+        )}
       </div>
     );
   };

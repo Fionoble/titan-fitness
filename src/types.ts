@@ -56,6 +56,7 @@ export interface ExerciseLog {
   exerciseName: string;
   muscleGroup: string;
   sets: SetLog[];
+  notes?: string;
 }
 
 export interface WorkoutSession {

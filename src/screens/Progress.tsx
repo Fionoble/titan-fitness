@@ -148,6 +148,12 @@ function WorkoutDetail({ session, onClose, onUpdate, onDelete, onStartFrom }: {
                 <span class="text-sm font-semibold text-white">{ex.exerciseName}</span>
                 <span class="text-[10px] text-slate-500 uppercase">{ex.muscleGroup}</span>
               </div>
+              {ex.notes && (
+                <div class="flex items-start gap-1.5 mb-2 px-1">
+                  <Icon name="sticky_note_2" class="text-amber-400 text-sm mt-0.5" />
+                  <p class="text-xs text-amber-300/80 italic">{ex.notes}</p>
+                </div>
+              )}
               <div class="space-y-1">
                 {ex.sets.map((set, setIdx) => (
                   <div
