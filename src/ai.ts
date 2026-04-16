@@ -24,7 +24,9 @@ export function setAIConfig(apiKey: string, provider: 'anthropic' | 'openai') {
 function daysAgo(dateStr: string): number {
   const now = new Date();
   const then = new Date(dateStr);
-  return Math.floor((now.getTime() - then.getTime()) / (1000 * 60 * 60 * 24));
+  const startOfNow = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const startOfThen = new Date(then.getFullYear(), then.getMonth(), then.getDate()).getTime();
+  return Math.round((startOfNow - startOfThen) / (1000 * 60 * 60 * 24));
 }
 
 function formatDaysAgo(n: number): string {
