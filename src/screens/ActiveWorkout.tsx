@@ -41,6 +41,27 @@ function playRestBeep() {
   }
 }
 
+function playExerciseBeep() {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') ctx.resume();
+  // Triple ascending beep — distinct from rest timer's double beep
+  const notes = [660, 880, 1046.5]; // E5, A5, C6
+  for (let i = 0; i < notes.length; i++) {
+    const offset = i * 0.15;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = notes[i];
+    osc.type = 'sine';
+    gain.gain.value = 0.45;
+    gain.gain.setTargetAtTime(0, ctx.currentTime + offset + 0.1, 0.02);
+    osc.start(ctx.currentTime + offset);
+    osc.stop(ctx.currentTime + offset + 0.15);
+  }
+}
+
 function playCountInBeep(final = false) {
   const ctx = getAudioCtx();
   if (!ctx) return;
@@ -502,6 +523,9 @@ export function ActiveWorkout({ activeWorkout, onComplete, onNavigateBack, onUpd
           if (prev.mode === 'countdown') {
             if (prev.seconds <= 1) {
               clearInterval(exTimerRef.current);
+              // Play beep if sound is enabled
+              const soundOff = localStorage.getItem('titan_rest_sound') === 'false';
+              if (!soundOff) playExerciseBeep();
               // Auto-complete the set
               completeTimedSet(prev.logIdx, prev.setIdx, parseTimeSeconds(plan.exercises[prev.logIdx].reps));
               return null;
@@ -1131,14 +1155,31 @@ export function ActiveWorkout({ activeWorkout, onComplete, onNavigateBack, onUpd
         </div>
       )}
 
+      {/* Exercise timer overlay */}
+      {exTimer?.running && (
+        <div class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-bg-dark/90 backdrop-blur-lg rounded-2xl p-8 text-center border border-amber-500/20 shadow-2xl min-w-[260px]">
+          <p class="text-amber-400 text-sm uppercase tracking-wider mb-1">
+            {exTimer.mode === 'countdown' ? 'Exercise Timer' : 'Stopwatch'}
+          </p>
+          <p class="text-xs text-slate-500 mb-3">{plan.exercises[exTimer.logIdx]?.name}</p>
+          <p class="text-6xl font-bold text-amber-400 mb-5 tabular-nums">{formatTime(exTimer.seconds)}</p>
+          <button
+            onClick={stopExTimer}
+            class="px-6 py-2.5 rounded-xl bg-red-500/20 text-red-400 text-sm font-bold hover:bg-red-500/30 transition-colors"
+          >
+            Stop
+          </button>
+        </div>
+      )}
+
       {/* Rest timer overlay */}
       {restTimer !== null && (
-        <div class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-bg-dark/90 backdrop-blur-lg rounded-2xl p-8 text-center border border-primary/20 shadow-2xl">
+        <div class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-bg-dark/90 backdrop-blur-lg rounded-2xl p-8 text-center border border-primary/20 shadow-2xl min-w-[260px]">
           <p class="text-slate-400 text-sm uppercase tracking-wider mb-2">Rest Timer</p>
-          <p class="text-5xl font-bold text-primary mb-4">{formatTime(restTimer)}</p>
+          <p class="text-6xl font-bold text-primary mb-5 tabular-nums">{formatTime(restTimer)}</p>
           <button
             onClick={skipRest}
-            class="text-sm text-slate-400 hover:text-white transition-colors"
+            class="px-6 py-2.5 rounded-xl bg-white/10 text-slate-400 text-sm font-medium hover:text-white transition-colors"
           >
             Skip Rest
           </button>
