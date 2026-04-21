@@ -386,12 +386,28 @@ export function useActiveWorkout() {
   };
 }
 
+function isFromToday(timestamp: string): boolean {
+  const msgDate = new Date(timestamp);
+  const now = new Date();
+  return msgDate.getFullYear() === now.getFullYear()
+    && msgDate.getMonth() === now.getMonth()
+    && msgDate.getDate() === now.getDate();
+}
+
 export function useChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    db.getChatMessages().then(setMessages);
+    db.getChatMessages().then((msgs) => {
+      const lastMsg = msgs[msgs.length - 1];
+      if (lastMsg && !isFromToday(lastMsg.timestamp)) {
+        db.clearChat();
+        setMessages([]);
+      } else {
+        setMessages(msgs);
+      }
+    });
   }, []);
 
   const addMessage = useCallback(async (msg: ChatMessage) => {
