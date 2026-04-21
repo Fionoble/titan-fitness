@@ -169,6 +169,8 @@ function WorkoutDetail({ session, onClose, onUpdate, onDelete, onStartFrom }: {
                       <div class="flex items-center gap-2 flex-1">
                         <input
                           type="number"
+                          step="0.5"
+                          inputMode="decimal"
                           value={set.weight ?? ''}
                           placeholder="—"
                           onInput={(e) => handleSetChange(exIdx, setIdx, 'weight', (e.target as HTMLInputElement).value ? Number((e.target as HTMLInputElement).value) : null)}

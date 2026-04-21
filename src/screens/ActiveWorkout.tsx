@@ -1013,6 +1013,8 @@ export function ActiveWorkout({ activeWorkout, onComplete, onNavigateBack, onUpd
                     <div class="col-span-3">
                       <input
                         type="number"
+                        step="0.5"
+                        inputMode="decimal"
                         value={set.weight ?? ''}
                         placeholder={weightPlaceholder}
                         onInput={(e) => updateSet(logIdx, idx, 'weight', (e.target as HTMLInputElement).value ? Number((e.target as HTMLInputElement).value) : null)}
