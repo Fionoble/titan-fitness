@@ -14,7 +14,7 @@ import { Nutrition } from './screens/Nutrition';
 import { ProfileNative as Profile } from './screens/ProfileNative';
 import { SettingsNative as Settings } from './screens/SettingsNative';
 import { ProgramDetail } from './screens/ProgramDetail';
-import { useEquipment, useTodayWorkout, useSessions, useChat, useProfile, useWeightHistory, useWorkoutProgram, useActiveWorkout } from './hooks';
+import { useEquipment, useTodayWorkout, useSessions, useChat, useProfile, useWeightHistory, useWorkoutProgram, useActiveWorkout, useSavedPlans } from './hooks';
 import { useAITaskByType } from './ai-tasks';
 import { withBase, stripBase } from './base';
 import { Icon } from './components/Icon';
@@ -32,6 +32,7 @@ export function App() {
   const { profile, updateProfile } = useProfile();
   const { entries: weightHistory, addEntry: addWeight, removeEntry: removeWeight } = useWeightHistory();
   const { program, loading: programLoading, todayPlan: todayProgramDay, generateProgram, clearProgram, updateProgram } = useWorkoutProgram(equipment);
+  const { savedPlans, savePlan: savePlanForLater, removeSavedPlan } = useSavedPlans();
   const {
     activeWorkout,
     isActive: workoutIsActive,
@@ -182,6 +183,9 @@ export function App() {
           activeWorkout={activeWorkout}
           workoutIsActive={workoutIsActive}
           onResumeWorkout={() => nav('/workout')}
+          savedPlans={savedPlans}
+          onStartSavedWorkout={handleStartWorkout}
+          onRemoveSavedPlan={removeSavedPlan}
         />
         <Route
           path={withBase('/workout')}
@@ -223,6 +227,7 @@ export function App() {
           equipment={equipment}
           sessions={sessions}
           onApplyPlan={handleApplyPlan}
+          onSavePlan={(plan: WorkoutPlan) => savePlanForLater(plan, 'coach')}
           onClearChat={clearChat}
           pendingAdjustPlan={pendingAdjustPlan}
           onClearPendingAdjust={() => setPendingAdjustPlan(null)}
@@ -288,6 +293,9 @@ export function App() {
           activeWorkout={activeWorkout}
           workoutIsActive={workoutIsActive}
           onResumeWorkout={() => nav('/workout')}
+          savedPlans={savedPlans}
+          onStartSavedWorkout={handleStartWorkout}
+          onRemoveSavedPlan={removeSavedPlan}
         />
       </Router>
 

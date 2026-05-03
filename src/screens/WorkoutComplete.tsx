@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
 import { Icon } from '../components/Icon';
+import { ExerciseBreakdown } from '../components/ExerciseBreakdown';
 import type { WorkoutSession } from '../types';
 
 interface WorkoutCompleteProps {
@@ -224,27 +225,7 @@ export function WorkoutComplete({ session, onDismiss }: WorkoutCompleteProps) {
             <div class="p-3 border-b border-white/5">
               <p class="text-xs text-slate-400 uppercase tracking-wider font-medium">Exercise Breakdown</p>
             </div>
-            <div class="divide-y divide-white/5">
-              {session.exercises.map((ex) => {
-                const completed = ex.sets.filter(s => s.completed);
-                const bestSet = completed.reduce((best, s) =>
-                  (s.weight || 0) > (best.weight || 0) ? s : best, completed[0]);
-                return (
-                  <div key={ex.exerciseId} class="flex items-center justify-between px-4 py-3">
-                    <div class="flex-1 min-w-0">
-                      <p class="text-sm text-white truncate">{ex.exerciseName}</p>
-                      <p class="text-xs text-slate-500">{ex.muscleGroup}</p>
-                    </div>
-                    <div class="text-right shrink-0 ml-3">
-                      <p class="text-sm text-slate-300">{completed.length}/{ex.sets.length} sets</p>
-                      {bestSet?.weight && (
-                        <p class="text-xs text-primary">{bestSet.weight} lbs x {bestSet.reps}</p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <ExerciseBreakdown exercises={session.exercises} />
           </div>
         </div>
       </div>

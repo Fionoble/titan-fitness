@@ -1,8 +1,8 @@
 import { openDB, type IDBPDatabase } from 'idb';
-import type { Equipment, WorkoutPlan, WorkoutSession, PersonalRecord, UserProfile, ChatMessage, MealLog, FoodEntry, NutritionGoals, StarredFood, WeightEntry, WorkoutProgram, ActiveWorkoutState } from './types';
+import type { Equipment, WorkoutPlan, WorkoutSession, PersonalRecord, UserProfile, ChatMessage, MealLog, FoodEntry, NutritionGoals, StarredFood, WeightEntry, WorkoutProgram, ActiveWorkoutState, SavedPlan } from './types';
 
 const DB_NAME = 'titan-fitness';
-const DB_VERSION = 7;
+const DB_VERSION = 8;
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
@@ -59,6 +59,9 @@ function getDB() {
         }
         if (!db.objectStoreNames.contains('activeWorkout')) {
           db.createObjectStore('activeWorkout', { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains('savedPlans')) {
+          db.createObjectStore('savedPlans', { keyPath: 'id' });
         }
       },
     });
@@ -409,8 +412,32 @@ export async function deleteProgram(id: string): Promise<void> {
   await db.delete('programs', id);
 }
 
+// Saved Plans
+export async function getSavedPlans(): Promise<SavedPlan[]> {
+  const db = await getDB();
+  const all = await db.getAll('savedPlans');
+  return all.sort((a: SavedPlan, b: SavedPlan) => b.savedAt.localeCompare(a.savedAt));
+}
+
+export async function savePlanForLater(plan: WorkoutPlan, source: 'coach' | 'home'): Promise<SavedPlan> {
+  const db = await getDB();
+  const saved: SavedPlan = {
+    id: `saved-${Date.now()}`,
+    plan,
+    savedAt: new Date().toISOString(),
+    source,
+  };
+  await db.put('savedPlans', saved);
+  return saved;
+}
+
+export async function deleteSavedPlan(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('savedPlans', id);
+}
+
 // Export / Import
-const STORE_NAMES = ['equipment', 'workoutPlans', 'sessions', 'personalRecords', 'profile', 'chatMessages', 'nutritionLogs', 'foods', 'nutritionGoals', 'starredFoods', 'weightHistory', 'programs', 'activeWorkout'] as const;
+const STORE_NAMES = ['equipment', 'workoutPlans', 'sessions', 'personalRecords', 'profile', 'chatMessages', 'nutritionLogs', 'foods', 'nutritionGoals', 'starredFoods', 'weightHistory', 'programs', 'activeWorkout', 'savedPlans'] as const;
 
 export async function exportAllData(): Promise<string> {
   const db = await getDB();

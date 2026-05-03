@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'preact/hooks';
 import * as db from './db';
-import type { Equipment, WorkoutPlan, WorkoutSession, ChatMessage, UserProfile, WorkoutCriteria, MealLog, FoodEntry, NutritionGoals, StarredFood, WeightEntry, WorkoutProgram, ProgramDay, ActiveWorkoutState, ExerciseLog, Exercise } from './types';
+import type { Equipment, WorkoutPlan, WorkoutSession, ChatMessage, UserProfile, WorkoutCriteria, MealLog, FoodEntry, NutritionGoals, StarredFood, WeightEntry, WorkoutProgram, ProgramDay, ActiveWorkoutState, ExerciseLog, Exercise, SavedPlan } from './types';
 import { generateWorkout, getTodayStyle } from './workout-engine';
 import { generateWorkoutViaAI } from './ai-workout';
 import { generateProgramViaAI } from './ai-program';
@@ -134,14 +134,12 @@ export function useTodayWorkout(equipment: Equipment[]) {
           const today = new Date().toDateString();
           if (planDate === today) {
             setPlan(existing);
-            setLoading(false);
-            return;
           }
         }
-        generate();
+        setLoading(false);
       });
     }
-  }, [equipment, generate]);
+  }, [equipment]);
 
   return { plan, loading, regenerate: generate, applyPlan };
 }
@@ -215,6 +213,27 @@ export function useWorkoutProgram(equipment: Equipment[]) {
   }, [program]);
 
   return { program, loading, todayPlan, generateProgram, getDayPlan, clearProgram, updateProgram };
+}
+
+export function useSavedPlans() {
+  const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
+
+  useEffect(() => {
+    db.getSavedPlans().then(setSavedPlans);
+  }, []);
+
+  const savePlan = useCallback(async (plan: WorkoutPlan, source: 'coach' | 'home') => {
+    const saved = await db.savePlanForLater(plan, source);
+    setSavedPlans((prev) => [saved, ...prev]);
+    return saved;
+  }, []);
+
+  const removeSavedPlan = useCallback(async (id: string) => {
+    await db.deleteSavedPlan(id);
+    setSavedPlans((prev) => prev.filter((p) => p.id !== id));
+  }, []);
+
+  return { savedPlans, savePlan, removeSavedPlan };
 }
 
 export function useSessions() {
@@ -328,6 +347,7 @@ export function useActiveWorkout() {
       exerciseId: ex.id,
       exerciseName: ex.name,
       muscleGroup: ex.muscleGroup,
+      group: ex.group,
       sets: Array.from({ length: ex.sets }, (_, i) => ({
         setNumber: i + 1,
         weight: ex.weight || null,

@@ -2,8 +2,9 @@ import { useState, useMemo } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { Icon } from '../components/Icon';
 import { NavSlot } from '../components/NavSlot';
-import type { WorkoutPlan, WorkoutCriteria, WorkoutStyle, Exercise, WorkoutSession, WorkoutProgram, ProgramDay, ActiveWorkoutState } from '../types';
+import type { WorkoutPlan, WorkoutCriteria, WorkoutStyle, Exercise, WorkoutSession, WorkoutProgram, ProgramDay, ActiveWorkoutState, SavedPlan } from '../types';
 import { groupExercises, groupLabel } from '../group-utils';
+import { ExerciseBreakdown } from '../components/ExerciseBreakdown';
 import { withBase } from '../base';
 
 interface HomeProps {
@@ -26,6 +27,9 @@ interface HomeProps {
   activeWorkout?: ActiveWorkoutState | null;
   workoutIsActive?: boolean;
   onResumeWorkout?: () => void;
+  savedPlans?: SavedPlan[];
+  onStartSavedWorkout?: (plan: WorkoutPlan) => void;
+  onRemoveSavedPlan?: (id: string) => void;
 }
 
 function getGreeting(): string {
@@ -430,27 +434,7 @@ function CompletedWorkoutInline({ session, onRegenerate }: { session: WorkoutSes
         <div class="p-3 border-b border-white/5">
           <p class="text-xs text-slate-400 uppercase tracking-wider font-medium">Exercise Breakdown</p>
         </div>
-        <div class="divide-y divide-white/5">
-          {session.exercises.map((ex) => {
-            const completed = ex.sets.filter(s => s.completed);
-            const bestSet = completed.reduce((best, s) =>
-              (s.weight || 0) > (best.weight || 0) ? s : best, completed[0]);
-            return (
-              <div key={ex.exerciseId} class="flex items-center justify-between px-4 py-3">
-                <div class="flex-1 min-w-0">
-                  <p class="text-sm text-white truncate">{ex.exerciseName}</p>
-                  <p class="text-xs text-slate-500">{ex.muscleGroup}</p>
-                </div>
-                <div class="text-right shrink-0 ml-3">
-                  <p class="text-sm text-slate-300">{completed.length}/{ex.sets.length} sets</p>
-                  {bestSet?.weight && (
-                    <p class="text-xs text-primary">{bestSet.weight} lbs x {bestSet.reps}</p>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <ExerciseBreakdown exercises={session.exercises} />
       </div>
 
       {/* Generate new workout button */}
@@ -550,27 +534,7 @@ function CompletedWorkoutModal({ session, onClose }: { session: WorkoutSession; 
             <div class="p-3 border-b border-white/5">
               <p class="text-xs text-slate-400 uppercase tracking-wider font-medium">Exercise Breakdown</p>
             </div>
-            <div class="divide-y divide-white/5">
-              {session.exercises.map((ex) => {
-                const completed = ex.sets.filter(s => s.completed);
-                const bestSet = completed.reduce((best, s) =>
-                  (s.weight || 0) > (best.weight || 0) ? s : best, completed[0]);
-                return (
-                  <div key={ex.exerciseId} class="flex items-center justify-between px-4 py-3">
-                    <div class="flex-1 min-w-0">
-                      <p class="text-sm text-white truncate">{ex.exerciseName}</p>
-                      <p class="text-xs text-slate-500">{ex.muscleGroup}</p>
-                    </div>
-                    <div class="text-right shrink-0 ml-3">
-                      <p class="text-sm text-slate-300">{completed.length}/{ex.sets.length} sets</p>
-                      {bestSet?.weight && (
-                        <p class="text-xs text-primary">{bestSet.weight} lbs x {bestSet.reps}</p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <ExerciseBreakdown exercises={session.exercises} />
           </div>
         </div>
       </div>
@@ -588,7 +552,7 @@ function CompletedWorkoutModal({ session, onClose }: { session: WorkoutSession; 
   );
 }
 
-export function Home({ plan, loading, userName, sessions, onStartWorkout, onRegenerate, onAdjustWithAI, onUpdatePlan, workoutMode, program, programLoading, todayProgramDay, onGenerateProgram, onClearProgram, onStartProgramWorkout }: HomeProps) {
+export function Home({ plan, loading, userName, sessions, onStartWorkout, onRegenerate, onAdjustWithAI, onUpdatePlan, workoutMode, program, programLoading, todayProgramDay, onGenerateProgram, onClearProgram, onStartProgramWorkout, savedPlans, onStartSavedWorkout, onRemoveSavedPlan }: HomeProps) {
   const { route } = useLocation();
   const [showRegenModal, setShowRegenModal] = useState(false);
   const [regenStyle, setRegenStyle] = useState<WorkoutStyle | ''>('');
@@ -914,8 +878,9 @@ export function Home({ plan, loading, userName, sessions, onStartWorkout, onRege
       {/* Hero Card: AI Daily Mix — only shown if no inline completion */}
       {!isProgramMode && !showInlineCompletion && (loading ? (
         <div class="px-4 mb-8">
-          <div class="rounded-2xl bg-surface-dark h-[320px] animate-pulse flex items-center justify-center">
-            <Icon name="fitness_center" class="text-4xl text-primary/30" />
+          <div class="rounded-2xl bg-surface-dark h-[280px] animate-pulse flex flex-col items-center justify-center gap-3">
+            <div class="w-8 h-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+            <p class="text-sm text-slate-400">Generating workout...</p>
           </div>
         </div>
       ) : plan ? (
@@ -992,7 +957,66 @@ export function Home({ plan, loading, userName, sessions, onStartWorkout, onRege
             </div>
           </div>
         </div>
-      ) : null)}
+      ) : (
+        <div class="px-4 mb-8 space-y-4">
+          {/* Generate workout prompt */}
+          <div class="rounded-2xl bg-surface-dark border border-dashed border-white/10 p-6 text-center">
+            <div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+              <Icon name="fitness_center" class="text-primary text-3xl" />
+            </div>
+            <h3 class="text-lg font-bold text-white mb-2">Ready to Train?</h3>
+            <p class="text-sm text-slate-400 mb-5 max-w-xs mx-auto">
+              Generate a personalized workout based on your equipment and recent training history.
+            </p>
+            <button
+              onClick={() => onRegenerate()}
+              class="px-6 py-3 bg-primary text-bg-dark rounded-xl font-bold text-sm inline-flex items-center gap-2 active:scale-[0.98] transition-transform shadow-lg shadow-primary/20"
+            >
+              <Icon name="auto_awesome" class="text-lg" />
+              Generate Workout
+            </button>
+          </div>
+
+          {/* Saved workouts */}
+          {savedPlans && savedPlans.length > 0 && (
+            <div>
+              <h3 class="text-lg font-bold text-white mb-3">Saved Workouts</h3>
+              <div class="space-y-2">
+                {savedPlans.map((sp) => (
+                  <div key={sp.id} class="bg-surface-dark rounded-xl p-4 border border-white/5">
+                    <div class="flex items-center gap-3 mb-2">
+                      <div class="w-10 h-10 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
+                        <Icon name="bookmark" class="text-primary" />
+                      </div>
+                      <div class="flex-1 min-w-0">
+                        <p class="text-sm font-bold text-white leading-snug">{sp.plan.name}</p>
+                        <p class="text-xs text-slate-400">
+                          {sp.plan.exercises.length} exercises · {sp.plan.durationMin}min · {sp.plan.focus}
+                        </p>
+                      </div>
+                    </div>
+                    <div class="flex gap-2">
+                      <button
+                        onClick={() => onStartSavedWorkout?.(sp.plan)}
+                        class="flex-1 py-2.5 bg-primary text-bg-dark rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
+                      >
+                        <Icon name="play_arrow" class="text-sm" />
+                        Start
+                      </button>
+                      <button
+                        onClick={() => onRemoveSavedPlan?.(sp.id)}
+                        class="py-2.5 px-3 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-medium text-slate-400 transition-colors"
+                      >
+                        <Icon name="delete_outline" class="text-sm" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
 
       {/* Exercise List — only when not showing inline completion */}
       {!isProgramMode && !showInlineCompletion && plan && (

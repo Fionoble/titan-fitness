@@ -59,6 +59,7 @@ export interface ExerciseLog {
   muscleGroup: string;
   sets: SetLog[];
   notes?: string;
+  group?: string;
 }
 
 export interface WorkoutSession {
@@ -159,6 +160,13 @@ export interface ProgramDay {
   label: string; // e.g., "Day 1 — Push", "Rest Day"
   isRest: boolean;
   plan?: WorkoutPlan; // undefined if rest day
+}
+
+export interface SavedPlan {
+  id: string;
+  plan: WorkoutPlan;
+  savedAt: string; // ISO timestamp
+  source: 'coach' | 'home'; // where it was saved from
 }
 
 // Nutrition types

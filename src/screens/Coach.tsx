@@ -28,6 +28,7 @@ interface CoachProps {
   equipment: Equipment[];
   sessions: WorkoutSession[];
   onApplyPlan?: (plan: WorkoutPlan) => void;
+  onSavePlan?: (plan: WorkoutPlan) => void;
   onClearChat?: () => void;
   pendingAdjustPlan?: WorkoutPlan | null;
   onClearPendingAdjust?: () => void;
@@ -36,8 +37,9 @@ interface CoachProps {
 }
 
 
-function WorkoutPlanCard({ plan, onApply }: { plan: WorkoutPlan; onApply?: (plan: WorkoutPlan) => void }) {
+function WorkoutPlanCard({ plan, onApply, onSave }: { plan: WorkoutPlan; onApply?: (plan: WorkoutPlan) => void; onSave?: (plan: WorkoutPlan) => void }) {
   const [expanded, setExpanded] = useState(false);
+  const [saved, setSaved] = useState(false);
   return (
     <div class="mt-2 rounded-xl bg-surface-dark border border-white/10 overflow-hidden">
       <div class="p-3">
@@ -88,6 +90,17 @@ function WorkoutPlanCard({ plan, onApply }: { plan: WorkoutPlan; onApply?: (plan
               Apply to Home
             </button>
           )}
+          {onSave && (
+            <button
+              onClick={() => { if (!saved) { onSave(plan); setSaved(true); } }}
+              class={`py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${
+                saved ? 'bg-primary/15 text-primary' : 'bg-white/5 hover:bg-white/10 text-slate-300'
+              }`}
+            >
+              <Icon name={saved ? 'bookmark' : 'bookmark_border'} class="text-sm" />
+              {saved ? 'Saved' : 'Save'}
+            </button>
+          )}
           <button
             onClick={() => setExpanded(!expanded)}
             class="py-2 px-3 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-medium text-slate-300 transition-colors"
@@ -100,7 +113,7 @@ function WorkoutPlanCard({ plan, onApply }: { plan: WorkoutPlan; onApply?: (plan
   );
 }
 
-export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, sessions, onApplyPlan, onClearChat, pendingAdjustPlan, onClearPendingAdjust, profile, onUpdateProfile }: CoachProps) {
+export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, sessions, onApplyPlan, onSavePlan, onClearChat, pendingAdjustPlan, onClearPendingAdjust, profile, onUpdateProfile }: CoachProps) {
   const [input, setInput] = useState('');
   const coachTask = useAITaskByType('coach-chat');
   const isTyping = coachTask?.status === 'running';
@@ -378,7 +391,7 @@ export function Coach({ messages, onSendMessage, onReceiveMessage, equipment, se
               </div>
               {/* Workout plan card */}
               {msg.richContent?.type === 'workoutPlan' && (
-                <WorkoutPlanCard plan={msg.richContent.plan} onApply={handleApplyPlan} />
+                <WorkoutPlanCard plan={msg.richContent.plan} onApply={handleApplyPlan} onSave={onSavePlan} />
               )}
             </div>
             {msg.role === 'user' && (
