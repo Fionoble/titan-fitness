@@ -25,7 +25,7 @@ export function App() {
   const [completedSession, setCompletedSession] = useState<WorkoutSession | null>(null);
   const [pendingAdjustPlan, setPendingAdjustPlan] = useState<WorkoutPlan | null>(null);
 
-  const { equipment, loading: equipLoading, toggle: toggleEquipment } = useEquipment();
+  const { equipment, loading: equipLoading, toggle: toggleEquipment, updateItem: updateEquipment } = useEquipment();
   const { plan, loading: planLoading, regenerate, applyPlan } = useTodayWorkout(equipment);
   const { sessions, saveSession, updateSession, deleteSession: removeSession, startWorkoutFromSession, loadAll: loadAllSessions } = useSessions();
   const { messages, addMessage, clear: clearChat } = useChat();
@@ -187,6 +187,7 @@ export function App() {
           path={withBase('/workout')}
           component={ActiveWorkout}
           activeWorkout={activeWorkout}
+          bandColors={equipment.find((e) => e.id === 'resistance-bands')?.bandColors || []}
           onComplete={handleCompleteWorkout}
           onNavigateBack={() => nav('/')}
           onUpdateState={updateWorkoutState}
@@ -253,6 +254,7 @@ export function App() {
           component={EquipmentScreen}
           equipment={equipment}
           onToggle={toggleEquipment}
+          onUpdateEquipment={updateEquipment}
           onBack={() => nav('/settings')}
         />
         <Route

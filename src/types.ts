@@ -5,6 +5,7 @@ export interface Equipment {
   description: string;
   icon: string;
   enabled: boolean;
+  bandColors?: string[];
 }
 
 export interface Exercise {
@@ -49,6 +50,7 @@ export interface SetLog {
   reps: number | null;
   completed: boolean;
   isPersonalRecord?: boolean;
+  bandColor?: string;
 }
 
 export interface ExerciseLog {

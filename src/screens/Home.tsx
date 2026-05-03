@@ -99,31 +99,28 @@ function ExerciseCard({ ex, label, onTap }: { ex: Exercise; label: string | numb
   return (
     <div
       onClick={onTap}
-      class={`bg-surface-dark rounded-xl p-3 flex items-center gap-4 border border-white/5 hover:border-primary/30 transition-colors ${onTap ? 'cursor-pointer active:scale-[0.98]' : ''}`}
+      class={`bg-surface-dark rounded-xl p-3 flex items-start gap-4 border border-white/5 hover:border-primary/30 transition-colors ${onTap ? 'cursor-pointer active:scale-[0.98]' : ''}`}
     >
-      <div class="w-14 h-14 rounded-lg bg-surface-darker flex items-center justify-center shrink-0">
-        <span class="text-2xl font-bold text-primary/60">{label}</span>
+      <div class="w-10 h-10 rounded-lg bg-surface-darker flex items-center justify-center shrink-0 mt-0.5">
+        <span class="text-lg font-bold text-primary/60">{label}</span>
       </div>
       <div class="flex-1 min-w-0">
-        <div class="flex justify-between items-start mb-1">
-          <h4 class="text-white font-medium truncate pr-2">{ex.name}</h4>
-          <span class="text-xs text-slate-400 bg-surface-darker px-1.5 py-0.5 rounded shrink-0">
-            {ex.muscleGroup}
-          </span>
-        </div>
-        <div class="flex items-center gap-3 text-sm text-slate-400">
-          <span>{ex.sets} Sets</span>
-          <span class="w-1 h-1 rounded-full bg-slate-600"></span>
-          <span>{ex.reps}</span>
+        <h4 class="text-white font-medium leading-snug mb-1">{ex.name}</h4>
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-400">
+          <span class="shrink-0">{ex.sets} Sets</span>
+          <span class="w-1 h-1 rounded-full bg-slate-600 shrink-0"></span>
+          <span class="shrink-0">{ex.reps}</span>
           {ex.weight && (
             <>
-              <span class="w-1 h-1 rounded-full bg-slate-600"></span>
-              <span>{ex.weight} lbs</span>
+              <span class="w-1 h-1 rounded-full bg-slate-600 shrink-0"></span>
+              <span class="shrink-0">{ex.weight} lbs</span>
             </>
           )}
+          <span class="w-1 h-1 rounded-full bg-slate-600 shrink-0"></span>
+          <span class="text-xs text-slate-500">{ex.muscleGroup}</span>
         </div>
       </div>
-      {onTap && <Icon name="edit" class="text-slate-600 text-lg shrink-0" />}
+      {onTap && <Icon name="edit" class="text-slate-600 text-lg shrink-0 mt-0.5" />}
     </div>
   );
 }

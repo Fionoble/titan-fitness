@@ -5,6 +5,7 @@ import type { Equipment as EquipmentType } from '../types';
 interface EquipmentProps {
   equipment: EquipmentType[];
   onToggle: (id: string) => void;
+  onUpdateEquipment: (id: string, updates: Partial<EquipmentType>) => void;
   onBack?: () => void;
 }
 
@@ -15,8 +16,100 @@ const CATEGORY_INFO: Record<string, { label: string; icon: string }> = {
   other: { label: 'Other', icon: 'category' },
 };
 
-export function EquipmentScreen({ equipment, onToggle, onBack }: EquipmentProps) {
+const PRESET_BAND_COLORS = [
+  { name: 'Yellow', color: '#EAB308' },
+  { name: 'Red', color: '#EF4444' },
+  { name: 'Green', color: '#22C55E' },
+  { name: 'Blue', color: '#3B82F6' },
+  { name: 'Black', color: '#374151' },
+  { name: 'Purple', color: '#A855F7' },
+  { name: 'Orange', color: '#F97316' },
+];
+
+function BandColorConfig({ item, onUpdate }: { item: EquipmentType; onUpdate: (colors: string[]) => void }) {
+  const [customInput, setCustomInput] = useState('');
+  const colors = item.bandColors || [];
+
+  const toggleColor = (name: string) => {
+    if (colors.includes(name)) {
+      onUpdate(colors.filter((c) => c !== name));
+    } else {
+      onUpdate([...colors, name]);
+    }
+  };
+
+  const addCustom = () => {
+    const name = customInput.trim();
+    if (name && !colors.includes(name)) {
+      onUpdate([...colors, name]);
+    }
+    setCustomInput('');
+  };
+
+  const customColors = colors.filter((c) => !PRESET_BAND_COLORS.some((p) => p.name === c));
+
+  return (
+    <div class="px-4 pb-4 pt-2 space-y-3" onClick={(e) => e.stopPropagation()}>
+      <p class="text-xs text-slate-400">Select the bands you own:</p>
+      <div class="flex flex-wrap gap-2">
+        {PRESET_BAND_COLORS.map((preset) => {
+          const selected = colors.includes(preset.name);
+          return (
+            <button
+              key={preset.name}
+              onClick={() => toggleColor(preset.name)}
+              class={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                selected
+                  ? 'bg-white/10 border-2 border-primary'
+                  : 'bg-surface-darker border border-white/10 hover:border-white/20'
+              }`}
+            >
+              <div class="w-4 h-4 rounded-full border border-white/20" style={{ backgroundColor: preset.color }}></div>
+              <span class={selected ? 'text-white' : 'text-slate-300'}>{preset.name}</span>
+              {selected && <Icon name="check" class="text-primary text-sm" />}
+            </button>
+          );
+        })}
+      </div>
+
+      {customColors.length > 0 && (
+        <div class="flex flex-wrap gap-2">
+          {customColors.map((name) => (
+            <div key={name} class="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/10 border-2 border-primary text-sm">
+              <div class="w-4 h-4 rounded-full bg-slate-400 border border-white/20"></div>
+              <span class="text-white font-medium">{name}</span>
+              <button onClick={() => toggleColor(name)} class="text-slate-400 hover:text-red-400 ml-1">
+                <Icon name="close" class="text-sm" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div class="flex gap-2">
+        <input
+          type="text"
+          value={customInput}
+          onInput={(e) => setCustomInput((e.target as HTMLInputElement).value)}
+          onKeyDown={(e) => e.key === 'Enter' && addCustom()}
+          placeholder="Add custom band..."
+          class="flex-1 bg-bg-dark border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-primary/50 focus:ring-1 focus:ring-primary/50"
+        />
+        <button
+          onClick={addCustom}
+          disabled={!customInput.trim()}
+          class="px-3 py-2 rounded-lg bg-primary/20 text-primary text-sm font-medium disabled:opacity-30 transition-opacity"
+        >
+          Add
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function EquipmentScreen({ equipment, onToggle, onUpdateEquipment, onBack }: EquipmentProps) {
   const [search, setSearch] = useState('');
+  const [expandedBands, setExpandedBands] = useState(false);
 
   const grouped = useMemo(() => {
     const filtered = search
@@ -92,37 +185,71 @@ export function EquipmentScreen({ equipment, onToggle, onBack }: EquipmentProps)
                 </span>
               </div>
               <div class="space-y-3">
-                {items.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => onToggle(item.id)}
-                    class={`w-full flex items-center justify-between p-4 rounded-xl transition-all ${
-                      item.enabled
-                        ? 'bg-surface-dark border-2 border-primary shadow-md'
-                        : 'bg-surface-dark border border-white/5 hover:border-white/10'
-                    }`}
-                  >
-                    <div class="flex items-center gap-4">
-                      <div class={`w-10 h-10 rounded-full flex items-center justify-center ${
-                        item.enabled ? 'bg-primary/20 text-primary' : 'bg-white/5 text-slate-500'
-                      }`}>
-                        <Icon name={item.icon} />
-                      </div>
-                      <div class="text-left">
-                        <p class={`font-semibold ${item.enabled ? 'text-white' : 'text-slate-300'}`}>{item.name}</p>
-                        <p class="text-xs text-slate-500">{item.description}</p>
-                      </div>
+                {items.map((item) => {
+                  const isBands = item.id === 'resistance-bands';
+                  const showBandConfig = isBands && item.enabled && expandedBands;
+
+                  return (
+                    <div
+                      key={item.id}
+                      class={`rounded-xl transition-all overflow-hidden ${
+                        item.enabled
+                          ? 'bg-surface-dark border-2 border-primary shadow-md'
+                          : 'bg-surface-dark border border-white/5 hover:border-white/10'
+                      }`}
+                    >
+                      <button
+                        onClick={() => {
+                          if (isBands && item.enabled) {
+                            setExpandedBands(!expandedBands);
+                          } else {
+                            onToggle(item.id);
+                            if (isBands && !item.enabled) setExpandedBands(true);
+                          }
+                        }}
+                        class="w-full flex items-center justify-between p-4"
+                      >
+                        <div class="flex items-center gap-4">
+                          <div class={`w-10 h-10 rounded-full flex items-center justify-center ${
+                            item.enabled ? 'bg-primary/20 text-primary' : 'bg-white/5 text-slate-500'
+                          }`}>
+                            <Icon name={item.icon} />
+                          </div>
+                          <div class="text-left">
+                            <p class={`font-semibold ${item.enabled ? 'text-white' : 'text-slate-300'}`}>{item.name}</p>
+                            <p class="text-xs text-slate-500">
+                              {isBands && item.enabled && item.bandColors?.length
+                                ? `${item.bandColors.join(', ')}`
+                                : item.description}
+                            </p>
+                          </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                          {isBands && item.enabled && (
+                            <Icon name={expandedBands ? 'expand_less' : 'expand_more'} class="text-slate-400" />
+                          )}
+                          <div
+                            onClick={(e) => { e.stopPropagation(); onToggle(item.id); }}
+                            class={`w-11 h-6 rounded-full relative transition-colors ${
+                              item.enabled ? 'bg-primary' : 'bg-slate-700'
+                            }`}
+                          >
+                            <div class={`absolute top-[2px] w-5 h-5 rounded-full bg-white transition-transform shadow-sm ${
+                              item.enabled ? 'translate-x-[22px]' : 'translate-x-[2px]'
+                            }`}></div>
+                          </div>
+                        </div>
+                      </button>
+
+                      {showBandConfig && (
+                        <BandColorConfig
+                          item={item}
+                          onUpdate={(colors) => onUpdateEquipment(item.id, { bandColors: colors })}
+                        />
+                      )}
                     </div>
-                    {/* Toggle */}
-                    <div class={`w-11 h-6 rounded-full relative transition-colors ${
-                      item.enabled ? 'bg-primary' : 'bg-slate-700'
-                    }`}>
-                      <div class={`absolute top-[2px] w-5 h-5 rounded-full bg-white transition-transform shadow-sm ${
-                        item.enabled ? 'translate-x-[22px]' : 'translate-x-[2px]'
-                      }`}></div>
-                    </div>
-                  </button>
-                ))}
+                  );
+                })}
               </div>
             </section>
           );

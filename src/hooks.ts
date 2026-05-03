@@ -39,7 +39,15 @@ export function useEquipment() {
     });
   }, []);
 
-  return { equipment, loading, toggle };
+  const updateItem = useCallback(async (id: string, updates: Partial<Equipment>) => {
+    setEquipment((prev) => {
+      const updated = prev.map((e) => (e.id === id ? { ...e, ...updates } : e));
+      db.saveAllEquipment(updated);
+      return updated;
+    });
+  }, []);
+
+  return { equipment, loading, toggle, updateItem };
 }
 
 export function useTodayWorkout(equipment: Equipment[]) {

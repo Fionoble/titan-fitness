@@ -96,6 +96,7 @@ function playCountInBeep(final = false) {
 
 interface ActiveWorkoutProps {
   activeWorkout: ActiveWorkoutState | null;
+  bandColors: string[];
   onComplete: (session: WorkoutSession) => void;
   onNavigateBack: () => void;
   onUpdateState: (updates: Partial<ActiveWorkoutState>) => void;
@@ -434,7 +435,17 @@ function ProgressModal({ open, onClose, groups, exerciseLogs, exIdToLogIdx, curr
   );
 }
 
-export function ActiveWorkout({ activeWorkout, onComplete, onNavigateBack, onUpdateState, onSaveNow, onEndWorkout }: ActiveWorkoutProps) {
+const BAND_COLOR_MAP: Record<string, string> = {
+  Yellow: '#EAB308',
+  Red: '#EF4444',
+  Green: '#22C55E',
+  Blue: '#3B82F6',
+  Black: '#374151',
+  Purple: '#A855F7',
+  Orange: '#F97316',
+};
+
+export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigateBack, onUpdateState, onSaveNow, onEndWorkout }: ActiveWorkoutProps) {
   // If no active workout, show empty state
   if (!activeWorkout) {
     return (
@@ -460,6 +471,8 @@ export function ActiveWorkout({ activeWorkout, onComplete, onNavigateBack, onUpd
   const [currentGroupIdx, setCurrentGroupIdx] = useState(activeWorkout.currentGroupIdx);
   const [activeExInGroup, setActiveExInGroup] = useState(activeWorkout.activeExInGroup);
   const [exerciseLogs, setExerciseLogs] = useState<ExerciseLog[]>(activeWorkout.exerciseLogs);
+  const [weightDraftKey, setWeightDraftKey] = useState<string | null>(null);
+  const [weightDraftValue, setWeightDraftValue] = useState('');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [restTimer, setRestTimer] = useState<number | null>(null);
   const [exTimer, setExTimer] = useState<ExerciseTimerState | null>(null);
@@ -748,6 +761,18 @@ export function ActiveWorkout({ activeWorkout, onComplete, onNavigateBack, onUpd
     });
   }, []);
 
+  const updateBandColor = useCallback((logIdx: number, setIdx: number, color: string | undefined) => {
+    setExerciseLogs((prev) => {
+      const updated = [...prev];
+      const log = { ...updated[logIdx] };
+      const sets = [...log.sets];
+      sets[setIdx] = { ...sets[setIdx], bandColor: color };
+      log.sets = sets;
+      updated[logIdx] = log;
+      return updated;
+    });
+  }, []);
+
   const toggleSetComplete = useCallback((logIdx: number, setIdx: number) => {
     const exercise = plan.exercises[logIdx];
 
@@ -766,6 +791,9 @@ export function ActiveWorkout({ activeWorkout, onComplete, onNavigateBack, onUpd
         if (set.reps === null) {
           const fallbackReps = parseInt(exercise.reps.replace(/[^0-9]/g, ''));
           set.reps = lastCompleted?.reps ?? (isNaN(fallbackReps) ? null : fallbackReps);
+        }
+        if (!set.bandColor && lastCompleted?.bandColor) {
+          set.bandColor = lastCompleted.bandColor;
         }
       }
       sets[setIdx] = set;
@@ -871,6 +899,7 @@ export function ActiveWorkout({ activeWorkout, onComplete, onNavigateBack, onUpd
     const log = exerciseLogs[logIdx];
     const timed = isTimeBased(exercise.reps);
     const targetSeconds = timed ? parseTimeSeconds(exercise.reps) : 0;
+    const hasBands = exercise.equipment.includes('resistance-bands');
 
     return (
       <div class={`space-y-2 ${isMultiExGroup && !isHighlighted ? 'opacity-60' : ''}`}>
@@ -982,7 +1011,10 @@ export function ActiveWorkout({ activeWorkout, onComplete, onNavigateBack, onUpd
             <div class="grid grid-cols-12 gap-2 px-2 pb-1 text-[11px] uppercase tracking-wider font-bold text-slate-500 text-center">
               <div class="col-span-2 text-left">Set</div>
               <div class="col-span-3">Prev</div>
-              <div class="col-span-3">lbs</div>
+              {hasBands && bandColors.length > 0
+                ? <div class="col-span-3">Band</div>
+                : <div class="col-span-3">lbs</div>
+              }
               <div class="col-span-2">Reps</div>
               <div class="col-span-2 text-right">Done</div>
             </div>
@@ -993,6 +1025,9 @@ export function ActiveWorkout({ activeWorkout, onComplete, onNavigateBack, onUpd
               const lastCompleted = log.sets.slice(0, idx).reverse().find((s) => s.completed);
               const weightPlaceholder = lastCompleted?.weight?.toString() ?? exercise.weight?.toString() ?? '-';
               const repsPlaceholder = lastCompleted?.reps?.toString() ?? (exercise.reps.replace(/[^0-9]/g, '') || '-');
+              const weightKey = `${logIdx}-${idx}`;
+              // Auto-fill band color from previous set
+              const effectiveBandColor = set.bandColor || lastCompleted?.bandColor;
               return (
                 <div
                   key={idx}
@@ -1010,17 +1045,65 @@ export function ActiveWorkout({ activeWorkout, onComplete, onNavigateBack, onUpd
                     <div class="col-span-3 text-center text-xs text-slate-500 font-medium">
                       {exercise.weight ? `${exercise.weight} × ${exercise.reps}` : '—'}
                     </div>
-                    <div class="col-span-3">
-                      <input
-                        type="number"
-                        step="0.5"
-                        inputMode="decimal"
-                        value={set.weight ?? ''}
-                        placeholder={weightPlaceholder}
-                        onInput={(e) => updateSet(logIdx, idx, 'weight', (e.target as HTMLInputElement).value ? Number((e.target as HTMLInputElement).value) : null)}
-                        class="w-full bg-bg-dark border-none rounded text-center font-bold text-white focus:ring-1 focus:ring-primary p-2 text-sm"
-                      />
-                    </div>
+                    {hasBands && bandColors.length > 0 ? (
+                      <div class="col-span-3">
+                        <select
+                          value={effectiveBandColor || ''}
+                          onChange={(e) => {
+                            const val = (e.target as HTMLSelectElement).value;
+                            updateBandColor(logIdx, idx, val || undefined);
+                          }}
+                          class="w-full bg-bg-dark border-none rounded text-center font-bold text-white focus:ring-1 focus:ring-primary p-2 text-xs appearance-none"
+                          style={effectiveBandColor ? { color: BAND_COLOR_MAP[effectiveBandColor] || '#94a3b8' } : undefined}
+                        >
+                          <option value="">—</option>
+                          {bandColors.map((c) => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      <div class="col-span-3">
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={weightDraftKey === weightKey ? weightDraftValue : set.weight ?? ''}
+                          placeholder={weightPlaceholder}
+                          onFocus={() => {
+                            setWeightDraftKey(weightKey);
+                            setWeightDraftValue(set.weight?.toString() ?? '');
+                          }}
+                          onBlur={() => {
+                            if (weightDraftKey !== weightKey) return;
+                            const raw = weightDraftValue.trim();
+                            if (!raw || raw === '.') {
+                              updateSet(logIdx, idx, 'weight', null);
+                            } else {
+                              const num = parseFloat(raw);
+                              if (!isNaN(num)) updateSet(logIdx, idx, 'weight', num);
+                            }
+                            setWeightDraftKey(null);
+                            setWeightDraftValue('');
+                          }}
+                          onInput={(e) => {
+                            const next = (e.target as HTMLInputElement).value;
+                            setWeightDraftKey(weightKey);
+                            setWeightDraftValue(next);
+
+                            if (!next) {
+                              updateSet(logIdx, idx, 'weight', null);
+                              return;
+                            }
+                            if (next === '.') return;
+                            if (next.endsWith('.')) return;
+
+                            const num = Number(next);
+                            updateSet(logIdx, idx, 'weight', Number.isFinite(num) ? num : null);
+                          }}
+                          class="w-full bg-bg-dark border-none rounded text-center font-bold text-white focus:ring-1 focus:ring-primary p-2 text-sm"
+                        />
+                      </div>
+                    )}
                     <div class="col-span-2">
                       <input
                         type="number"
