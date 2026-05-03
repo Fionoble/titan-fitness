@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "native:sync": "pnpm build && npx cap sync",
+    "build:native": "tsc && vite build --config vite.config.native.ts",
+    "native:sync": "pnpm build:native && npx cap sync",
     "native:ios": "npx cap open ios",
     "native:android": "npx cap open android"
   },
@@ -24,6 +25,7 @@
     "@capacitor/push-notifications": "^8.0.3",
     "@capacitor/share": "^8.0.1",
     "@capacitor/status-bar": "^8.0.2",
+    "@supabase/supabase-js": "^2.105.1",
     "html5-qrcode": "^2.3.8",
     "idb": "^8.0.3",
     "preact": "^10.28.4",
