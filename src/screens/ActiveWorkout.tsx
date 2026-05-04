@@ -125,7 +125,8 @@ function parseTimeSeconds(reps: string): number {
 interface ExerciseTimerState {
   logIdx: number;
   setIdx: number;
-  seconds: number;
+  startedAt: number; // Date.now() when timer started
+  duration: number;  // target seconds (countdown) or 0 (countup)
   running: boolean;
   mode: 'countdown' | 'countup';
 }
@@ -474,11 +475,11 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
   const [weightDraftKey, setWeightDraftKey] = useState<string | null>(null);
   const [weightDraftValue, setWeightDraftValue] = useState('');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [restTimer, setRestTimer] = useState<number | null>(null);
+  const [restEndTime, setRestEndTime] = useState<number | null>(null); // timestamp when rest ends
   const [exTimer, setExTimer] = useState<ExerciseTimerState | null>(null);
+  const [, setTick] = useState(0); // force re-render for timer display
   const timerRef = useRef<ReturnType<typeof setInterval>>();
-  const restRef = useRef<ReturnType<typeof setInterval>>();
-  const exTimerRef = useRef<ReturnType<typeof setInterval>>();
+  const tickRef = useRef<ReturnType<typeof setInterval>>();
   const [chatOpen, setChatOpen] = useState(false);
   const [progressOpen, setProgressOpen] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
@@ -520,31 +521,37 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
 
   const skipRest = useCallback(() => {
     restSkippedRef.current = true;
-    setRestTimer(null);
+    setRestEndTime(null);
+  }, []);
+
+  const setRestTimer = useCallback((seconds: number) => {
+    setRestEndTime(Date.now() + seconds * 1000);
   }, []);
 
   // Rest timer
   const restTimerDoneRef = useRef(false);
 
+  // Unified tick interval for rest + exercise timers
   useEffect(() => {
-    if (restTimer !== null && restTimer > 0) {
-      restRef.current = setInterval(() => {
-        setRestTimer((r) => {
-          if (r !== null && r <= 1) {
-            clearInterval(restRef.current);
-            restTimerDoneRef.current = true;
-            return null;
-          }
-          return r !== null ? r - 1 : null;
-        });
-      }, 1000);
-      return () => clearInterval(restRef.current);
+    if (restEndTime !== null || exTimer?.running) {
+      tickRef.current = setInterval(() => setTick((t) => t + 1), 200);
+      return () => clearInterval(tickRef.current);
     }
-  }, [restTimer]);
+  }, [restEndTime !== null, exTimer?.running]);
 
-  // Handle rest timer completion — runs after state update, outside the updater
+  // Check rest timer completion each render
+  const restRemaining = restEndTime !== null ? Math.max(0, Math.ceil((restEndTime - Date.now()) / 1000)) : null;
+
   useEffect(() => {
-    if (restTimer === null && restTimerDoneRef.current) {
+    if (restEndTime !== null && Date.now() >= restEndTime) {
+      setRestEndTime(null);
+      restTimerDoneRef.current = true;
+    }
+  });
+
+  // Handle rest timer completion
+  useEffect(() => {
+    if (restEndTime === null && restTimerDoneRef.current) {
       restTimerDoneRef.current = false;
       if (!restSkippedRef.current) {
         const soundOff = localStorage.getItem('titan_rest_sound') === 'false';
@@ -552,32 +559,29 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
       }
       restSkippedRef.current = false;
     }
-  }, [restTimer]);
+  }, [restEndTime]);
 
   // Exercise timer (for time-based exercises)
   // Track completion outside the state updater so beep + side effects run cleanly
   const exTimerDoneRef = useRef<{ logIdx: number; setIdx: number } | null>(null);
 
+  // Compute exercise timer display value from timestamps
+  const exTimerSeconds = exTimer?.running
+    ? exTimer.mode === 'countdown'
+      ? Math.max(0, exTimer.duration - Math.floor((Date.now() - exTimer.startedAt) / 1000))
+      : Math.floor((Date.now() - exTimer.startedAt) / 1000)
+    : null;
+
+  // Check exercise timer completion each render
   useEffect(() => {
-    if (exTimer?.running) {
-      exTimerRef.current = setInterval(() => {
-        setExTimer((prev) => {
-          if (!prev || !prev.running) return prev;
-          if (prev.mode === 'countdown') {
-            if (prev.seconds <= 1) {
-              clearInterval(exTimerRef.current);
-              exTimerDoneRef.current = { logIdx: prev.logIdx, setIdx: prev.setIdx };
-              return null;
-            }
-            return { ...prev, seconds: prev.seconds - 1 };
-          } else {
-            return { ...prev, seconds: prev.seconds + 1 };
-          }
-        });
-      }, 1000);
-      return () => clearInterval(exTimerRef.current);
+    if (exTimer?.running && exTimer.mode === 'countdown') {
+      const elapsed = (Date.now() - exTimer.startedAt) / 1000;
+      if (elapsed >= exTimer.duration) {
+        exTimerDoneRef.current = { logIdx: exTimer.logIdx, setIdx: exTimer.setIdx };
+        setExTimer(null);
+      }
     }
-  }, [exTimer?.running, exTimer?.logIdx, exTimer?.setIdx]);
+  });
 
   // Scroll to active exercise in superset/circuit
   const scrollToGroupExercise = useCallback((index: number) => {
@@ -647,7 +651,8 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
       setExTimer({
         logIdx: pending.logIdx,
         setIdx: pending.setIdx,
-        seconds: pending.mode === 'countdown' ? targetSec : 0,
+        startedAt: Date.now(),
+        duration: targetSec,
         running: true,
         mode: pending.mode,
       });
@@ -672,7 +677,8 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
               setExTimer({
                 logIdx: pending.logIdx,
                 setIdx: pending.setIdx,
-                seconds: pending.mode === 'countdown' ? targetSec : 0,
+                startedAt: Date.now(),
+                duration: targetSec,
                 running: true,
                 mode: pending.mode,
               });
@@ -702,7 +708,8 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
     setExTimer({
       logIdx,
       setIdx,
-      seconds: mode === 'countdown' ? targetSec : 0,
+      startedAt: Date.now(),
+      duration: targetSec,
       running: true,
       mode,
     });
@@ -710,9 +717,9 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
 
   const stopExTimer = useCallback(() => {
     if (!exTimer) return;
-    const elapsed = exTimer.mode === 'countup' ? exTimer.seconds : parseTimeSeconds(plan.exercises[exTimer.logIdx].reps) - exTimer.seconds;
+    const elapsed = Math.floor((Date.now() - exTimer.startedAt) / 1000);
     completeTimedSet(exTimer.logIdx, exTimer.setIdx, elapsed);
-  }, [exTimer, plan.exercises, completeTimedSet]);
+  }, [exTimer, completeTimedSet]);
 
   const currentGroup = groups[currentGroupIdx];
   const isMultiExGroup = currentGroup.exercises.length > 1;
@@ -951,7 +958,7 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
                       ) : isTimerForThis ? (
                         <div class="flex items-center gap-2">
                           <span class={`text-lg font-bold tabular-nums ${isTimerActive ? 'text-primary' : 'text-white'}`}>
-                            {formatTime(exTimer!.seconds)}
+                            {formatTime(exTimerSeconds ?? 0)}
                           </span>
                           <button
                             onClick={stopExTimer}
@@ -1323,7 +1330,7 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
             {exTimer.mode === 'countdown' ? 'Exercise Timer' : 'Stopwatch'}
           </p>
           <p class="text-xs text-slate-500 mb-3">{plan.exercises[exTimer.logIdx]?.name}</p>
-          <p class="text-6xl font-bold text-amber-400 mb-5 tabular-nums">{formatTime(exTimer.seconds)}</p>
+          <p class="text-6xl font-bold text-amber-400 mb-5 tabular-nums">{formatTime(exTimerSeconds ?? 0)}</p>
           <button
             onClick={stopExTimer}
             class="px-6 py-2.5 rounded-xl bg-red-500/20 text-red-400 text-sm font-bold hover:bg-red-500/30 transition-colors"
@@ -1334,10 +1341,10 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
       )}
 
       {/* Rest timer overlay */}
-      {restTimer !== null && (
+      {restRemaining !== null && restRemaining > 0 && (
         <div class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-bg-dark/90 backdrop-blur-lg rounded-2xl p-8 text-center border border-primary/20 shadow-2xl min-w-[260px]">
           <p class="text-slate-400 text-sm uppercase tracking-wider mb-2">Rest Timer</p>
-          <p class="text-6xl font-bold text-primary mb-5 tabular-nums">{formatTime(restTimer)}</p>
+          <p class="text-6xl font-bold text-primary mb-5 tabular-nums">{formatTime(restRemaining)}</p>
           <button
             onClick={skipRest}
             class="px-6 py-2.5 rounded-xl bg-white/10 text-slate-400 text-sm font-medium hover:text-white transition-colors"
