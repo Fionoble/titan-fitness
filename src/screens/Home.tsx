@@ -848,9 +848,6 @@ export function Home({ plan, loading, userName, sessions, onStartWorkout, onRege
             </>
           )}
 
-          <DiscoverCard />
-
-
         </>
       )}
 
@@ -863,7 +860,6 @@ export function Home({ plan, loading, userName, sessions, onStartWorkout, onRege
             onRegenerate={() => setShowRegenModal(true)}
           />
           {/* Discover Card still visible */}
-          <DiscoverCard />
         </>
       )}
 
@@ -1030,7 +1026,7 @@ export function Home({ plan, loading, userName, sessions, onStartWorkout, onRege
       )}
 
       {/* Discover Workouts Card — only when not showing inline completion (it's included in CompletedWorkoutInline) */}
-      {!isProgramMode && !showInlineCompletion && <DiscoverCard />}
+
 
       {/* Exercise Edit Modal */}
       {editingExercise && (
