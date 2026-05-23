@@ -51,6 +51,7 @@ export interface SetLog {
   completed: boolean;
   isPersonalRecord?: boolean;
   bandColor?: string;
+  weightType?: 'numeric' | 'band';
 }
 
 export interface ExerciseLog {

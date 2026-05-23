@@ -481,6 +481,17 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
   const timerRef = useRef<ReturnType<typeof setInterval>>();
   const tickRef = useRef<ReturnType<typeof setInterval>>();
   const [chatOpen, setChatOpen] = useState(false);
+  // Per-exercise weight mode: 'numeric' (lbs) or 'band' (color)
+  const [weightModes, setWeightModes] = useState<Record<number, 'numeric' | 'band'>>(() => {
+    const modes: Record<number, 'numeric' | 'band'> = {};
+    plan.exercises.forEach((ex, i) => {
+      const log = activeWorkout.exerciseLogs[i];
+      const hasBandSet = log?.sets.some(s => s.weightType === 'band' || s.bandColor);
+      const hasBands = ex.equipment.includes('resistance-bands') && bandColors.length > 0;
+      modes[i] = hasBandSet || hasBands ? 'band' : 'numeric';
+    });
+    return modes;
+  });
   const [progressOpen, setProgressOpen] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
 
@@ -599,7 +610,13 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
       const updated = [...prev];
       const log = { ...updated[logIdx] };
       const sets = [...log.sets];
-      sets[setIdx] = { ...sets[setIdx], completed: true, reps: timeSeconds, weight: null };
+      const existing = sets[setIdx];
+      // Auto-fill weight/band from previous completed set if not already set
+      const lastCompleted = sets.slice(0, setIdx).reverse().find(s => s.completed);
+      const weight = existing.weight ?? lastCompleted?.weight ?? exercise.weight ?? null;
+      const bandColor = existing.bandColor || lastCompleted?.bandColor;
+      const weightType = existing.weightType || lastCompleted?.weightType;
+      sets[setIdx] = { ...existing, completed: true, reps: timeSeconds, weight, bandColor, weightType };
       log.sets = sets;
       updated[logIdx] = log;
       return updated;
@@ -768,6 +785,13 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
     });
   }, []);
 
+  const toggleWeightMode = useCallback((logIdx: number) => {
+    setWeightModes(prev => ({
+      ...prev,
+      [logIdx]: prev[logIdx] === 'band' ? 'numeric' : 'band',
+    }));
+  }, []);
+
   const updateBandColor = useCallback((logIdx: number, setIdx: number, color: string | undefined) => {
     setExerciseLogs((prev) => {
       const updated = [...prev];
@@ -801,6 +825,9 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
         }
         if (!set.bandColor && lastCompleted?.bandColor) {
           set.bandColor = lastCompleted.bandColor;
+        }
+        if (!set.weightType && lastCompleted?.weightType) {
+          set.weightType = lastCompleted.weightType;
         }
       }
       sets[setIdx] = set;
@@ -902,11 +929,94 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
   const isLastGroup = currentGroupIdx === groups.length - 1;
 
   // Render set grid for a single exercise
+  const renderWeightInput = (logIdx: number, idx: number, set: typeof exerciseLogs[0]['sets'][0], exercise: typeof plan.exercises[0], mode: 'numeric' | 'band') => {
+    const lastCompleted = exerciseLogs[logIdx].sets.slice(0, idx).reverse().find((s) => s.completed);
+    const effectiveBandColor = set.bandColor || lastCompleted?.bandColor;
+
+    if (mode === 'band' && bandColors.length > 0) {
+      return (
+        <select
+          value={effectiveBandColor || ''}
+          onChange={(e) => {
+            const val = (e.target as HTMLSelectElement).value;
+            setExerciseLogs((prev) => {
+              const updated = [...prev];
+              const log = { ...updated[logIdx] };
+              const sets = [...log.sets];
+              sets[idx] = { ...sets[idx], bandColor: val || undefined, weightType: 'band' };
+              log.sets = sets;
+              updated[logIdx] = log;
+              return updated;
+            });
+          }}
+          class="w-full bg-bg-dark border-none rounded text-center font-bold text-white focus:ring-1 focus:ring-primary p-2 text-xs appearance-none"
+          style={effectiveBandColor ? { color: BAND_COLOR_MAP[effectiveBandColor] || '#94a3b8' } : undefined}
+        >
+          <option value="">—</option>
+          {bandColors.map((c) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+      );
+    }
+
+    const weightPlaceholder = lastCompleted?.weight?.toString() ?? exercise.weight?.toString() ?? '-';
+    const weightKey = `${logIdx}-${idx}`;
+    return (
+      <input
+        type="text"
+        inputMode="decimal"
+        value={weightDraftKey === weightKey ? weightDraftValue : set.weight ?? ''}
+        placeholder={weightPlaceholder}
+        onFocus={() => {
+          setWeightDraftKey(weightKey);
+          setWeightDraftValue(set.weight?.toString() ?? '');
+        }}
+        onBlur={() => {
+          if (weightDraftKey !== weightKey) return;
+          const raw = weightDraftValue.trim();
+          if (!raw || raw === '.') {
+            updateSet(logIdx, idx, 'weight', null);
+          } else {
+            const num = parseFloat(raw);
+            if (!isNaN(num)) updateSet(logIdx, idx, 'weight', num);
+          }
+          setWeightDraftKey(null);
+          setWeightDraftValue('');
+        }}
+        onInput={(e) => {
+          const next = (e.target as HTMLInputElement).value;
+          setWeightDraftKey(weightKey);
+          setWeightDraftValue(next);
+          if (!next) { updateSet(logIdx, idx, 'weight', null); return; }
+          if (next === '.' || next.endsWith('.')) return;
+          const num = Number(next);
+          updateSet(logIdx, idx, 'weight', Number.isFinite(num) ? num : null);
+        }}
+        class="w-full bg-bg-dark border-none rounded text-center font-bold text-white focus:ring-1 focus:ring-primary p-2 text-sm"
+      />
+    );
+  };
+
+  const renderWeightColumnHeader = (logIdx: number) => {
+    const mode = weightModes[logIdx] || 'numeric';
+    const canToggle = bandColors.length > 0;
+    return (
+      <span
+        role={canToggle ? 'button' : undefined}
+        onClick={canToggle ? () => toggleWeightMode(logIdx) : undefined}
+        class={canToggle ? 'cursor-pointer hover:text-primary transition-colors' : ''}
+      >
+        {mode === 'band' ? 'Band' : 'lbs'}{canToggle && ' ⇄'}
+      </span>
+    );
+  };
+
   const renderSetGrid = (exercise: typeof plan.exercises[0], logIdx: number, isHighlighted: boolean) => {
     const log = exerciseLogs[logIdx];
     const timed = isTimeBased(exercise.reps);
     const targetSeconds = timed ? parseTimeSeconds(exercise.reps) : 0;
-    const hasBands = exercise.equipment.includes('resistance-bands');
+    const mode = weightModes[logIdx] || 'numeric';
 
     return (
       <div class={`space-y-2 ${isMultiExGroup && !isHighlighted ? 'opacity-60' : ''}`}>
@@ -924,8 +1034,9 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
           /* Time-based exercise UI */
           <>
             <div class="grid grid-cols-12 gap-2 px-2 pb-1 text-[11px] uppercase tracking-wider font-bold text-slate-500 text-center">
-              <div class="col-span-2 text-left">Set</div>
-              <div class="col-span-3">Target</div>
+              <div class="col-span-1 text-left">Set</div>
+              <div class="col-span-2">{renderWeightColumnHeader(logIdx)}</div>
+              <div class="col-span-2">Target</div>
               <div class="col-span-5">Time</div>
               <div class="col-span-2 text-right">Done</div>
             </div>
@@ -948,8 +1059,11 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
                 >
                   {set.completed && <div class="absolute left-0 top-0 bottom-0 w-1 bg-primary"></div>}
                   <div class="grid grid-cols-12 gap-2 p-3 items-center">
-                    <div class="col-span-2 text-left font-bold text-lg pl-2">{set.setNumber}</div>
-                    <div class="col-span-3 text-center text-xs text-slate-500 font-medium">
+                    <div class="col-span-1 text-left font-bold text-lg pl-1">{set.setNumber}</div>
+                    <div class="col-span-2">
+                      {renderWeightInput(logIdx, idx, set, exercise, mode)}
+                    </div>
+                    <div class="col-span-2 text-center text-xs text-slate-500 font-medium">
                       {exercise.reps}
                     </div>
                     <div class="col-span-5 flex items-center justify-center gap-2">
@@ -998,7 +1112,6 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
                       ) : (
                         <button
                           onClick={() => {
-                            // Manual complete for timed exercises
                             completeTimedSet(logIdx, idx, targetSeconds);
                           }}
                           class="w-8 h-8 rounded flex items-center justify-center bg-slate-700 text-slate-400 hover:bg-primary/20 hover:text-primary transition-all"
@@ -1018,23 +1131,15 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
             <div class="grid grid-cols-12 gap-2 px-2 pb-1 text-[11px] uppercase tracking-wider font-bold text-slate-500 text-center">
               <div class="col-span-2 text-left">Set</div>
               <div class="col-span-3">Prev</div>
-              {hasBands && bandColors.length > 0
-                ? <div class="col-span-3">Band</div>
-                : <div class="col-span-3">lbs</div>
-              }
+              <div class="col-span-3">{renderWeightColumnHeader(logIdx)}</div>
               <div class="col-span-2">Reps</div>
               <div class="col-span-2 text-right">Done</div>
             </div>
 
             {log.sets.map((set, idx) => {
               const isActive = !set.completed && (idx === 0 || log.sets[idx - 1]?.completed);
-              // Find most recent completed set for THIS exercise to use as placeholder
               const lastCompleted = log.sets.slice(0, idx).reverse().find((s) => s.completed);
-              const weightPlaceholder = lastCompleted?.weight?.toString() ?? exercise.weight?.toString() ?? '-';
               const repsPlaceholder = lastCompleted?.reps?.toString() ?? (exercise.reps.replace(/[^0-9]/g, '') || '-');
-              const weightKey = `${logIdx}-${idx}`;
-              // Auto-fill band color from previous set
-              const effectiveBandColor = set.bandColor || lastCompleted?.bandColor;
               return (
                 <div
                   key={idx}
@@ -1052,65 +1157,9 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
                     <div class="col-span-3 text-center text-xs text-slate-500 font-medium">
                       {exercise.weight ? `${exercise.weight} × ${exercise.reps}` : '—'}
                     </div>
-                    {hasBands && bandColors.length > 0 ? (
-                      <div class="col-span-3">
-                        <select
-                          value={effectiveBandColor || ''}
-                          onChange={(e) => {
-                            const val = (e.target as HTMLSelectElement).value;
-                            updateBandColor(logIdx, idx, val || undefined);
-                          }}
-                          class="w-full bg-bg-dark border-none rounded text-center font-bold text-white focus:ring-1 focus:ring-primary p-2 text-xs appearance-none"
-                          style={effectiveBandColor ? { color: BAND_COLOR_MAP[effectiveBandColor] || '#94a3b8' } : undefined}
-                        >
-                          <option value="">—</option>
-                          {bandColors.map((c) => (
-                            <option key={c} value={c}>{c}</option>
-                          ))}
-                        </select>
-                      </div>
-                    ) : (
-                      <div class="col-span-3">
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={weightDraftKey === weightKey ? weightDraftValue : set.weight ?? ''}
-                          placeholder={weightPlaceholder}
-                          onFocus={() => {
-                            setWeightDraftKey(weightKey);
-                            setWeightDraftValue(set.weight?.toString() ?? '');
-                          }}
-                          onBlur={() => {
-                            if (weightDraftKey !== weightKey) return;
-                            const raw = weightDraftValue.trim();
-                            if (!raw || raw === '.') {
-                              updateSet(logIdx, idx, 'weight', null);
-                            } else {
-                              const num = parseFloat(raw);
-                              if (!isNaN(num)) updateSet(logIdx, idx, 'weight', num);
-                            }
-                            setWeightDraftKey(null);
-                            setWeightDraftValue('');
-                          }}
-                          onInput={(e) => {
-                            const next = (e.target as HTMLInputElement).value;
-                            setWeightDraftKey(weightKey);
-                            setWeightDraftValue(next);
-
-                            if (!next) {
-                              updateSet(logIdx, idx, 'weight', null);
-                              return;
-                            }
-                            if (next === '.') return;
-                            if (next.endsWith('.')) return;
-
-                            const num = Number(next);
-                            updateSet(logIdx, idx, 'weight', Number.isFinite(num) ? num : null);
-                          }}
-                          class="w-full bg-bg-dark border-none rounded text-center font-bold text-white focus:ring-1 focus:ring-primary p-2 text-sm"
-                        />
-                      </div>
-                    )}
+                    <div class="col-span-3">
+                      {renderWeightInput(logIdx, idx, set, exercise, mode)}
+                    </div>
                     <div class="col-span-2">
                       <input
                         type="number"

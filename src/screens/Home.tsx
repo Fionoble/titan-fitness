@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'preact/hooks';
+import { useState, useMemo, useEffect, useRef } from 'preact/hooks';
 import { useLocation } from 'preact-iso';
 import { Icon } from '../components/Icon';
 import { NavSlot } from '../components/NavSlot';
@@ -98,6 +98,43 @@ const STYLE_OPTIONS: { value: WorkoutStyle; label: string }[] = [
   { value: 'power', label: 'Power' },
   { value: 'endurance', label: 'Endurance' },
 ];
+
+const ALL_WORKOUT_IMAGES = [...new Set(Object.values(WORKOUT_IMAGES))];
+
+function LoadingImageCycler() {
+  const [index, setIndex] = useState(0);
+  const [fade, setFade] = useState(true);
+  const timerRef = useRef<ReturnType<typeof setInterval>>();
+
+  useEffect(() => {
+    timerRef.current = setInterval(() => {
+      setFade(false);
+      setTimeout(() => {
+        setIndex((i) => (i + 1) % ALL_WORKOUT_IMAGES.length);
+        setFade(true);
+      }, 800);
+    }, 3500);
+    return () => clearInterval(timerRef.current);
+  }, []);
+
+  return (
+    <div class="px-4 mb-8">
+      <div class="relative overflow-hidden rounded-2xl bg-surface-dark h-[320px]">
+        <img
+          src={ALL_WORKOUT_IMAGES[index]}
+          alt=""
+          class="absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-in-out"
+          style={{ opacity: fade ? 0.4 : 0 }}
+        />
+        <div class="absolute inset-0 bg-gradient-to-t from-bg-dark via-bg-dark/60 to-bg-dark/30" />
+        <div class="relative z-10 flex flex-col items-center justify-center h-full gap-3">
+          <div class="w-8 h-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+          <p class="text-sm text-slate-400">Generating workout...</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function ExerciseCard({ ex, label, onTap }: { ex: Exercise; label: string | number; onTap?: () => void }) {
   return (
@@ -873,12 +910,7 @@ export function Home({ plan, loading, userName, sessions, onStartWorkout, onRege
 
       {/* Hero Card: AI Daily Mix — only shown if no inline completion */}
       {!isProgramMode && !showInlineCompletion && (loading ? (
-        <div class="px-4 mb-8">
-          <div class="rounded-2xl bg-surface-dark h-[280px] animate-pulse flex flex-col items-center justify-center gap-3">
-            <div class="w-8 h-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
-            <p class="text-sm text-slate-400">Generating workout...</p>
-          </div>
-        </div>
+        <LoadingImageCycler />
       ) : plan ? (
         <div class="px-4 mb-8">
           <div class="relative overflow-hidden rounded-2xl bg-surface-dark shadow-lg shadow-primary/5">
