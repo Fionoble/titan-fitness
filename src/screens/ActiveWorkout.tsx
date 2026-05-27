@@ -1162,7 +1162,8 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
                     </div>
                     <div class="col-span-2">
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="decimal"
                         value={set.reps ?? ''}
                         placeholder={repsPlaceholder}
                         onInput={(e) => updateSet(logIdx, idx, 'reps', (e.target as HTMLInputElement).value ? Number((e.target as HTMLInputElement).value) : null)}
