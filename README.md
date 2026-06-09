@@ -4,6 +4,8 @@ A privacy-first AI-powered workout companion built as a Progressive Web App. Tit
 
 **Live app: [titan.fio.dev](https://titan.fio.dev)**
 
+> 🌱 **A personal project.** Titan is just one of a handful of small PWAs I build for myself to help with everyday life — not a commercial product, just my own everyday tools.
+
 ## Features
 
 - **AI-generated workouts** — Get daily workouts or full 7-day programs tailored to your equipment and preferences
