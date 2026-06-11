@@ -445,9 +445,9 @@ export async function exportAllData(): Promise<string> {
   for (const store of STORE_NAMES) {
     data[store] = await db.getAll(store);
   }
-  // Include localStorage AI config
+  // Include localStorage AI config — deliberately excludes the API key
+  // (a backup file shouldn't carry a billing credential)
   data._localStorage = {
-    titan_ai_key: localStorage.getItem('titan_ai_key'),
     titan_ai_provider: localStorage.getItem('titan_ai_provider'),
   };
   return JSON.stringify(data, null, 2);
@@ -467,11 +467,9 @@ export async function importAllData(json: string): Promise<void> {
     await tx.done;
   }
 
-  // Restore localStorage AI config
+  // Restore localStorage AI config. Legacy backups may contain titan_ai_key;
+  // never restore it — the user re-enters their key in Settings.
   if (data._localStorage) {
-    if (data._localStorage.titan_ai_key) {
-      localStorage.setItem('titan_ai_key', data._localStorage.titan_ai_key);
-    }
     if (data._localStorage.titan_ai_provider) {
       localStorage.setItem('titan_ai_provider', data._localStorage.titan_ai_provider);
     }

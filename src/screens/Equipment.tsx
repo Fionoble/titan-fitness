@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'preact/hooks';
 import { Icon } from '../components/Icon';
 import type { Equipment as EquipmentType } from '../types';
+import { PRESET_BAND_COLORS } from '../bands';
 
 interface EquipmentProps {
   equipment: EquipmentType[];
@@ -15,16 +16,6 @@ const CATEGORY_INFO: Record<string, { label: string; icon: string }> = {
   recovery: { label: 'Recovery & Gear', icon: 'self_improvement' },
   other: { label: 'Other', icon: 'category' },
 };
-
-const PRESET_BAND_COLORS = [
-  { name: 'Yellow', color: '#EAB308' },
-  { name: 'Red', color: '#EF4444' },
-  { name: 'Green', color: '#22C55E' },
-  { name: 'Blue', color: '#3B82F6' },
-  { name: 'Black', color: '#374151' },
-  { name: 'Purple', color: '#A855F7' },
-  { name: 'Orange', color: '#F97316' },
-];
 
 function BandColorConfig({ item, onUpdate }: { item: EquipmentType; onUpdate: (colors: string[]) => void }) {
   const [customInput, setCustomInput] = useState('');

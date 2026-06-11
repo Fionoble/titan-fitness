@@ -309,6 +309,9 @@ export function useActiveWorkout() {
   const [showResume, setShowResume] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const pendingStateRef = useRef<ActiveWorkoutState | null>(null);
+  // Once a workout is cleared, block any in-flight debounced save from
+  // resurrecting it (would cause a ghost "Resume Workout?" prompt)
+  const clearedRef = useRef(false);
 
   // Load persisted active workout on mount
   useEffect(() => {
@@ -326,6 +329,7 @@ export function useActiveWorkout() {
   }, []);
 
   const dismissResume = useCallback(async () => {
+    clearedRef.current = true;
     setShowResume(false);
     await db.clearActiveWorkout();
     setActiveWorkout(null);
@@ -336,7 +340,7 @@ export function useActiveWorkout() {
     pendingStateRef.current = state;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
-      if (pendingStateRef.current) {
+      if (pendingStateRef.current && !clearedRef.current) {
         db.saveActiveWorkout(pendingStateRef.current);
       }
     }, 2000);
@@ -366,6 +370,7 @@ export function useActiveWorkout() {
       activeExInGroup: 0,
     };
 
+    clearedRef.current = false;
     await db.saveActiveWorkout(state);
     setActiveWorkout(state);
     setShowResume(false);
@@ -384,17 +389,22 @@ export function useActiveWorkout() {
   const saveNow = useCallback(async (state: ActiveWorkoutState) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     pendingStateRef.current = null;
+    if (clearedRef.current) return;
     await db.saveActiveWorkout(state);
   }, []);
 
   const completeWorkout = useCallback(async () => {
+    clearedRef.current = true;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    pendingStateRef.current = null;
     await db.clearActiveWorkout();
     setActiveWorkout(null);
   }, []);
 
   const cancelWorkout = useCallback(async () => {
+    clearedRef.current = true;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    pendingStateRef.current = null;
     await db.clearActiveWorkout();
     setActiveWorkout(null);
   }, []);

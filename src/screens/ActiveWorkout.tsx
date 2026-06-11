@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'preact/hooks';
 import { Icon } from '../components/Icon';
-import type { WorkoutPlan, WorkoutSession, ExerciseLog, Exercise, ActiveWorkoutState } from '../types';
+import type { WorkoutPlan, WorkoutSession, ExerciseLog, Exercise, ActiveWorkoutState, ExerciseTimerState } from '../types';
 import { uuid } from '../utils';
 import { groupExercises, groupLabel } from '../group-utils';
+import { BAND_COLOR_MAP } from '../bands';
 import type { ExerciseGroup } from '../group-utils';
 import { sendWorkoutChat, isAIConfigured } from '../ai';
 import { useStore, runTask, useAITaskByType, clearStore } from '../ai-tasks';
@@ -120,15 +121,6 @@ function parseTimeSeconds(reps: string): number {
   const numMatch = reps.match(/^(\d+)$/);
   if (numMatch) return parseInt(numMatch[1]);
   return 60;
-}
-
-interface ExerciseTimerState {
-  logIdx: number;
-  setIdx: number;
-  startedAt: number; // Date.now() when timer started
-  duration: number;  // target seconds (countdown) or 0 (countup)
-  running: boolean;
-  mode: 'countdown' | 'countup';
 }
 
 const AI_TIPS: Record<string, string> = {
@@ -436,16 +428,6 @@ function ProgressModal({ open, onClose, groups, exerciseLogs, exIdToLogIdx, curr
   );
 }
 
-const BAND_COLOR_MAP: Record<string, string> = {
-  Yellow: '#EAB308',
-  Red: '#EF4444',
-  Green: '#22C55E',
-  Blue: '#3B82F6',
-  Black: '#374151',
-  Purple: '#A855F7',
-  Orange: '#F97316',
-};
-
 export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigateBack, onUpdateState, onSaveNow, onEndWorkout }: ActiveWorkoutProps) {
   // If no active workout, show empty state
   if (!activeWorkout) {
@@ -475,23 +457,38 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
   const [weightDraftKey, setWeightDraftKey] = useState<string | null>(null);
   const [weightDraftValue, setWeightDraftValue] = useState('');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [restEndTime, setRestEndTime] = useState<number | null>(null); // timestamp when rest ends
-  const [exTimer, setExTimer] = useState<ExerciseTimerState | null>(null);
+  // Timers are rehydrated from persisted state so navigation/app restarts
+  // don't kill a running rest or exercise timer. An already-expired rest is
+  // dropped silently; an already-expired countdown is picked up by the
+  // completion effect below, which auto-completes the set.
+  const [restEndTime, setRestEndTime] = useState<number | null>(() => {
+    const t = activeWorkout.restEndTime ?? null;
+    return t !== null && t > Date.now() ? t : null;
+  });
+  const [exTimer, setExTimer] = useState<ExerciseTimerState | null>(activeWorkout.exTimer ?? null);
   const [, setTick] = useState(0); // force re-render for timer display
   const timerRef = useRef<ReturnType<typeof setInterval>>();
   const tickRef = useRef<ReturnType<typeof setInterval>>();
   const [chatOpen, setChatOpen] = useState(false);
-  // Per-exercise weight mode: 'numeric' (lbs) or 'band' (color)
-  const [weightModes, setWeightModes] = useState<Record<number, 'numeric' | 'band'>>(() => {
-    const modes: Record<number, 'numeric' | 'band'> = {};
-    plan.exercises.forEach((ex, i) => {
-      const log = activeWorkout.exerciseLogs[i];
-      const hasBandSet = log?.sets.some(s => s.weightType === 'band' || s.bandColor);
-      const hasBands = ex.equipment.includes('resistance-bands') && bandColors.length > 0;
-      modes[i] = hasBandSet || hasBands ? 'band' : 'numeric';
-    });
-    return modes;
-  });
+  // Per-exercise weight mode: 'numeric' (lbs) or 'band' (color).
+  // Only explicit user choices are stored (and persisted, so they survive
+  // navigation and app restarts); defaults are derived at render time
+  // because bandColors loads async and a mount-time snapshot can be stale.
+  const [weightModes, setWeightModes] = useState<Record<number, 'numeric' | 'band'>>(
+    () => activeWorkout.weightModes ?? {}
+  );
+  const getMode = (logIdx: number): 'numeric' | 'band' => {
+    const explicit = weightModes[logIdx];
+    if (explicit) return explicit;
+    const ex = plan.exercises[logIdx];
+    const log = exerciseLogs[logIdx];
+    const hasBandSet = log?.sets.some((s) => s.weightType === 'band' || s.bandColor);
+    return hasBandSet || (ex.equipment.includes('resistance-bands') && bandColors.length > 0)
+      ? 'band'
+      : 'numeric';
+  };
+  const getModeRef = useRef(getMode);
+  getModeRef.current = getMode;
   const [progressOpen, setProgressOpen] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
 
@@ -513,19 +510,30 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
     return () => clearInterval(keepAlive);
   }, []);
 
-  // Persist state changes to parent (debounced via hook)
+  // Persist state changes to parent (debounced via hook).
+  // Critical moments (set completion) flag an immediate save so the last
+  // set isn't lost if the app is closed before the debounce fires.
   const persistRef = useRef(false);
+  const immediateSaveRef = useRef(false);
   useEffect(() => {
     if (!persistRef.current) {
       persistRef.current = true;
       return;
     }
-    onUpdateState({
+    const updates = {
       exerciseLogs,
       currentGroupIdx,
       activeExInGroup,
-    });
-  }, [exerciseLogs, currentGroupIdx, activeExInGroup]);
+      restEndTime,
+      exTimer,
+      weightModes,
+    };
+    onUpdateState(updates);
+    if (immediateSaveRef.current) {
+      immediateSaveRef.current = false;
+      onSaveNow({ ...activeWorkout, ...updates });
+    }
+  }, [exerciseLogs, currentGroupIdx, activeExInGroup, restEndTime, exTimer, weightModes]);
 
   // Flag to distinguish manual dismissal from natural timer expiry
   const restSkippedRef = useRef(false);
@@ -611,35 +619,42 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
       const log = { ...updated[logIdx] };
       const sets = [...log.sets];
       const existing = sets[setIdx];
-      // Auto-fill weight/band from previous completed set if not already set
+      // Auto-fill weight/band from previous completed set, following the
+      // exercise's tracking mode
+      const mode = getModeRef.current(logIdx);
       const lastCompleted = sets.slice(0, setIdx).reverse().find(s => s.completed);
-      const weight = existing.weight ?? lastCompleted?.weight ?? exercise.weight ?? null;
-      const bandColor = existing.bandColor || lastCompleted?.bandColor;
-      const weightType = existing.weightType || lastCompleted?.weightType;
+      const weight = mode === 'band'
+        ? existing.weight
+        : existing.weight ?? lastCompleted?.weight ?? exercise.weight ?? null;
+      const bandColor = mode === 'band' ? (existing.bandColor || lastCompleted?.bandColor) : existing.bandColor;
+      const weightType = mode === 'band' ? (bandColor ? 'band' as const : existing.weightType) : 'numeric' as const;
       sets[setIdx] = { ...existing, completed: true, reps: timeSeconds, weight, bandColor, weightType };
       log.sets = sets;
       updated[logIdx] = log;
       return updated;
     });
     setExTimer(null);
+    immediateSaveRef.current = true;
 
-    // Group-aware rest logic
+    // Group-aware rest logic — derive position from the timed exercise itself
     if (isMultiExGroupRef.current) {
       const group = groupsRef.current;
-      const isLastEx = activeExInGroupRef.current >= group.exercises.length - 1;
+      const posInGroup = group.exercises.findIndex((ex) => exIdToLogIdx.get(ex.id) === logIdx);
+      const effectivePos = posInGroup >= 0 ? posInGroup : activeExInGroupRef.current;
+      const isLastEx = effectivePos >= group.exercises.length - 1;
       if (isLastEx) {
         setRestTimer(90);
         setActiveExInGroup(0);
         scrollToGroupExercise(0);
       } else {
-        const next = activeExInGroupRef.current + 1;
+        const next = effectivePos + 1;
         setActiveExInGroup(next);
         scrollToGroupExercise(next);
       }
     } else {
       setRestTimer(exercise.restSeconds || 60);
     }
-  }, [plan.exercises, scrollToGroupExercise]);
+  }, [plan.exercises, exIdToLogIdx, scrollToGroupExercise]);
 
   // Handle exercise timer completion — runs after state update, outside the updater
   useEffect(() => {
@@ -785,13 +800,6 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
     });
   }, []);
 
-  const toggleWeightMode = useCallback((logIdx: number) => {
-    setWeightModes(prev => ({
-      ...prev,
-      [logIdx]: prev[logIdx] === 'band' ? 'numeric' : 'band',
-    }));
-  }, []);
-
   const updateBandColor = useCallback((logIdx: number, setIdx: number, color: string | undefined) => {
     setExerciseLogs((prev) => {
       const updated = [...prev];
@@ -806,6 +814,7 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
 
   const toggleSetComplete = useCallback((logIdx: number, setIdx: number) => {
     const exercise = plan.exercises[logIdx];
+    const nowCompleted = !exerciseLogs[logIdx].sets[setIdx].completed;
 
     setExerciseLogs((prev) => {
       const updated = [...prev];
@@ -813,21 +822,26 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
       const sets = [...log.sets];
       const set = { ...sets[setIdx] };
       set.completed = !set.completed;
-      // Auto-fill from most recent completed set, then fall back to plan defaults
+      // Auto-fill from most recent completed set, then fall back to plan
+      // defaults — following the exercise's tracking mode so a band set
+      // never picks up a phantom numeric weight (and vice versa)
       if (set.completed) {
+        const mode = getModeRef.current(logIdx);
         const lastCompleted = sets.slice(0, setIdx).reverse().find((s) => s.completed);
-        if (set.weight === null) {
-          set.weight = lastCompleted?.weight ?? exercise.weight ?? null;
+        if (mode === 'band') {
+          if (!set.bandColor && lastCompleted?.bandColor) {
+            set.bandColor = lastCompleted.bandColor;
+          }
+          if (set.bandColor) set.weightType = 'band';
+        } else {
+          if (set.weight === null) {
+            set.weight = lastCompleted?.weight ?? exercise.weight ?? null;
+          }
+          set.weightType = 'numeric';
         }
         if (set.reps === null) {
           const fallbackReps = parseInt(exercise.reps.replace(/[^0-9]/g, ''));
           set.reps = lastCompleted?.reps ?? (isNaN(fallbackReps) ? null : fallbackReps);
-        }
-        if (!set.bandColor && lastCompleted?.bandColor) {
-          set.bandColor = lastCompleted.bandColor;
-        }
-        if (!set.weightType && lastCompleted?.weightType) {
-          set.weightType = lastCompleted.weightType;
         }
       }
       sets[setIdx] = set;
@@ -836,9 +850,16 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
       return updated;
     });
 
-    // Group-aware rest logic
+    // Rest/advance only applies when a set was just completed, not un-checked
+    if (!nowCompleted) return;
+    immediateSaveRef.current = true;
+
+    // Group-aware rest logic — position comes from the clicked exercise,
+    // not the active pointer (the user can complete sets on any exercise in the group)
     if (isMultiExGroup) {
-      const isLastExInGroup = activeExInGroup >= currentGroup.exercises.length - 1;
+      const posInGroup = currentGroup.exercises.findIndex((ex) => exIdToLogIdx.get(ex.id) === logIdx);
+      const effectivePos = posInGroup >= 0 ? posInGroup : activeExInGroup;
+      const isLastExInGroup = effectivePos >= currentGroup.exercises.length - 1;
       if (isLastExInGroup) {
         // Completed a round — start rest timer (90s for groups)
         setRestTimer(90);
@@ -846,7 +867,7 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
         scrollToGroupExercise(0);
       } else {
         // Advance to next exercise in group (no rest)
-        const next = activeExInGroup + 1;
+        const next = effectivePos + 1;
         setActiveExInGroup(next);
         scrollToGroupExercise(next);
       }
@@ -854,7 +875,7 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
       const restSec = exercise.restSeconds || 60;
       setRestTimer(restSec);
     }
-  }, [isMultiExGroup, activeExInGroup, currentGroup, plan.exercises, scrollToGroupExercise]);
+  }, [exerciseLogs, isMultiExGroup, activeExInGroup, currentGroup, exIdToLogIdx, plan.exercises, scrollToGroupExercise]);
 
   const addSet = useCallback((logIdx: number) => {
     setExerciseLogs((prev) => {
@@ -932,8 +953,11 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
   const renderWeightInput = (logIdx: number, idx: number, set: typeof exerciseLogs[0]['sets'][0], exercise: typeof plan.exercises[0], mode: 'numeric' | 'band') => {
     const lastCompleted = exerciseLogs[logIdx].sets.slice(0, idx).reverse().find((s) => s.completed);
     const effectiveBandColor = set.bandColor || lastCompleted?.bandColor;
+    // Completed sets show what was actually logged, regardless of the
+    // current toggle — switching modes mid-exercise never rewrites history
+    const effMode = set.completed && set.weightType ? set.weightType : mode;
 
-    if (mode === 'band' && bandColors.length > 0) {
+    if (effMode === 'band' && bandColors.length > 0) {
       return (
         <select
           value={effectiveBandColor || ''}
@@ -999,16 +1023,35 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
   };
 
   const renderWeightColumnHeader = (logIdx: number) => {
-    const mode = weightModes[logIdx] || 'numeric';
-    const canToggle = bandColors.length > 0;
+    const mode = getMode(logIdx);
+    return <span>{mode === 'band' ? 'Band' : 'lbs'}</span>;
+  };
+
+  // Segmented control to switch an exercise between weighted (lbs) and
+  // band tracking. Only shown when band colors are configured in Equipment.
+  const renderTrackingToggle = (logIdx: number) => {
+    if (bandColors.length === 0) return null;
+    const mode = getMode(logIdx);
+    const setMode = (m: 'numeric' | 'band') =>
+      setWeightModes((prev) => (prev[logIdx] === m ? prev : { ...prev, [logIdx]: m }));
+    const seg = (active: boolean) =>
+      `px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1 ${
+        active ? 'bg-primary/20 text-primary' : 'text-slate-400 hover:text-slate-200'
+      }`;
     return (
-      <span
-        role={canToggle ? 'button' : undefined}
-        onClick={canToggle ? () => toggleWeightMode(logIdx) : undefined}
-        class={canToggle ? 'cursor-pointer hover:text-primary transition-colors' : ''}
-      >
-        {mode === 'band' ? 'Band' : 'lbs'}{canToggle && ' ⇄'}
-      </span>
+      <div class="flex items-center gap-2">
+        <span class="text-[10px] uppercase tracking-wider font-bold text-slate-500">Track</span>
+        <div class="flex rounded-lg bg-surface-darker p-0.5">
+          <button onClick={() => setMode('numeric')} class={seg(mode === 'numeric')}>
+            <Icon name="fitness_center" class="text-xs" />
+            lbs
+          </button>
+          <button onClick={() => setMode('band')} class={seg(mode === 'band')}>
+            <Icon name="all_inclusive" class="text-xs" />
+            Band
+          </button>
+        </div>
+      </div>
     );
   };
 
@@ -1016,17 +1059,26 @@ export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigat
     const log = exerciseLogs[logIdx];
     const timed = isTimeBased(exercise.reps);
     const targetSeconds = timed ? parseTimeSeconds(exercise.reps) : 0;
-    const mode = weightModes[logIdx] || 'numeric';
+    const mode = getMode(logIdx);
 
     return (
       <div class={`space-y-2 ${isMultiExGroup && !isHighlighted ? 'opacity-60' : ''}`}>
         {/* Exercise header for multi-exercise groups */}
         {isMultiExGroup && (
-          <div class="flex items-center justify-between pt-2 pb-1">
-            <h4 class="text-sm font-bold text-white">{exercise.name}</h4>
-            <span class="text-[10px] text-slate-400 bg-surface-darker px-1.5 py-0.5 rounded">
-              {exercise.muscleGroup}
-            </span>
+          <div class="flex items-center justify-between gap-2 pt-2 pb-1">
+            <div class="flex items-center gap-2 min-w-0">
+              <h4 class="text-sm font-bold text-white truncate">{exercise.name}</h4>
+              <span class="text-[10px] text-slate-400 bg-surface-darker px-1.5 py-0.5 rounded shrink-0">
+                {exercise.muscleGroup}
+              </span>
+            </div>
+            {renderTrackingToggle(logIdx)}
+          </div>
+        )}
+        {/* Tracking toggle row for standalone exercises */}
+        {!isMultiExGroup && bandColors.length > 0 && (
+          <div class="flex justify-end pb-1">
+            {renderTrackingToggle(logIdx)}
           </div>
         )}
 

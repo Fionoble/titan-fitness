@@ -78,6 +78,15 @@ export interface WorkoutSession {
   notes?: string;
 }
 
+export interface ExerciseTimerState {
+  logIdx: number;
+  setIdx: number;
+  startedAt: number; // Date.now() when timer started
+  duration: number;  // target seconds (countdown) or 0 (countup)
+  running: boolean;
+  mode: 'countdown' | 'countup';
+}
+
 export interface ActiveWorkoutState {
   id: string;              // always 'current'
   planId: string;
@@ -86,6 +95,9 @@ export interface ActiveWorkoutState {
   startedAt: string;       // ISO timestamp
   currentGroupIdx: number;
   activeExInGroup: number;
+  restEndTime?: number | null;        // epoch ms when the current rest ends
+  exTimer?: ExerciseTimerState | null; // running exercise timer (survives navigation)
+  weightModes?: Record<number, 'numeric' | 'band'>; // per-exercise tracking mode (by log index)
 }
 
 export interface PersonalRecord {
@@ -98,7 +110,6 @@ export interface PersonalRecord {
 
 export interface UserProfile {
   name: string;
-  aiApiKey?: string;
   aiProvider?: 'anthropic' | 'openai';
   injuries?: string;
   additionalEquipment?: string;
