@@ -3,22 +3,16 @@ import { LocationProvider } from 'preact-iso';
 import { App } from './app';
 import { NavSlotProvider } from './components/NavSlot';
 import './app.css';
-import { isNative, configureStatusBar } from './native';
 
-// Detect standalone PWA mode (iOS Safari only — not needed in native Capacitor
-// where the WebView handles safe areas properly)
-if (!isNative) {
-  const isStandalone =
-    (window.navigator as any).standalone === true ||
-    window.matchMedia('(display-mode: standalone)').matches;
+// Detect standalone PWA mode (iOS needs the .pwa-standalone hooks for
+// safe-area handling)
+const isStandalone =
+  (window.navigator as any).standalone === true ||
+  window.matchMedia('(display-mode: standalone)').matches;
 
-  if (isStandalone) {
-    document.documentElement.classList.add('pwa-standalone');
-  }
+if (isStandalone) {
+  document.documentElement.classList.add('pwa-standalone');
 }
-
-// Configure native shell (no-ops on web)
-configureStatusBar();
 
 render(
   <LocationProvider scope={import.meta.env.BASE_URL}>
