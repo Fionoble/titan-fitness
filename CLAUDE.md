@@ -45,7 +45,6 @@ When taking screenshots with the Playwright MCP tool, always save to the `snapsh
 - `src/ai.ts` — AI config (BYOK), sendMessage(), sendWorkoutChat(), sendProgramMessage(), system prompt builders with muscle recovery tracking
 - `src/ai-workout.ts` — parseWorkoutFromResponse(), generateWorkoutViaAI()
 - `src/ai-program.ts` — generateProgramViaAI() for 7-day programs
-- `src/ai-nutrition.ts` — estimateNutrition(), estimateNutritionWithImage(), scanNutritionLabel(), suggestGoals(), chatWithNutritionAI()
 - `src/workout-engine.ts` — Local (non-AI) workout generation fallback
 
 ### Screens
@@ -56,7 +55,6 @@ When taking screenshots with the Playwright MCP tool, always save to the `snapsh
 - `src/screens/Progress.tsx` — Volume charts, consistency rings, calendar, workout history
 - `src/screens/Discover.tsx` — Browse workout styles
 - `src/screens/Equipment.tsx` — Toggle equipment. Resistance bands have expandable band color config (preset colors + custom).
-- `src/screens/Nutrition.tsx` — Meal logging, calorie ring, macro tracking, AI food recognition, barcode scan (exists but removed from nav — extracted to separate app at ../nutrition-tracker/)
 - `src/screens/Profile.tsx` — User profile, weight chart, stats
 - `src/screens/Settings.tsx` — Equipment, workout preferences, body metrics, AI setup, privacy, export/import (exports deliberately exclude the AI API key)
 - `src/screens/ProgramDetail.tsx` — Full 7-day program view
@@ -67,6 +65,11 @@ When taking screenshots with the Playwright MCP tool, always save to the `snapsh
 - `src/components/NavSlot.tsx` — Portal system for floating content above nav island
 - `src/components/WorkoutBanner.tsx` — Floating banner when workout is active on non-workout screens
 - `src/components/ExerciseBreakdown.tsx` — Shared exercise list with superset grouping and band-aware best-set display (used in WorkoutComplete + Home)
+- `src/components/UpdateToast.tsx` — "Update available" toast (SW registerType is 'prompt'; user chooses when to refresh)
+
+## Nutrition
+
+The nutrition feature was extracted to a standalone PWA at `../nutrition-tracker/` and fully removed from this app (June 2026). The IndexedDB nutrition stores (nutritionLogs, foods, nutritionGoals, starredFoods) and their types remain so existing data and backups stay importable — do not remove them without an IDB migration plan.
 
 ## Weight/Band Tracking (ActiveWorkout)
 
@@ -74,9 +77,8 @@ Each exercise has a tracking mode: `'numeric'` (lbs) or `'band'` (resistance ban
 
 ## Pending / Future Work
 
-- **PWA polish backlog** (from June 2026 audit): runtime caching for `/images/*.jpg` (currently broken offline), compress 1MB icon-512.png, update toast for new SW versions, exclude html5-qrcode chunk from precache, route-level code splitting, iOS splash screens, self-hosted fonts
+- **PWA polish remaining** (from June 2026 audit; images/icon/toast/manifest done): route-level code splitting (preact-iso lazy()), iOS splash screens (apple-touch-startup-image), self-hosted fonts (offline first load + drops Google from CSP), proper padded maskable icon
 - **AI layer**: migrate workout/program generation to tool use instead of JSON-in-text; raise program max_tokens on Anthropic path (currently 4096, truncation-prone); typed errors with retry for 429/529
-- **Nutrition.tsx fate**: still bundled + routed (~2,500 LOC) despite being extracted to ../nutrition-tracker/ — delete or lazy-load
 - **Testing**: zero tests; start with vitest + AI JSON parsing, timer math, IDB migrations
 
 ## Color Scheme

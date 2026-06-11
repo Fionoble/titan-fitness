@@ -429,13 +429,22 @@ function ProgressModal({ open, onClose, groups, exerciseLogs, exIdToLogIdx, curr
 }
 
 export function ActiveWorkout({ activeWorkout, bandColors, onComplete, onNavigateBack, onUpdateState, onSaveNow, onEndWorkout }: ActiveWorkoutProps) {
-  // If no active workout, show empty state
+  // If no active workout, show empty state. The bottom nav is hidden on
+  // /workout, so this screen must provide its own way out.
   if (!activeWorkout) {
     return (
-      <div class="flex-1 flex items-center justify-center">
-        <div class="text-center">
+      <div class="flex-1 flex items-center justify-center p-6">
+        <div class="text-center max-w-[280px]">
           <Icon name="fitness_center" class="text-4xl text-primary/30 mb-3" />
-          <p class="text-slate-400 text-sm">No active workout</p>
+          <p class="text-white font-semibold mb-1">No active workout</p>
+          <p class="text-slate-400 text-sm mb-6">Start one from the Home screen when you're ready to train.</p>
+          <button
+            onClick={onNavigateBack}
+            class="w-full py-3 rounded-xl bg-primary text-bg-dark font-bold text-sm flex items-center justify-center gap-2"
+          >
+            <Icon name="home" class="text-lg" />
+            Back to Home
+          </button>
         </div>
       </div>
     );

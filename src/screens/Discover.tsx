@@ -154,7 +154,7 @@ export function Discover({ equipment, onSelectStyle }: DiscoverProps) {
                   disabled={!!loadingStyle}
                   class="relative h-44 w-full overflow-hidden rounded-2xl group cursor-pointer shadow-md shadow-black/20 text-left disabled:pointer-events-none"
                 >
-                  <img src={STYLE_IMAGES[style]} alt="" class="absolute inset-0 w-full h-full object-cover" />
+                  <img src={STYLE_IMAGES[style]} alt="" loading="lazy" class="absolute inset-0 w-full h-full object-cover" />
                   <div class={`absolute inset-0 bg-gradient-to-${isRight ? 'l' : 'r'} from-bg-dark/90 via-bg-dark/40 to-transparent`}></div>
                   {loadingStyle === style && (
                     <div class="absolute inset-0 z-10 bg-bg-dark/70 flex items-center justify-center">

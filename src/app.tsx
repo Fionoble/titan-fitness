@@ -10,7 +10,6 @@ import { Progress } from './screens/Progress';
 import { EquipmentScreen } from './screens/Equipment';
 import { Coach } from './screens/Coach';
 import { Discover } from './screens/Discover';
-import { Nutrition } from './screens/Nutrition';
 import { Profile } from './screens/Profile';
 import { Settings } from './screens/Settings';
 import { ProgramDetail } from './screens/ProgramDetail';
@@ -18,6 +17,7 @@ import { useEquipment, useTodayWorkout, useSessions, useChat, useProfile, useWei
 import { useAITaskByType } from './ai-tasks';
 import { withBase, stripBase } from './base';
 import { Icon } from './components/Icon';
+import { UpdateToast } from './components/UpdateToast';
 import type { WorkoutSession, WorkoutPlan, WorkoutCriteria } from './types';
 
 export function App() {
@@ -72,6 +72,13 @@ export function App() {
     nav('/');
   }, [cancelWorkout, nav]);
 
+  // Discarding a workout while on /workout would otherwise strand the user
+  // on the empty workout screen (bottom nav is hidden there)
+  const handleDismissResume = useCallback(async () => {
+    await dismissResume();
+    if (stripBase(path) === '/workout') nav('/');
+  }, [dismissResume, path, nav]);
+
   const handleSelectStyle = useCallback(async (style: string) => {
     await regenerate(style);
     nav('/');
@@ -124,6 +131,7 @@ export function App() {
 
   return (
     <div class="h-full flex flex-col relative">
+      <UpdateToast />
       {/* Resume workout prompt */}
       {showResume && activeWorkout && (
         <div class="fixed inset-0 z-[200] flex items-center justify-center">
@@ -141,7 +149,7 @@ export function App() {
             </div>
             <div class="flex gap-3">
               <button
-                onClick={dismissResume}
+                onClick={handleDismissResume}
                 class="flex-1 py-3 rounded-xl bg-surface-darker text-slate-300 font-semibold text-sm"
               >
                 Discard
@@ -203,11 +211,6 @@ export function App() {
           component={Discover}
           equipment={equipment}
           onSelectStyle={handleSelectStyle}
-        />
-        <Route
-          path={withBase('/nutrition')}
-          component={Nutrition}
-          profile={profile}
         />
         <Route
           path={withBase('/progress')}
