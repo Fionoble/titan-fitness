@@ -40,6 +40,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // iOS fetches startup images outside the SW; don't bloat the precache
+        globIgnores: ['**/splash/**'],
         runtimeCaching: [
           {
             // Discover/Home hero images — cache after first view so they

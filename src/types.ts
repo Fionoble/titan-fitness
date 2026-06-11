@@ -137,6 +137,8 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
+  /** Error bubbles are shown in the UI but never re-sent as model context */
+  isError?: boolean;
   richContent?: {
     type: 'exercise';
     name: string;

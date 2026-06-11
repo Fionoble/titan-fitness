@@ -42,10 +42,12 @@ When taking screenshots with the Playwright MCP tool, always save to the `snapsh
 - `src/ai-tasks.ts` — Task manager + persistent store for async AI operations
 
 ### AI
-- `src/ai.ts` — AI config (BYOK), sendMessage(), sendWorkoutChat(), sendProgramMessage(), system prompt builders with muscle recovery tracking
-- `src/ai-workout.ts` — parseWorkoutFromResponse(), generateWorkoutViaAI()
-- `src/ai-program.ts` — generateProgramViaAI() for 7-day programs
+- `src/ai.ts` — AI config (BYOK), sendCoachMessage() (tools: create_workout/create_program, model decides), requestWorkout()/requestProgram() (forced tool_choice), sendWorkoutChat(), sendTextMessage(), typed AIError + aiErrorMessage(), retry/backoff for 429/500/529 honoring retry-after, 90s timeout, truncation detection via stop_reason/finish_reason. Models: claude-haiku-4-5 / gpt-5-mini. Raw fetch by design (BYOK browser app, no SDK).
+- `src/ai-schemas.ts` — Tool JSON schemas + client-side validators (buildPlanFromParsed, buildProgramFromParsed — clamp/coerce all fields)
+- `src/ai-workout.ts` — generateWorkoutViaAI() (thin wrapper over requestWorkout)
+- `src/ai-program.ts` — generateProgramViaAI() (thin wrapper over requestProgram)
 - `src/workout-engine.ts` — Local (non-AI) workout generation fallback
+- Chat error bubbles carry `ChatMessage.isError` and are never re-sent as model context
 
 ### Screens
 - `src/screens/Home.tsx` — Main screen. Daily mode (generate workout button + plan hero card + exercise list) or Program mode (7-day program with day dots). Shows saved workouts when no plan active. Shows inline completion view after finishing a workout.
@@ -77,9 +79,9 @@ Each exercise has a tracking mode: `'numeric'` (lbs) or `'band'` (resistance ban
 
 ## Pending / Future Work
 
-- **PWA polish remaining** (from June 2026 audit; images/icon/toast/manifest done): route-level code splitting (preact-iso lazy()), iOS splash screens (apple-touch-startup-image), self-hosted fonts (offline first load + drops Google from CSP), proper padded maskable icon
-- **AI layer**: migrate workout/program generation to tool use instead of JSON-in-text; raise program max_tokens on Anthropic path (currently 4096, truncation-prone); typed errors with retry for 429/529
-- **Testing**: zero tests; start with vitest + AI JSON parsing, timer math, IDB migrations
+- **PWA polish remaining**: Material Symbols icon-font subsetting (currently full variable font), self-hosted fonts (offline first load + drops Google from CSP), proper padded maskable icon. Route-level code splitting deliberately skipped (precached SW makes it moot at this size).
+- **AI layer**: streaming responses in Coach (biggest perceived-latency win); injury-aware local fallback (workout-engine ignores limitations when AI fails)
+- **Testing**: zero tests; start with vitest + ai-schemas validators, timer math, IDB migrations
 
 ## Color Scheme
 - Primary: `#2bee79` (green)

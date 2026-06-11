@@ -4,8 +4,7 @@ import { Icon } from '../components/Icon';
 import type { WorkoutProgram, ProgramDay, Exercise, WorkoutPlan, Equipment } from '../types';
 import { groupExercises, groupLabel } from '../group-utils';
 import { withBase } from '../base';
-import { sendMessage, isAIConfigured } from '../ai';
-import { parseWorkoutFromResponse } from '../ai-workout';
+import { sendTextMessage, aiErrorMessage, isAIConfigured } from '../ai';
 import { uuid } from '../utils';
 
 interface ProgramDetailProps {
@@ -71,7 +70,7 @@ function EditExerciseModal({ exercise, dayPlan, equipment, onSave, onRemove, onC
     };
 
     try {
-      const response = await sendMessage(prompts[action], [], equipment, []);
+      const response = await sendTextMessage(prompts[action], equipment, []);
       setAiSuggestion(response);
 
       // Try to auto-parse the suggestion
@@ -81,8 +80,8 @@ function EditExerciseModal({ exercise, dayPlan, equipment, onSave, onRemove, onC
         setSets(match[2]);
         setReps(match[3].trim());
       }
-    } catch {
-      setAiSuggestion('Failed to get suggestion. Try again.');
+    } catch (err) {
+      setAiSuggestion(aiErrorMessage(err));
     }
     setAiLoading(false);
   };

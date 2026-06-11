@@ -1,4 +1,16 @@
-import type { Equipment, WorkoutSession, ChatMessage } from './types';
+import type { Equipment, WorkoutSession, ChatMessage, WorkoutPlan, WorkoutProgram } from './types';
+import {
+  CREATE_WORKOUT_TOOL,
+  CREATE_PROGRAM_TOOL,
+  buildPlanFromParsed,
+  buildProgramFromParsed,
+} from './ai-schemas';
+import type { ParsedProgram } from './ai-schemas';
+
+// BYOK browser client — raw fetch by design (no server, dual-provider, CSP-pinned hosts).
+const ANTHROPIC_MODEL = 'claude-haiku-4-5';
+const OPENAI_MODEL = 'gpt-5-mini';
+const TIMEOUT_MS = 90_000;
 
 interface AIConfig {
   apiKey: string;
@@ -20,6 +32,248 @@ export function setAIConfig(apiKey: string, provider: 'anthropic' | 'openai') {
   localStorage.setItem('titan_ai_key', apiKey);
   localStorage.setItem('titan_ai_provider', provider);
 }
+
+// --- Typed errors -----------------------------------------------------------
+
+export type AIErrorKind =
+  | 'unconfigured'
+  | 'auth'
+  | 'rate_limit'
+  | 'overloaded'
+  | 'network'
+  | 'timeout'
+  | 'bad_request'
+  | 'truncated'
+  | 'invalid_output'
+  | 'unknown';
+
+export class AIError extends Error {
+  constructor(public kind: AIErrorKind, message: string, public status?: number) {
+    super(message);
+    this.name = 'AIError';
+  }
+}
+
+/** User-facing message for any AI failure. Never echoes raw API bodies. */
+export function aiErrorMessage(err: unknown): string {
+  if (err instanceof AIError) {
+    switch (err.kind) {
+      case 'unconfigured': return 'Set up your AI API key in Settings to use the AI coach.';
+      case 'auth': return "There's an issue with your API key — check it in Settings.";
+      case 'rate_limit': return 'The AI provider is rate-limiting requests right now. Give it a moment and try again.';
+      case 'overloaded': return 'The AI service is temporarily overloaded. Try again in a minute.';
+      case 'timeout': return 'The request timed out. Check your connection and try again.';
+      // Some providers (OpenAI) omit CORS headers on auth-rejected responses,
+      // so a bad key is indistinguishable from a network failure in a browser
+      case 'network': return typeof navigator !== 'undefined' && navigator.onLine === false
+        ? "You're offline — reconnect to use the AI coach."
+        : "Couldn't reach the AI service. Check your connection — and if you're online, double-check your API key in Settings.";
+      case 'truncated': return 'The response got cut off before it finished. Try again — a simpler request can help.';
+      case 'invalid_output': return "I couldn't produce a valid result this time. Try rephrasing or just try again.";
+      case 'bad_request': return `The AI request was rejected: ${err.message}`;
+    }
+  }
+  return 'Something went wrong talking to the AI. Please try again.';
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+function backoffMs(attempt: number): number {
+  return 1500 * Math.pow(2, attempt) + Math.random() * 500;
+}
+
+/** Extract a short, safe error description from a provider error body */
+function summarizeErrorBody(body: string, status: number): string {
+  try {
+    const parsed = JSON.parse(body);
+    const msg = parsed?.error?.message || parsed?.message;
+    if (typeof msg === 'string') return msg.slice(0, 200);
+  } catch { /* not JSON */ }
+  return `HTTP ${status}`;
+}
+
+/**
+ * fetch with timeout + retry. 429/500/529 are retried with backoff
+ * (honoring retry-after); auth and validation errors throw immediately.
+ */
+async function apiFetch(url: string, init: RequestInit): Promise<Response> {
+  const maxAttempts = 3;
+  let lastErr: AIError | null = null;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    let res: Response;
+    try {
+      res = await fetch(url, { ...init, signal: controller.signal });
+    } catch (e: any) {
+      clearTimeout(timer);
+      if (e?.name === 'AbortError') throw new AIError('timeout', 'Request timed out');
+      lastErr = new AIError('network', 'Network request failed');
+      if (attempt < maxAttempts - 1) {
+        await sleep(backoffMs(attempt));
+        continue;
+      }
+      throw lastErr;
+    }
+    clearTimeout(timer);
+
+    if (res.ok) return res;
+
+    const status = res.status;
+    const body = await res.text().catch(() => '');
+
+    if (status === 401 || status === 403) {
+      throw new AIError('auth', `Authentication failed (${status})`, status);
+    }
+    if (status === 429 || status === 529 || status >= 500) {
+      const kind: AIErrorKind = status === 429 ? 'rate_limit' : 'overloaded';
+      lastErr = new AIError(kind, summarizeErrorBody(body, status), status);
+      if (attempt < maxAttempts - 1) {
+        const retryAfter = Number(res.headers.get('retry-after'));
+        const delay = Number.isFinite(retryAfter) && retryAfter > 0
+          ? Math.min(retryAfter * 1000, 15_000)
+          : backoffMs(attempt);
+        await sleep(delay);
+        continue;
+      }
+      throw lastErr;
+    }
+    throw new AIError('bad_request', summarizeErrorBody(body, status), status);
+  }
+  throw lastErr ?? new AIError('unknown', 'Request failed');
+}
+
+// --- Provider calls ---------------------------------------------------------
+
+interface ToolSpec {
+  name: string;
+  description: string;
+  input_schema: any;
+}
+
+interface AICallOpts {
+  maxTokens?: number;
+  tools?: ToolSpec[];
+  /** Force the model to call this tool (must be in `tools`) */
+  forceTool?: string;
+}
+
+interface AIResult {
+  text: string;
+  toolName?: string;
+  toolInput?: any;
+}
+
+type WireMessage = { role: 'user' | 'assistant'; content: string };
+
+async function callAnthropic(apiKey: string, system: string, messages: WireMessage[], opts: AICallOpts = {}): Promise<AIResult> {
+  const body: any = {
+    model: ANTHROPIC_MODEL,
+    max_tokens: opts.maxTokens ?? 8192,
+    system,
+    messages,
+  };
+  if (opts.tools?.length) {
+    body.tools = opts.tools;
+    if (opts.forceTool) body.tool_choice = { type: 'tool', name: opts.forceTool };
+  }
+
+  const res = await apiFetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify(body),
+  });
+
+  const data = await res.json();
+  const blocks: any[] = Array.isArray(data.content) ? data.content : [];
+  const text = blocks.filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
+  const toolUse = blocks.find((b) => b.type === 'tool_use');
+
+  // A tool call truncated mid-JSON is unusable; plain text cut short is still
+  // worth showing, so only treat truncation as fatal on tool paths
+  if (data.stop_reason === 'max_tokens' && (opts.forceTool || toolUse)) {
+    throw new AIError('truncated', 'Response hit the token limit mid-generation');
+  }
+  if (!text && !toolUse) {
+    throw new AIError('invalid_output', `Empty response (stop_reason: ${data.stop_reason ?? 'unknown'})`);
+  }
+  return { text, toolName: toolUse?.name, toolInput: toolUse?.input };
+}
+
+async function callOpenAI(apiKey: string, system: string, messages: WireMessage[], opts: AICallOpts = {}): Promise<AIResult> {
+  const body: any = {
+    model: OPENAI_MODEL,
+    messages: [{ role: 'system', content: system }, ...messages],
+    max_completion_tokens: opts.maxTokens ?? 8192,
+  };
+  if (opts.tools?.length) {
+    body.tools = opts.tools.map((t) => ({
+      type: 'function',
+      function: { name: t.name, description: t.description, parameters: t.input_schema },
+    }));
+    if (opts.forceTool) body.tool_choice = { type: 'function', function: { name: opts.forceTool } };
+  }
+
+  const res = await apiFetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  const data = await res.json();
+  const choice = data.choices?.[0];
+  const text = (choice?.message?.content || '').trim();
+
+  let toolName: string | undefined;
+  let toolInput: any;
+  const call = choice?.message?.tool_calls?.[0];
+  if (call?.function) {
+    toolName = call.function.name;
+    try {
+      toolInput = JSON.parse(call.function.arguments);
+    } catch {
+      throw new AIError('invalid_output', 'Tool arguments were not valid JSON');
+    }
+  }
+
+  if (choice?.finish_reason === 'length' && (opts.forceTool || toolName)) {
+    throw new AIError('truncated', 'Response hit the token limit mid-generation');
+  }
+  if (!text && !toolInput) {
+    throw new AIError('invalid_output', `Empty response (finish_reason: ${choice?.finish_reason ?? 'unknown'})`);
+  }
+  return { text, toolName, toolInput };
+}
+
+async function callAI(system: string, messages: WireMessage[], opts: AICallOpts = {}): Promise<AIResult> {
+  const config = getConfig();
+  if (!config) throw new AIError('unconfigured', 'No AI API key configured');
+  return config.provider === 'anthropic'
+    ? callAnthropic(config.apiKey, system, messages, opts)
+    : callOpenAI(config.apiKey, system, messages, opts);
+}
+
+/** Build wire messages from chat history: drop error bubbles, trim, ensure user-first */
+function toWire(history: ChatMessage[], userMessage: string): WireMessage[] {
+  const trimmed = history.filter((m) => !m.isError).slice(-20);
+  while (trimmed.length && trimmed[0].role !== 'user') trimmed.shift();
+  const msgs: WireMessage[] = trimmed.map((m) => ({ role: m.role, content: m.content }));
+  msgs.push({ role: 'user', content: userMessage });
+  return msgs;
+}
+
+// --- Prompt building --------------------------------------------------------
 
 function daysAgo(dateStr: string): number {
   const now = new Date();
@@ -58,7 +312,6 @@ function buildMuscleRecoveryStatus(recentSessions: WorkoutSession[]): string {
 
   if (muscleLastTrained.size === 0) return '';
 
-  // Calculate rest days context
   const workoutDays = recentSessions.slice(0, 5).map((s) => daysAgo(s.startedAt));
   const lastWorkoutDays = workoutDays.length > 0 ? workoutDays[0] : null;
   const restDayNote = lastWorkoutDays !== null && lastWorkoutDays >= 2
@@ -72,35 +325,14 @@ function buildMuscleRecoveryStatus(recentSessions: WorkoutSession[]): string {
   return `\nMUSCLE RECOVERY STATUS:${restDayNote}\n${lines.join('\n')}`;
 }
 
-const WORKOUT_SCHEMA = `
-WORKOUT GENERATION:
-When asked to generate, create, adjust, or modify a workout, you MUST ALWAYS include the COMPLETE workout plan as a JSON block in a \`\`\`json code fence. This is CRITICAL — never describe changes without including the full updated JSON. Even if you're only adding or removing one exercise, output the entire plan. The JSON must match this exact schema:
-{
-  "name": "string - workout name",
-  "style": "strength|hypertrophy|functional|hiit|cardio|recovery|mobility|power|endurance",
-  "exercises": [
-    {
-      "name": "string - exercise name",
-      "muscleGroup": "string - target muscle",
-      "equipment": ["string - equipment id, e.g. 'dumbbells', 'barbell', or empty array for bodyweight"],
-      "sets": 3,
-      "reps": "string - e.g. '10-12', '15', 'Failure'. IMPORTANT: for time-based exercises (planks, holds, stretches, etc.) always include the time suffix: '30s', '45s each', '60s', '2 min'. Never use a plain number for timed exercises.",
-      "weight": null,
-      "restSeconds": 60,
-      "group": "string or null - optional, e.g. 'A'. Exercises with same group form a superset/circuit and must be adjacent"
-    }
-  ],
-  "durationMin": 45,
-  "estimatedCalories": 350,
-  "focus": "string - e.g. 'Chest & Triceps'",
-  "intensity": 2
+export interface ProfileContext {
+  injuries?: string;
+  additionalEquipment?: string;
+  avgWorkoutMinutes?: number;
+  programActiveDays?: number;
 }
-Always include a brief conversational message before or after the JSON block. Equipment IDs are: dumbbells, barbell, kettlebells, bench, pull-up-bar, resistance-bands, yoga-mat, foam-roller, jump-rope, medicine-ball, ab-wheel.
-You may group 2-3 complementary exercises as supersets by giving them the same group letter (e.g. "A"). Don't superset every exercise — keep some standalone.`;
 
-const WORKOUT_KEYWORDS = /\b(generate|create|make|build|give me|adjust|modify|change|update|swap|replace|new workout|workout plan)\b/i;
-
-function buildSystemPrompt(equipment: Equipment[], recentSessions: WorkoutSession[], injuries?: string, additionalEquipment?: string, includeWorkoutSchema?: boolean, avgWorkoutMinutes?: number): string {
+function buildSystemPrompt(equipment: Equipment[], recentSessions: WorkoutSession[], profileContext?: ProfileContext, withTools = true): string {
   const enabledEquip = equipment.filter((e) => e.enabled).map((e) => e.name);
   const recentWorkouts = recentSessions.slice(0, 5).map((s) => {
     const days = daysAgo(s.startedAt);
@@ -109,6 +341,7 @@ function buildSystemPrompt(equipment: Equipment[], recentSessions: WorkoutSessio
   });
 
   const muscleRecovery = buildMuscleRecoveryStatus(recentSessions);
+  const { injuries, additionalEquipment, avgWorkoutMinutes } = profileContext || {};
 
   let prompt = `You are Titan, an expert AI fitness coach built into a home gym app. You're knowledgeable, encouraging, and adaptive.
 
@@ -129,166 +362,30 @@ GUIDELINES:
 - Keep responses concise and actionable
 - You can suggest workout modifications, recovery advice, form tips, and motivation
 - Be conversational and supportive, like a personal trainer
-- CRITICAL: Check the MUSCLE RECOVERY STATUS section. Never program muscles marked as "NEEDS RECOVERY" as primary movers. Muscles marked "RECOVERING" can be used lightly (assistance work only). Prioritize "FRESH" and "RECOVERED" muscle groups.`;
+- CRITICAL: Check the MUSCLE RECOVERY STATUS section. Never program muscles marked "NEEDS RECOVERY" as primary movers. Muscles marked "RECOVERING" can be used lightly (assistance work only). Prioritize "FULLY RECOVERED" and "MOSTLY RECOVERED" muscle groups.`;
 
-  if (includeWorkoutSchema) {
-    prompt += WORKOUT_SCHEMA;
+  if (withTools) {
+    prompt += `
+
+TOOLS:
+- Use the create_workout tool whenever the user asks you to generate, create, adjust, modify, or swap exercises in a workout. Always include the COMPLETE plan in the tool call, even when only one exercise changes.
+- Use the create_program tool when the user asks for a weekly program, training plan, weekly split, or multi-day routine.
+- Always write a brief conversational message alongside any tool call.`;
   }
 
   return prompt;
 }
 
-export async function sendMessage(
-  userMessage: string,
-  chatHistory: ChatMessage[],
-  equipment: Equipment[],
-  recentSessions: WorkoutSession[],
-  profileContext?: { injuries?: string; additionalEquipment?: string; avgWorkoutMinutes?: number }
-): Promise<string> {
-  const config = getConfig();
-  if (!config) {
-    return "I'd love to help! Please set up your AI API key in the Profile settings to enable the chat. You can use either an Anthropic or OpenAI key.";
-  }
-
-  const systemPrompt = buildSystemPrompt(
-    equipment,
-    recentSessions.slice(0, 5),
-    profileContext?.injuries,
-    profileContext?.additionalEquipment,
-    true,
-    profileContext?.avgWorkoutMinutes,
-  );
-
-  // Truncate history early to avoid passing large arrays through the stack
-  const trimmedHistory = chatHistory.slice(-20);
-
-  try {
-    if (config.provider === 'anthropic') {
-      return await callAnthropic(config.apiKey, systemPrompt, trimmedHistory, userMessage);
-    } else {
-      return await callOpenAI(config.apiKey, systemPrompt, trimmedHistory, userMessage);
-    }
-  } catch (err: any) {
-    if (err.message?.includes('401')) {
-      return "There's an issue with your API key. Please check it in Profile settings.";
-    }
-    if (err.message?.includes('404') || err.message?.includes('model_not_found') || err.message?.includes('invalid_model')) {
-      return `The AI model isn't available on your account. Error: ${err.message}`;
-    }
-    return `Sorry, I had trouble connecting. Error: ${err.message}`;
-  }
-}
-
-async function callAnthropic(apiKey: string, system: string, history: ChatMessage[], userMsg: string, maxTokens = 8192): Promise<string> {
-  const messages = history.map((m) => ({
-    role: m.role as 'user' | 'assistant',
-    content: m.content,
-  }));
-  messages.push({ role: 'user', content: userMsg });
-
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: maxTokens,
-      system,
-      messages,
-    }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Anthropic API error ${res.status}: ${text}`);
-  }
-
-  const data = await res.json();
-  return data.content[0].text;
-}
-
-export async function sendWorkoutChat(
-  userMessage: string,
-  chatHistory: { role: 'user' | 'assistant'; content: string }[],
-  currentExercise: { name: string; muscleGroup: string; reps: string; sets: number },
-  planSummary: string
-): Promise<string> {
-  const config = getConfig();
-  if (!config) {
-    return "Set up your AI API key in Profile settings to use in-workout chat.";
-  }
-
-  const systemPrompt = `You are Titan, a concise in-workout AI coach. The user is mid-workout and needs quick, actionable advice.
-
-CURRENT EXERCISE: ${currentExercise.name} (${currentExercise.muscleGroup}) — ${currentExercise.sets} sets × ${currentExercise.reps}
-
-WORKOUT CONTEXT:
-${planSummary}
-
-GUIDELINES:
-- Keep responses SHORT (2-4 sentences max) — the user is actively working out
-- Focus on: form cues, exercise alternatives, weight/rep advice, breathing, common mistakes
-- If suggesting an alternative, name 1-2 options with the same muscle group
-- Be encouraging but concise — no lengthy explanations`;
-
-  const messages = chatHistory.slice(-10).map((m) => ({
-    role: m.role as 'user' | 'assistant',
-    content: m.content,
-  }));
-  messages.push({ role: 'user', content: userMessage });
-
-  try {
-    if (config.provider === 'anthropic') {
-      return await callAnthropic(config.apiKey, systemPrompt, messages as ChatMessage[], userMessage);
-    } else {
-      return await callOpenAI(config.apiKey, systemPrompt, messages as ChatMessage[], userMessage);
-    }
-  } catch (err: any) {
-    return `Sorry, couldn't connect. ${err.message}`;
-  }
-}
-
-async function callOpenAI(apiKey: string, system: string, history: ChatMessage[], userMsg: string, maxTokens = 8192): Promise<string> {
-  const messages: { role: string; content: string }[] = [{ role: 'system', content: system }];
-  for (const m of history) {
-    messages.push({ role: m.role, content: m.content });
-  }
-  messages.push({ role: 'user', content: userMsg });
-
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-5-mini',
-      messages,
-      max_completion_tokens: maxTokens,
-    }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`OpenAI API error ${res.status}: ${text}`);
-  }
-
-  const data = await res.json();
-  return data.choices[0].message.content;
-}
-
-export function buildProgramSystemPrompt(equipment: Equipment[], recentSessions: WorkoutSession[], injuries?: string, additionalEquipment?: string, avgWorkoutMinutes?: number, programActiveDays?: number): string {
+function buildProgramSystemPrompt(equipment: Equipment[], recentSessions: WorkoutSession[], profileContext?: ProfileContext): string {
   const enabledEquip = equipment.filter((e) => e.enabled).map((e) => e.name);
   const recentWorkouts = recentSessions.slice(0, 5).map((s) => {
     const exercises = s.exercises.map((e) => `${e.exerciseName} (${e.sets.length} sets)`).join(', ');
     return `- ${s.name} on ${new Date(s.startedAt).toLocaleDateString()}: ${exercises}, Volume: ${s.totalVolume}lbs`;
   });
+  const { injuries, additionalEquipment, avgWorkoutMinutes, programActiveDays } = profileContext || {};
+  const activeDays = programActiveDays || 6;
 
-  return `You are Titan, an expert AI fitness coach. Generate a complete 7-day workout program as a structured weekly training split.
+  return `You are Titan, an expert AI fitness coach. Generate a complete 7-day workout program as a structured weekly training split using the create_program tool.
 
 USER'S HOME GYM EQUIPMENT:
 ${enabledEquip.length > 0 ? enabledEquip.map((e) => `- ${e}`).join('\n') : '- No equipment configured yet (bodyweight only)'}
@@ -301,77 +398,138 @@ ${recentWorkouts.length > 0 ? recentWorkouts.join('\n') : '- No recent workouts 
 
 PROGRAM DESIGN GUIDELINES:
 - Design a balanced weekly split with proper muscle group recovery (e.g., Push/Pull/Legs, Upper/Lower, Full Body rotations)
-- The program must have exactly ${programActiveDays || 6} active workout days and ${7 - (programActiveDays || 6)} rest/recovery day${7 - (programActiveDays || 6) !== 1 ? 's' : ''}. Spread rest days evenly through the week for optimal recovery.
+- The program must have exactly ${activeDays} active workout days and ${7 - activeDays} rest/recovery day${7 - activeDays !== 1 ? 's' : ''}. Spread rest days evenly through the week for optimal recovery.
 - Progress difficulty through the week (harder sessions early, lighter towards the end)
 - Only use exercises the user can do with their available equipment
 - Reference their workout history for progressive overload
 - Each workout day should have 5-8 exercises
 - Vary workout styles across the week (strength, hypertrophy, functional, etc.)
 
-You MUST respond with a JSON block in a \`\`\`json code fence matching this exact schema:
-{
-  "name": "string - program name (e.g., 'Week of Gains', 'Push-Pull-Legs Split')",
-  "days": [
-    {
-      "dayNumber": 1,
-      "label": "Day 1 — Push",
-      "isRest": false,
-      "plan": {
-        "name": "string - workout name",
-        "style": "strength|hypertrophy|functional|hiit|cardio|recovery|mobility|power|endurance",
-        "exercises": [
-          {
-            "name": "string - exercise name",
-            "muscleGroup": "string - target muscle",
-            "equipment": ["string - equipment id, e.g. 'dumbbells', 'barbell', or empty array for bodyweight"],
-            "sets": 3,
-            "reps": "string - e.g. '10-12', '15', 'Failure'. For time-based exercises use '30s', '45s each', '60s'",
-            "weight": null,
-            "restSeconds": 60,
-            "group": "string or null - optional superset group letter"
-          }
-        ],
-        "durationMin": 45,
-        "estimatedCalories": 350,
-        "focus": "string - e.g. 'Chest & Triceps'",
-        "intensity": 2
-      }
-    },
-    {
-      "dayNumber": 2,
-      "label": "Day 2 — Rest",
-      "isRest": true
-    }
-  ]
+Respond by calling the create_program tool with all 7 days, plus a brief conversational message.`;
 }
 
-Equipment IDs are: dumbbells, barbell, kettlebells, bench, pull-up-bar, resistance-bands, rings, trx, yoga-mat, foam-roller, jump-rope, medicine-ball, ab-wheel, stationary-bike, rowing-machine, treadmill.
-Include a brief conversational message before or after the JSON block.`;
+// --- Public API -------------------------------------------------------------
+
+export interface CoachReply {
+  text: string;
+  plan?: WorkoutPlan;
+  program?: WorkoutProgram;
+  /** Program days that failed validation and became rest days */
+  programDemotedDays?: number;
 }
 
-export async function sendProgramMessage(
+/**
+ * Coach chat: the model decides whether to answer in text, create a workout,
+ * or create a 7-day program (tools replace the old JSON-in-prose parsing and
+ * the keyword-based program router). Throws AIError on failure.
+ */
+export async function sendCoachMessage(
+  userMessage: string,
+  chatHistory: ChatMessage[],
+  equipment: Equipment[],
+  recentSessions: WorkoutSession[],
+  profileContext?: ProfileContext,
+): Promise<CoachReply> {
+  const system = buildSystemPrompt(equipment, recentSessions.slice(0, 5), profileContext);
+  const result = await callAI(system, toWire(chatHistory, userMessage), {
+    tools: [CREATE_WORKOUT_TOOL, CREATE_PROGRAM_TOOL],
+  });
+
+  if (result.toolName === 'create_workout') {
+    const plan = buildPlanFromParsed(result.toolInput);
+    if (!plan) throw new AIError('invalid_output', 'Generated workout failed validation');
+    return { text: result.text || "Here's your workout plan!", plan };
+  }
+  if (result.toolName === 'create_program') {
+    const parsed = buildProgramFromParsed(result.toolInput, equipment);
+    if (!parsed) throw new AIError('invalid_output', 'Generated program failed validation');
+    return {
+      text: result.text || "Here's your weekly program!",
+      program: parsed.program,
+      programDemotedDays: parsed.demotedDays,
+    };
+  }
+  return { text: result.text };
+}
+
+/** Dedicated workout generation — forces the create_workout tool. Throws AIError. */
+export async function requestWorkout(
+  prompt: string,
+  chatHistory: ChatMessage[],
+  equipment: Equipment[],
+  recentSessions: WorkoutSession[],
+  profileContext?: ProfileContext,
+): Promise<{ plan: WorkoutPlan; message: string }> {
+  const system = buildSystemPrompt(equipment, recentSessions.slice(0, 5), profileContext);
+  const result = await callAI(system, toWire(chatHistory, prompt), {
+    tools: [CREATE_WORKOUT_TOOL],
+    forceTool: 'create_workout',
+  });
+  const plan = buildPlanFromParsed(result.toolInput);
+  if (!plan) throw new AIError('invalid_output', 'Generated workout failed validation');
+  return { plan, message: result.text || "Here's your workout plan!" };
+}
+
+/** Dedicated 7-day program generation — forces the create_program tool. Throws AIError. */
+export async function requestProgram(
+  prompt: string,
+  equipment: Equipment[],
+  recentSessions: WorkoutSession[],
+  profileContext?: ProfileContext,
+): Promise<ParsedProgram> {
+  const system = buildProgramSystemPrompt(equipment, recentSessions, profileContext);
+  const result = await callAI(system, [{ role: 'user', content: prompt }], {
+    tools: [CREATE_PROGRAM_TOOL],
+    forceTool: 'create_program',
+    maxTokens: 8192,
+  });
+  const parsed = buildProgramFromParsed(result.toolInput, equipment);
+  if (!parsed) throw new AIError('invalid_output', 'Generated program failed validation');
+  return parsed;
+}
+
+/** Plain-text Q&A with the coach persona (no tools). Throws AIError. */
+export async function sendTextMessage(
   userMessage: string,
   equipment: Equipment[],
   recentSessions: WorkoutSession[],
-  profileContext?: { injuries?: string; additionalEquipment?: string; avgWorkoutMinutes?: number; programActiveDays?: number }
 ): Promise<string> {
-  const config = getConfig();
-  if (!config) {
-    return "I'd love to help! Please set up your AI API key in the Profile settings to enable program generation.";
-  }
+  const system = buildSystemPrompt(equipment, recentSessions.slice(0, 5), undefined, false);
+  const result = await callAI(system, [{ role: 'user', content: userMessage }], { maxTokens: 2048 });
+  return result.text;
+}
 
-  const systemPrompt = buildProgramSystemPrompt(equipment, recentSessions, profileContext?.injuries, profileContext?.additionalEquipment, profileContext?.avgWorkoutMinutes, profileContext?.programActiveDays);
+/**
+ * In-workout quick chat. Returns a string (errors come back as friendly text —
+ * this chat is ephemeral and never re-sent as model context).
+ */
+export async function sendWorkoutChat(
+  userMessage: string,
+  chatHistory: { role: 'user' | 'assistant'; content: string }[],
+  currentExercise: { name: string; muscleGroup: string; reps: string; sets: number },
+  planSummary: string,
+): Promise<string> {
+  const system = `You are Titan, a concise in-workout AI coach. The user is mid-workout and needs quick, actionable advice.
+
+CURRENT EXERCISE: ${currentExercise.name} (${currentExercise.muscleGroup}) — ${currentExercise.sets} sets × ${currentExercise.reps}
+
+WORKOUT CONTEXT:
+${planSummary}
+
+GUIDELINES:
+- Keep responses SHORT (2-4 sentences max) — the user is actively working out
+- Focus on: form cues, exercise alternatives, weight/rep advice, breathing, common mistakes
+- If suggesting an alternative, name 1-2 options with the same muscle group
+- Be encouraging but concise — no lengthy explanations`;
+
+  const messages: WireMessage[] = chatHistory.slice(-10).map((m) => ({ role: m.role, content: m.content }));
+  while (messages.length && messages[0].role !== 'user') messages.shift();
+  messages.push({ role: 'user', content: userMessage });
 
   try {
-    if (config.provider === 'anthropic') {
-      return await callAnthropic(config.apiKey, systemPrompt, [], userMessage, 4096);
-    } else {
-      return await callOpenAI(config.apiKey, systemPrompt, [], userMessage, 8192);
-    }
-  } catch (err: any) {
-    if (err.message?.includes('401')) {
-      return "There's an issue with your API key. Please check it in Profile settings.";
-    }
-    return `Sorry, I had trouble connecting. Error: ${err.message}`;
+    const result = await callAI(system, messages, { maxTokens: 1024 });
+    return result.text;
+  } catch (err) {
+    return aiErrorMessage(err);
   }
 }
