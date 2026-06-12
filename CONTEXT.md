@@ -67,7 +67,6 @@ When taking screenshots with the Playwright MCP tool, always save to the `snapsh
 - `src/components/NavSlot.tsx` — Portal system for floating content above nav island
 - `src/components/WorkoutBanner.tsx` — Floating banner when workout is active on non-workout screens
 - `src/components/ExerciseBreakdown.tsx` — Shared exercise list with superset grouping and band-aware best-set display (used in WorkoutComplete + Home)
-- `src/components/UpdateToast.tsx` — "Update available" toast (SW registerType is 'prompt'; user chooses when to refresh)
 
 ## Nutrition
 

@@ -17,7 +17,6 @@ import { useEquipment, useTodayWorkout, useSessions, useChat, useProfile, useWei
 import { useAITaskByType } from './ai-tasks';
 import { withBase, stripBase } from './base';
 import { Icon } from './components/Icon';
-import { UpdateToast } from './components/UpdateToast';
 import type { WorkoutSession, WorkoutPlan, WorkoutCriteria } from './types';
 
 export function App() {
@@ -131,7 +130,6 @@ export function App() {
 
   return (
     <div class="h-full flex flex-col relative">
-      <UpdateToast />
       {/* Resume workout prompt */}
       {showResume && activeWorkout && (
         <div class="fixed inset-0 z-[200] flex items-center justify-center">

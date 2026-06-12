@@ -12,9 +12,9 @@ export default defineConfig({
     preact(),
     tailwindcss(),
     VitePWA({
-      // 'prompt' + UpdateToast: the user chooses when to refresh, avoiding
-      // mid-session SW swaps that 404 lazy chunks from the old build
-      registerType: 'prompt',
+      // autoUpdate is safe here: the app has no lazy chunks, so a mid-session
+      // SW swap can't 404 stale assets. New versions apply on next launch.
+      registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icon-192.png', 'icon-512.png'],
       manifest: {
         id: '/',
